@@ -1,4 +1,5 @@
 import custom
 
 mycustom = custom.Custom()
-print(mycustom)
+mycustom.first, mycustom.last = "Foo", "Bar"
+print(mycustom.name())
