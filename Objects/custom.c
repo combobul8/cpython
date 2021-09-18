@@ -1,13 +1,11 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <structmember.h>
+#include "stringlib/eq.h"    // unicode_eq()
+#include "Custom.h"
 
-typedef struct {
-    PyObject_HEAD
-    PyObject *first; /* first name */
-    PyObject *last;  /* last name */
-    int number;
-} CustomObject;
+#define IS_POWER_OF_2(x) (((x) & (x-1)) == 0)
+#define PERTURB_SHIFT 5
 
 static PyModuleDef custommodule = {
     PyModuleDef_HEAD_INIT,
@@ -135,4 +133,152 @@ PyInit_custom(void)
     }
 
     return m;
+}
+
+/* free_keys_object */
+/*
+static inline void
+dictkeys_incref(PyDictKeysObject *dk)
+{
+#ifdef Py_REF_DEBUG
+    _Py_RefTotal++;
+#endif
+    dk->dk_refcnt++;
+}
+
+static inline void
+dictkeys_decref(PyDictKeysObject *dk)
+{
+    assert(dk->dk_refcnt > 0);
+#ifdef Py_REF_DEBUG
+    _Py_RefTotal--;
+#endif
+    if (--dk->dk_refcnt == 0) {
+        free_keys_object(dk);
+    }
+}
+*/
+
+static inline Py_ssize_t
+dictkeys_get_index(const PyDictKeysObject *keys, Py_ssize_t i)
+{
+    Py_ssize_t s = DK_SIZE(keys);
+    Py_ssize_t ix;
+
+    if (s <= 0xff) {
+        const int8_t *indices = (const int8_t*)(keys->dk_indices);
+        ix = indices[i];
+    }
+    else if (s <= 0xffff) {
+        const int16_t *indices = (const int16_t*)(keys->dk_indices);
+        ix = indices[i];
+    }
+#if SIZEOF_VOID_P > 4
+    else if (s > 0xffffffff) {
+        const int64_t *indices = (const int64_t*)(keys->dk_indices);
+        ix = indices[i];
+    }
+#endif
+    else {
+        const int32_t *indices = (const int32_t*)(keys->dk_indices);
+        ix = indices[i];
+    }
+    assert(ix >= DKIX_DUMMY);
+    return ix;
+}
+
+Py_ssize_t _Py_HOT_FUNCTION
+_Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr)
+{
+    PyDictKeysObject *dk;
+start:
+    dk = mp->ma_keys;
+    DictKeysKind kind = dk->dk_kind;
+    PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
+    size_t mask = DK_MASK(dk);
+    size_t perturb = hash;
+    size_t i = (size_t)hash & mask;
+    Py_ssize_t ix;
+    if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
+        /* Strings only */
+        for (;;) {
+            ix = dictkeys_get_index(mp->ma_keys, i);
+            if (ix >= 0) {
+                PyDictKeyEntry *ep = &ep0[ix];
+                assert(ep->me_key != NULL);
+                assert(PyUnicode_CheckExact(ep->me_key));
+                if (ep->me_key == key ||
+                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                    goto found;
+                }
+            }
+            else if (ix == DKIX_EMPTY) {
+                *value_addr = NULL;
+                return DKIX_EMPTY;
+            }
+            perturb >>= PERTURB_SHIFT;
+            i = mask & (i*5 + perturb + 1);
+            ix = dictkeys_get_index(mp->ma_keys, i);
+            if (ix >= 0) {
+                PyDictKeyEntry *ep = &ep0[ix];
+                assert(ep->me_key != NULL);
+                assert(PyUnicode_CheckExact(ep->me_key));
+                if (ep->me_key == key ||
+                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                    goto found;
+                }
+            }
+            else if (ix == DKIX_EMPTY) {
+                *value_addr = NULL;
+                return DKIX_EMPTY;
+            }
+            perturb >>= PERTURB_SHIFT;
+            i = mask & (i*5 + perturb + 1);
+        }
+        Py_UNREACHABLE();
+    }
+    for (;;) {
+        ix = dictkeys_get_index(dk, i);
+        if (ix == DKIX_EMPTY) {
+            *value_addr = NULL;
+            return ix;
+        }
+        if (ix >= 0) {
+            PyDictKeyEntry *ep = &ep0[ix];
+            assert(ep->me_key != NULL);
+            if (ep->me_key == key) {
+                goto found;
+            }
+            if (ep->me_hash == hash) {
+                PyObject *startkey = ep->me_key;
+                Py_INCREF(startkey);
+                int cmp = PyObject_RichCompareBool(startkey, key, Py_EQ);
+                Py_DECREF(startkey);
+                if (cmp < 0) {
+                    *value_addr = NULL;
+                    return DKIX_ERROR;
+                }
+                if (dk == mp->ma_keys && ep->me_key == startkey) {
+                    if (cmp > 0) {
+                        goto found;
+                    }
+                }
+                else {
+                    /* The dict was mutated, restart */
+                    goto start;
+                }
+            }
+        }
+        perturb >>= PERTURB_SHIFT;
+        i = (i*5 + perturb + 1) & mask;
+    }
+    Py_UNREACHABLE();
+found:
+    if (dk->dk_kind == DICT_KEYS_SPLIT) {
+        *value_addr = mp->ma_values[ix];
+    }
+    else {
+        *value_addr = ep0[ix].me_value;
+    }
+    return ix;
 }
