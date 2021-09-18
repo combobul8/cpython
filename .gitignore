@@ -125,3 +125,8 @@ Tools/ssl/win32
 # Ignore ./python binary on Unix but still look into ./Python/ directory.
 /python
 !/Python/
+Objects/how_to_test.txt
+Objects/build/temp.win-amd64-3.11/Release/custom.cp311-win_amd64.exp
+Objects/build/temp.win-amd64-3.11/Release/custom.cp311-win_amd64.lib
+Objects/build/temp.win-amd64-3.11/Release/custom.obj
+git_log.txt
