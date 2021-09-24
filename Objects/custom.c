@@ -7,6 +7,130 @@
 #define IS_POWER_OF_2(x) (((x) & (x-1)) == 0)
 #define PERTURB_SHIFT 5
 #define USABLE_FRACTION(n) (((n) << 1)/3)
+#define free_values(values) PyMem_Free(values)
+
+/* GROWTH_RATE. Growth rate upon hitting maximum load.
+ * Currently set to used*3.
+ * This means that dicts double in size when growing without deletions,
+ * but have more head room when the number of deletions is on a par with the
+ * number of insertions.  See also bpo-17563 and bpo-33205.
+ *
+ * GROWTH_RATE was set to used*4 up to version 3.2.
+ * GROWTH_RATE was set to used*2 in version 3.3.0
+ * GROWTH_RATE was set to used*2 + capacity/2 in 3.4.0-3.6.0.
+ */
+#define GROWTH_RATE(d) ((d)->ma_used*3)
+
+// Fast inlined version of PyType_HasFeature()
+static inline int
+_PyType_HasFeature(PyTypeObject *type, unsigned long feature) {
+    return ((type->tp_flags & feature) != 0);
+}
+
+// Fast inlined version of PyType_IS_GC()
+#define _PyType_IS_GC(t) _PyType_HasFeature((t), Py_TPFLAGS_HAVE_GC)
+
+// bpo-39573: The Py_SET_TYPE() function must be used to set an object type.
+static inline PyTypeObject* _Py_TYPE(const PyObject *ob) {
+    return ob->ob_type;
+}
+#define Py_TYPE(ob) _Py_TYPE(_PyObject_CAST_CONST(ob))
+
+// Fast inlined version of PyObject_IS_GC()
+static inline int
+_PyObject_IS_GC(PyObject *obj)
+{
+    return (PyType_IS_GC(Py_TYPE(obj))
+            && (Py_TYPE(obj)->tp_is_gc == NULL
+                || Py_TYPE(obj)->tp_is_gc(obj)));
+}
+
+/* True if the object may be tracked by the GC in the future, or already is.
+   This can be useful to implement some optimizations. */
+#define _PyObject_GC_MAY_BE_TRACKED(obj) \
+    (PyObject_IS_GC(obj) && \
+        (!PyTuple_CheckExact(obj) || _PyObject_GC_IS_TRACKED(obj)))
+
+#define _Py_AS_GC(o) ((PyGC_Head *)(o)-1)
+
+/* True if the object is currently tracked by the GC. */
+#define _PyObject_GC_IS_TRACKED(o) (_Py_AS_GC(o)->_gc_next != 0)
+
+static inline PyThreadState*
+_PyRuntimeState_GetThreadState(_PyRuntimeState *runtime)
+{
+#ifdef EXPERIMENTAL_ISOLATED_SUBINTERPRETERS
+    return _PyThreadState_GetTSS();
+#else
+    return (PyThreadState*)_Py_atomic_load_relaxed(&runtime->gilstate.tstate_current);
+#endif
+}
+
+PyAPI_DATA(_PyRuntimeState) _PyRuntime;
+
+static inline PyThreadState*
+_PyThreadState_GET(void)
+{
+#ifdef EXPERIMENTAL_ISOLATED_SUBINTERPRETERS
+    return _PyThreadState_GetTSS();
+#else
+    return _PyRuntimeState_GetThreadState(&_PyRuntime);
+#endif
+}
+
+static inline PyInterpreterState* _PyInterpreterState_GET(void) {
+    PyThreadState *tstate = _PyThreadState_GET();
+#ifdef Py_DEBUG
+    _Py_EnsureTstateNotNULL(tstate);
+#endif
+    return tstate->interp;
+}
+
+/* The (N-2) most significant bits contain the real address. */
+#define _PyGC_PREV_SHIFT           (2)
+#define _PyGC_PREV_MASK            (((uintptr_t) -1) << _PyGC_PREV_SHIFT)
+#define _PyGCHead_SET_NEXT(g, p) ((g)->_gc_next = (uintptr_t)(p))
+#define _PyGCHead_SET_PREV(g, p) do { \
+    assert(((uintptr_t)p & ~_PyGC_PREV_MASK) == 0); \
+    (g)->_gc_prev = ((g)->_gc_prev & ~_PyGC_PREV_MASK) \
+        | ((uintptr_t)(p)); \
+    } while (0)
+
+static inline void _PyObject_GC_TRACK(
+// The preprocessor removes _PyObject_ASSERT_FROM() calls if NDEBUG is defined
+#ifndef NDEBUG
+    const char *filename, int lineno,
+#endif
+    PyObject *op)
+{
+    _PyObject_ASSERT_FROM(op, !_PyObject_GC_IS_TRACKED(op),
+                          "object already tracked by the garbage collector",
+                          filename, lineno, __func__);
+
+    PyGC_Head *gc = _Py_AS_GC(op);
+    _PyObject_ASSERT_FROM(op,
+                          (gc->_gc_prev & _PyGC_PREV_MASK_COLLECTING) == 0,
+                          "object is in generation which is garbage collected",
+                          filename, lineno, __func__);
+
+    PyInterpreterState *interp = _PyInterpreterState_GET();
+    PyGC_Head *generation0 = interp->gc.generation0;
+    PyGC_Head *last = (PyGC_Head*)(generation0->_gc_prev);
+    _PyGCHead_SET_NEXT(last, gc);
+    _PyGCHead_SET_PREV(gc, last);
+    _PyGCHead_SET_NEXT(gc, generation0);
+    generation0->_gc_prev = (uintptr_t)gc;
+}
+
+#define MAINTAIN_TRACKING(mp, key, value) \
+    do { \
+        if (!_PyObject_GC_IS_TRACKED(mp)) { \
+            if (_PyObject_GC_MAY_BE_TRACKED(key) || \
+                _PyObject_GC_MAY_BE_TRACKED(value)) { \
+                _PyObject_GC_TRACK(mp); \
+            } \
+        } \
+    } while(0)
 
 static PyModuleDef custommodule = {
     PyModuleDef_HEAD_INIT,
@@ -284,34 +408,6 @@ found:
     return ix;
 }
 
-static inline void //PyThreadState*
-_PyRuntimeState_GetThreadState(_PyRuntimeState *runtime)
-{
-#ifdef EXPERIMENTAL_ISOLATED_SUBINTERPRETERS
-    return _PyThreadState_GetTSS();
-#else
-    return (PyThreadState*)_Py_atomic_load_relaxed(&runtime->gilstate.tstate_current);
-#endif
-}
-
-static inline PyThreadState*
-_PyThreadState_GET(void)
-{
-#ifdef EXPERIMENTAL_ISOLATED_SUBINTERPRETERS
-    return _PyThreadState_GetTSS();
-#else
-    return _PyRuntimeState_GetThreadState(&_PyRuntime);
-#endif
-}
-
-static inline PyInterpreterState* _PyInterpreterState_GET(void) {
-    PyThreadState *tstate = _PyThreadState_GET();
-#ifdef Py_DEBUG
-    _Py_EnsureTstateNotNULL(tstate);
-#endif
-    return tstate->interp;
-}
-
 static struct _Py_dict_state *
 get_dict_state(void)
 {
@@ -373,6 +469,89 @@ new_keys_object(uint8_t log2_size)
     memset(&dk->dk_indices[0], 0xff, es<<log2_size);
     memset(DK_ENTRIES(dk), 0, sizeof(PyDictKeyEntry) * usable);
     return dk;
+}
+
+static void
+free_keys_object(PyDictKeysObject *keys)
+{
+    PyDictKeyEntry *entries = DK_ENTRIES(keys);
+    Py_ssize_t i, n;
+    for (i = 0, n = keys->dk_nentries; i < n; i++) {
+        Py_XDECREF(entries[i].me_key);
+        Py_XDECREF(entries[i].me_value);
+    }
+    struct _Py_dict_state *state = get_dict_state();
+#ifdef Py_DEBUG
+    // free_keys_object() must not be called after _PyDict_Fini()
+    assert(state->keys_numfree != -1);
+#endif
+    if (DK_SIZE(keys) == PyDict_MINSIZE && state->keys_numfree < PyDict_MAXFREELIST) {
+        state->keys_free_list[state->keys_numfree++] = keys;
+        return;
+    }
+    PyObject_Free(keys);
+}
+
+static inline void
+dictkeys_decref(PyDictKeysObject *dk)
+{
+    assert(dk->dk_refcnt > 0);
+#ifdef Py_REF_DEBUG
+    _Py_RefTotal--;
+#endif
+    if (--dk->dk_refcnt == 0) {
+        free_keys_object(dk);
+    }
+}
+
+/* write to indices. */
+static inline void
+dictkeys_set_index(PyDictKeysObject *keys, Py_ssize_t i, Py_ssize_t ix)
+{
+    Py_ssize_t s = DK_SIZE(keys);
+
+    assert(ix >= DKIX_DUMMY);
+    assert(keys->dk_version == 0);
+
+    if (s <= 0xff) {
+        int8_t *indices = (int8_t*)(keys->dk_indices);
+        assert(ix <= 0x7f);
+        indices[i] = (char)ix;
+    }
+    else if (s <= 0xffff) {
+        int16_t *indices = (int16_t*)(keys->dk_indices);
+        assert(ix <= 0x7fff);
+        indices[i] = (int16_t)ix;
+    }
+#if SIZEOF_VOID_P > 4
+    else if (s > 0xffffffff) {
+        int64_t *indices = (int64_t*)(keys->dk_indices);
+        indices[i] = ix;
+    }
+#endif
+    else {
+        int32_t *indices = (int32_t*)(keys->dk_indices);
+        assert(ix <= 0x7fffffff);
+        indices[i] = (int32_t)ix;
+    }
+}
+
+/*
+Internal routine used by dictresize() to build a hashtable of entries.
+*/
+static void
+build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
+{
+    size_t mask = (size_t)DK_SIZE(keys) - 1;
+    for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
+        Py_hash_t hash = ep->me_hash;
+        size_t i = hash & mask;
+        for (size_t perturb = hash; dictkeys_get_index(keys, i) != DKIX_EMPTY;) {
+            perturb >>= PERTURB_SHIFT;
+            i = mask & (i*5 + perturb + 1);
+        }
+        dictkeys_set_index(keys, i, ix);
+    }
 }
 
 static int
@@ -469,6 +648,29 @@ dictresize(PyDictObject *mp, uint8_t log2_newsize)
     mp->ma_keys->dk_usable -= numentries;
     mp->ma_keys->dk_nentries = numentries;
     return 0;
+}
+
+/* Find the smallest dk_size >= minsize. */
+static inline uint8_t
+calculate_log2_keysize(Py_ssize_t minsize)
+{
+#if SIZEOF_LONG == SIZEOF_SIZE_T
+    minsize = (minsize | PyDict_MINSIZE) - 1;
+    return _Py_bit_length(minsize | (PyDict_MINSIZE-1));
+#elif defined(_MSC_VER)
+    // On 64bit Windows, sizeof(long) == 4.
+    minsize = (minsize | PyDict_MINSIZE) - 1;
+    unsigned long msb;
+    _BitScanReverse64(&msb, (uint64_t)minsize);
+    return (uint8_t)(msb + 1);
+#else
+    uint8_t log2_size;
+    for (log2_size = PyDict_LOG_MINSIZE;
+            (((Py_ssize_t)1) << log2_size) < minsize;
+            log2_size++)
+        ;
+    return log2_size;
+#endif
 }
 
 static int
