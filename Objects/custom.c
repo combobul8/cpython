@@ -41,16 +41,16 @@ _PyObject_IS_GC(PyObject *obj)
                 || Py_TYPE(obj)->tp_is_gc(obj)));
 }
 
+#define _Py_AS_GC(o) ((PyGC_Head *)(o)-1)
+
+/* True if the object is currently tracked by the GC. */
+#define _PyObject_GC_IS_TRACKED(o) (_Py_AS_GC(o)->_gc_next != 0)
+
 /* True if the object may be tracked by the GC in the future, or already is.
    This can be useful to implement some optimizations. */
 #define _PyObject_GC_MAY_BE_TRACKED(obj) \
     (PyObject_IS_GC(obj) && \
         (!PyTuple_CheckExact(obj) || _PyObject_GC_IS_TRACKED(obj)))
-
-#define _Py_AS_GC(o) ((PyGC_Head *)(o)-1)
-
-/* True if the object is currently tracked by the GC. */
-#define _PyObject_GC_IS_TRACKED(o) (_Py_AS_GC(o)->_gc_next != 0)
 
 static inline PyThreadState*
 _PyRuntimeState_GetThreadState(_PyRuntimeState *runtime)
@@ -117,6 +117,21 @@ static inline void _PyObject_GC_TRACK(
     _PyGCHead_SET_NEXT(gc, generation0);
     generation0->_gc_prev = (uintptr_t)gc;
 }
+
+// Macros to accept any type for the parameter, and to automatically pass
+// the filename and the filename (if NDEBUG is not defined) where the macro
+// is called.
+#ifdef NDEBUG
+#  define _PyObject_GC_TRACK(op) \
+        _PyObject_GC_TRACK(_PyObject_CAST(op))
+#  define _PyObject_GC_UNTRACK(op) \
+        _PyObject_GC_UNTRACK(_PyObject_CAST(op))
+#else
+#  define _PyObject_GC_TRACK(op) \
+        _PyObject_GC_TRACK(__FILE__, __LINE__, _PyObject_CAST(op))
+#  define _PyObject_GC_UNTRACK(op) \
+        _PyObject_GC_UNTRACK(__FILE__, __LINE__, _PyObject_CAST(op))
+#endif
 
 #define MAINTAIN_TRACKING(mp, key, value) \
     do { \
