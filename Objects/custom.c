@@ -30,10 +30,6 @@ _PyType_HasFeature(PyTypeObject *type, unsigned long feature) {
 // Fast inlined version of PyType_IS_GC()
 #define _PyType_IS_GC(t) _PyType_HasFeature((t), Py_TPFLAGS_HAVE_GC)
 
-// bpo-39573: The Py_SET_TYPE() function must be used to set an object type.
-static inline PyTypeObject* _Py_TYPE(const PyObject *ob) {
-    return ob->ob_type;
-}
 #define Py_TYPE(ob) _Py_TYPE(_PyObject_CAST_CONST(ob))
 
 // Fast inlined version of PyObject_IS_GC()
