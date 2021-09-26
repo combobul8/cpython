@@ -26,6 +26,9 @@
 #  define _PyAsyncGen_MAXFREELIST 80
 #endif
 
+extern uint64_t _pydict_global_version;
+#define DICT_NEXT_VERSION() (++_pydict_global_version)
+
 static PyObject *empty_values[1] = { NULL };
 
 typedef enum _Py_memory_order {
