@@ -143,6 +143,12 @@ static inline void _PyObject_GC_TRACK(
         } \
     } while(0)
 
+#ifdef DEBUG_PYDICT
+#  define ASSERT_CONSISTENT(op) assert(_PyDict_CheckConsistency((PyObject *)(op), 1))
+#else
+#  define ASSERT_CONSISTENT(op) assert(_PyDict_CheckConsistency((PyObject *)(op), 0))
+#endif
+
 static PyModuleDef custommodule = {
     PyModuleDef_HEAD_INIT,
     .m_name = "custom",
