@@ -28,6 +28,67 @@
 
 #define DKIX_DUMMY (-2)  /* Used internally */
 
+struct _dictkeysobject {
+    Py_ssize_t dk_refcnt;
+
+    /* Size of the hash table (dk_indices). It must be a power of 2. */
+    uint8_t dk_log2_size;
+
+    /* Kind of keys */
+    uint8_t dk_kind;
+
+    /* Version number -- Reset to 0 by any modification to keys */
+    uint32_t dk_version;
+
+    /* Number of usable entries in dk_entries. */
+    Py_ssize_t dk_usable;
+
+    /* Number of used entries in dk_entries. */
+    Py_ssize_t dk_nentries;
+
+    /* Actual hash table of dk_size entries. It holds indices in dk_entries,
+       or DKIX_EMPTY(-1) or DKIX_DUMMY(-2).
+
+       Indices must be: 0 <= indice < USABLE_FRACTION(dk_size).
+
+       The size in bytes of an indice depends on dk_size:
+
+       - 1 byte if dk_size <= 0xff (char*)
+       - 2 bytes if dk_size <= 0xffff (int16_t*)
+       - 4 bytes if dk_size <= 0xffffffff (int32_t*)
+       - 8 bytes otherwise (int64_t*)
+
+       Dynamically sized, SIZEOF_VOID_P is minimum. */
+    char dk_indices[];  /* char is required to avoid strict aliasing. */
+
+    /* "PyDictKeyEntry dk_entries[dk_usable];" array follows:
+       see the DK_ENTRIES() macro */
+};
+
+typedef enum {
+    DICT_KEYS_GENERAL = 0,
+    DICT_KEYS_UNICODE = 1,
+    DICT_KEYS_SPLIT = 2
+} DictKeysKind;
+
+#define DKIX_EMPTY (-1)
+
+/* This immutable, empty PyDictKeysObject is used for PyDict_Clear()
+ * (which cannot fail and thus can do no allocation).
+ */
+static PyDictKeysObject empty_keys_struct = {
+        1, /* dk_refcnt */
+        0, /* dk_log2_size */
+        DICT_KEYS_SPLIT, /* dk_kind */
+        1, /* dk_version */
+        0, /* dk_usable (immutable) */
+        0, /* dk_nentries */
+        {DKIX_EMPTY, DKIX_EMPTY, DKIX_EMPTY, DKIX_EMPTY,
+         DKIX_EMPTY, DKIX_EMPTY, DKIX_EMPTY, DKIX_EMPTY}, /* dk_indices */
+};
+
+#define Py_EMPTY_KEYS &empty_keys_struct
+
 /*Global counter used to set ma_version_tag field of dictionary.
  * It is incremented each time that a dictionary is created and each
  * time that a dictionary is modified. */
@@ -233,49 +294,6 @@ typedef struct {
     PyObject *last;  /* last name */
     int number;
 } CustomObject;
-
-typedef enum {
-    DICT_KEYS_GENERAL = 0,
-    DICT_KEYS_UNICODE = 1,
-    DICT_KEYS_SPLIT = 2
-} DictKeysKind;
-
-struct _dictkeysobject {
-    Py_ssize_t dk_refcnt;
-
-    /* Size of the hash table (dk_indices). It must be a power of 2. */
-    uint8_t dk_log2_size;
-
-    /* Kind of keys */
-    uint8_t dk_kind;
-
-    /* Version number -- Reset to 0 by any modification to keys */
-    uint32_t dk_version;
-
-    /* Number of usable entries in dk_entries. */
-    Py_ssize_t dk_usable;
-
-    /* Number of used entries in dk_entries. */
-    Py_ssize_t dk_nentries;
-
-    /* Actual hash table of dk_size entries. It holds indices in dk_entries,
-       or DKIX_EMPTY(-1) or DKIX_DUMMY(-2).
-
-       Indices must be: 0 <= indice < USABLE_FRACTION(dk_size).
-
-       The size in bytes of an indice depends on dk_size:
-
-       - 1 byte if dk_size <= 0xff (char*)
-       - 2 bytes if dk_size <= 0xffff (int16_t*)
-       - 4 bytes if dk_size <= 0xffffffff (int32_t*)
-       - 8 bytes otherwise (int64_t*)
-
-       Dynamically sized, SIZEOF_VOID_P is minimum. */
-    char dk_indices[];  /* char is required to avoid strict aliasing. */
-
-    /* "PyDictKeyEntry dk_entries[dk_usable];" array follows:
-       see the DK_ENTRIES() macro */
-};
 
 typedef struct _dictkeysobject PyDictKeysObject;
 
@@ -994,6 +1012,77 @@ struct _is {
 /* struct _is is defined in internal/pycore_interp.h */
 typedef struct _is PyInterpreterState;
 
+/* Single-arg dict update; used by dict_update_common and operators. */
+static int
+dict_update_arg(PyObject *self, PyObject *arg)
+{
+    if (PyDict_CheckExact(arg)) {
+        return PyDict_Merge(self, arg, 1);
+    }
+    _Py_IDENTIFIER(keys);
+    PyObject *func;
+    if (_PyObject_LookupAttrId(arg, &PyId_keys, &func) < 0) {
+        return -1;
+    }
+    if (func != NULL) {
+        Py_DECREF(func);
+        return PyDict_Merge(self, arg, 1);
+    }
+    return PyDict_MergeFromSeq2(self, arg, 1);
+}
+
+static PyObject *
+dict_or(PyObject *self, PyObject *other)
+{
+    if (!PyDict_Check(self) || !PyDict_Check(other)) {
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+    PyObject *new = PyDict_Copy(self);
+    if (new == NULL) {
+        return NULL;
+    }
+    if (dict_update_arg(new, other)) {
+        Py_DECREF(new);
+        return NULL;
+    }
+    return new;
+}
+
+static PyObject *
+dict_ior(PyObject *self, PyObject *other)
+{
+    if (dict_update_arg(self, other)) {
+        return NULL;
+    }
+    Py_INCREF(self);
+    return self;
+}
+
+static PyNumberMethods dict_as_number = {
+    .nb_or = dict_or,
+    .nb_inplace_or = dict_ior,
+};
+
+/* Hack to implement "key in dict" */
+static PySequenceMethods dict_as_sequence = {
+    0,                          /* sq_length */
+    0,                          /* sq_concat */
+    0,                          /* sq_repeat */
+    0,                          /* sq_item */
+    0,                          /* sq_slice */
+    0,                          /* sq_ass_item */
+    0,                          /* sq_ass_slice */
+    PyDict_Contains,            /* sq_contains */
+    0,                          /* sq_inplace_concat */
+    0,                          /* sq_inplace_repeat */
+};
+
+static Py_ssize_t
+dict_length(PyDictObject *mp)
+{
+    return mp->ma_used;
+}
+
 #define DK_LOG_SIZE(dk)  ((dk)->dk_log2_size)
 #define DK_SIZE(dk)      (((int64_t)1)<<DK_LOG_SIZE(dk))
 #define DK_IXSIZE(dk)                     \
@@ -1003,7 +1092,196 @@ typedef struct _is PyInterpreterState;
                 4 : sizeof(int64_t))
 #define DK_ENTRIES(dk) \
     ((PyDictKeyEntry*)(&((int8_t*)((dk)->dk_indices))[DK_SIZE(dk) * DK_IXSIZE(dk)]))
-
 #define DK_MASK(dk) (DK_SIZE(dk)-1)
-#define DKIX_EMPTY (-1)
+
+
+/* lookup indices.  returns DKIX_EMPTY, DKIX_DUMMY, or ix >=0 */
+static inline Py_ssize_t
+dictkeys_get_index(const PyDictKeysObject *keys, Py_ssize_t i)
+{
+    Py_ssize_t s = DK_SIZE(keys);
+    Py_ssize_t ix;
+
+    if (s <= 0xff) {
+        const int8_t *indices = (const int8_t*)(keys->dk_indices);
+        ix = indices[i];
+    }
+    else if (s <= 0xffff) {
+        const int16_t *indices = (const int16_t*)(keys->dk_indices);
+        ix = indices[i];
+    }
+#if SIZEOF_VOID_P > 4
+    else if (s > 0xffffffff) {
+        const int64_t *indices = (const int64_t*)(keys->dk_indices);
+        ix = indices[i];
+    }
+#endif
+    else {
+        const int32_t *indices = (const int32_t*)(keys->dk_indices);
+        ix = indices[i];
+    }
+    assert(ix >= DKIX_DUMMY);
+    return ix;
+}
+
+#define PERTURB_SHIFT 5
 #define DKIX_ERROR (-3)
+
+Py_ssize_t _Py_HOT_FUNCTION
+_Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr)
+{
+    PyDictKeysObject *dk;
+start:
+    dk = mp->ma_keys;
+    DictKeysKind kind = dk->dk_kind;
+    PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
+    size_t mask = DK_MASK(dk);
+    size_t perturb = hash;
+    size_t i = (size_t)hash & mask;
+    Py_ssize_t ix;
+    if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
+        /* Strings only */
+        for (;;) {
+            ix = dictkeys_get_index(mp->ma_keys, i);
+            if (ix >= 0) {
+                PyDictKeyEntry *ep = &ep0[ix];
+                assert(ep->me_key != NULL);
+                assert(PyUnicode_CheckExact(ep->me_key));
+                if (ep->me_key == key ||
+                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                    goto found;
+                }
+            }
+            else if (ix == DKIX_EMPTY) {
+                *value_addr = NULL;
+                return DKIX_EMPTY;
+            }
+            perturb >>= PERTURB_SHIFT;
+            i = mask & (i*5 + perturb + 1);
+            ix = dictkeys_get_index(mp->ma_keys, i);
+            if (ix >= 0) {
+                PyDictKeyEntry *ep = &ep0[ix];
+                assert(ep->me_key != NULL);
+                assert(PyUnicode_CheckExact(ep->me_key));
+                if (ep->me_key == key ||
+                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                    goto found;
+                }
+            }
+            else if (ix == DKIX_EMPTY) {
+                *value_addr = NULL;
+                return DKIX_EMPTY;
+            }
+            perturb >>= PERTURB_SHIFT;
+            i = mask & (i*5 + perturb + 1);
+        }
+        Py_UNREACHABLE();
+    }
+    for (;;) {
+        ix = dictkeys_get_index(dk, i);
+        if (ix == DKIX_EMPTY) {
+            *value_addr = NULL;
+            return ix;
+        }
+        if (ix >= 0) {
+            PyDictKeyEntry *ep = &ep0[ix];
+            assert(ep->me_key != NULL);
+            if (ep->me_key == key) {
+                goto found;
+            }
+            if (ep->me_hash == hash) {
+                PyObject *startkey = ep->me_key;
+                Py_INCREF(startkey);
+                int cmp = PyObject_RichCompareBool(startkey, key, Py_EQ);
+                Py_DECREF(startkey);
+                if (cmp < 0) {
+                    *value_addr = NULL;
+                    return DKIX_ERROR;
+                }
+                if (dk == mp->ma_keys && ep->me_key == startkey) {
+                    if (cmp > 0) {
+                        goto found;
+                    }
+                }
+                else {
+                    /* The dict was mutated, restart */
+                    goto start;
+                }
+            }
+        }
+        perturb >>= PERTURB_SHIFT;
+        i = (i*5 + perturb + 1) & mask;
+    }
+    Py_UNREACHABLE();
+found:
+    if (dk->dk_kind == DICT_KEYS_SPLIT) {
+        *value_addr = mp->ma_values[ix];
+    }
+    else {
+        *value_addr = ep0[ix].me_value;
+    }
+    return ix;
+}
+
+static PyObject *
+dict_subscript(PyDictObject *mp, PyObject *key)
+{
+    Py_ssize_t ix;
+    Py_hash_t hash;
+    PyObject *value;
+
+    if (!PyUnicode_CheckExact(key) ||
+        (hash = ((PyASCIIObject *) key)->hash) == -1) {
+        hash = PyObject_Hash(key);
+        if (hash == -1)
+            return NULL;
+    }
+    ix = _Py_dict_lookup(mp, key, hash, &value);
+    if (ix == DKIX_ERROR)
+        return NULL;
+    if (ix == DKIX_EMPTY || value == NULL) {
+        if (!PyDict_CheckExact(mp)) {
+            /* Look up __missing__ method if we're a subclass. */
+            PyObject *missing, *res;
+            _Py_IDENTIFIER(__missing__);
+            missing = _PyObject_LookupSpecial((PyObject *)mp, &PyId___missing__);
+            if (missing != NULL) {
+                res = PyObject_CallOneArg(missing, key);
+                Py_DECREF(missing);
+                return res;
+            }
+            else if (PyErr_Occurred())
+                return NULL;
+        }
+        _PyErr_SetKeyError(key);
+        return NULL;
+    }
+    Py_INCREF(value);
+    return value;
+}
+
+static int
+dict_ass_sub(PyDictObject *mp, PyObject *v, PyObject *w)
+{
+    if (w == NULL)
+        return PyDict_DelItem((PyObject *)mp, v);
+    else
+        return PyDict_SetItem((PyObject *)mp, v, w);
+}
+
+static PyMappingMethods dict_as_mapping = {
+    (lenfunc)dict_length, /*mp_length*/
+    (binaryfunc)dict_subscript, /*mp_subscript*/
+    (objobjargproc)dict_ass_sub, /*mp_ass_subscript*/
+};
+
+PyDoc_STRVAR(dictionary_doc,
+"dict() -> new empty dictionary\n"
+"dict(mapping) -> new dictionary initialized from a mapping object's\n"
+"    (key, value) pairs\n"
+"dict(iterable) -> new dictionary initialized as if via:\n"
+"    d = {}\n"
+"    for k, v in iterable:\n"
+"        d[k] = v\n"
+"dict(**kwargs) -> new dictionary initialized with the name=value pairs\n"
+"    in the keyword argument list.  For example:  dict(one=1, two=2)");

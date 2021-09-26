@@ -1,11 +1,11 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <pyport.h>
 #include <structmember.h>
 #include "stringlib/eq.h"    // unicode_eq()
 #include "Custom.h"
 
 #define IS_POWER_OF_2(x) (((x) & (x-1)) == 0)
-#define PERTURB_SHIFT 5
 #define USABLE_FRACTION(n) (((n) << 1)/3)
 #define free_values(values) PyMem_Free(values)
 
@@ -179,25 +179,6 @@ Custom_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     return (PyObject *) self;
 }
 
-/* Single-arg dict update; used by dict_update_common and operators. */
-static int
-dict_update_arg(PyObject *self, PyObject *arg)
-{
-    if (PyDict_CheckExact(arg)) {
-        return PyDict_Merge(self, arg, 1);
-    }
-    _Py_IDENTIFIER(keys);
-    PyObject *func;
-    if (_PyObject_LookupAttrId(arg, &PyId_keys, &func) < 0) {
-        return -1;
-    }
-    if (func != NULL) {
-        Py_DECREF(func);
-        return PyDict_Merge(self, arg, 1);
-    }
-    return PyDict_MergeFromSeq2(self, arg, 1);
-}
-
 static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname)
@@ -226,131 +207,6 @@ dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
     printf("called dict_init");
     return dict_update_common(self, args, kwds, "dict");
-}
-
-/* lookup indices.  returns DKIX_EMPTY, DKIX_DUMMY, or ix >=0 */
-static inline Py_ssize_t
-dictkeys_get_index(const PyDictKeysObject *keys, Py_ssize_t i)
-{
-    Py_ssize_t s = DK_SIZE(keys);
-    Py_ssize_t ix;
-
-    if (s <= 0xff) {
-        const int8_t *indices = (const int8_t*)(keys->dk_indices);
-        ix = indices[i];
-    }
-    else if (s <= 0xffff) {
-        const int16_t *indices = (const int16_t*)(keys->dk_indices);
-        ix = indices[i];
-    }
-#if SIZEOF_VOID_P > 4
-    else if (s > 0xffffffff) {
-        const int64_t *indices = (const int64_t*)(keys->dk_indices);
-        ix = indices[i];
-    }
-#endif
-    else {
-        const int32_t *indices = (const int32_t*)(keys->dk_indices);
-        ix = indices[i];
-    }
-    assert(ix >= DKIX_DUMMY);
-    return ix;
-}
-
-Py_ssize_t _Py_HOT_FUNCTION
-_Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr)
-{
-    PyDictKeysObject *dk;
-start:
-    dk = mp->ma_keys;
-    DictKeysKind kind = dk->dk_kind;
-    PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
-    size_t mask = DK_MASK(dk);
-    size_t perturb = hash;
-    size_t i = (size_t)hash & mask;
-    Py_ssize_t ix;
-    if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
-        /* Strings only */
-        for (;;) {
-            ix = dictkeys_get_index(mp->ma_keys, i);
-            if (ix >= 0) {
-                PyDictKeyEntry *ep = &ep0[ix];
-                assert(ep->me_key != NULL);
-                assert(PyUnicode_CheckExact(ep->me_key));
-                if (ep->me_key == key ||
-                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                    goto found;
-                }
-            }
-            else if (ix == DKIX_EMPTY) {
-                *value_addr = NULL;
-                return DKIX_EMPTY;
-            }
-            perturb >>= PERTURB_SHIFT;
-            i = mask & (i*5 + perturb + 1);
-            ix = dictkeys_get_index(mp->ma_keys, i);
-            if (ix >= 0) {
-                PyDictKeyEntry *ep = &ep0[ix];
-                assert(ep->me_key != NULL);
-                assert(PyUnicode_CheckExact(ep->me_key));
-                if (ep->me_key == key ||
-                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                    goto found;
-                }
-            }
-            else if (ix == DKIX_EMPTY) {
-                *value_addr = NULL;
-                return DKIX_EMPTY;
-            }
-            perturb >>= PERTURB_SHIFT;
-            i = mask & (i*5 + perturb + 1);
-        }
-        Py_UNREACHABLE();
-    }
-    for (;;) {
-        ix = dictkeys_get_index(dk, i);
-        if (ix == DKIX_EMPTY) {
-            *value_addr = NULL;
-            return ix;
-        }
-        if (ix >= 0) {
-            PyDictKeyEntry *ep = &ep0[ix];
-            assert(ep->me_key != NULL);
-            if (ep->me_key == key) {
-                goto found;
-            }
-            if (ep->me_hash == hash) {
-                PyObject *startkey = ep->me_key;
-                Py_INCREF(startkey);
-                int cmp = PyObject_RichCompareBool(startkey, key, Py_EQ);
-                Py_DECREF(startkey);
-                if (cmp < 0) {
-                    *value_addr = NULL;
-                    return DKIX_ERROR;
-                }
-                if (dk == mp->ma_keys && ep->me_key == startkey) {
-                    if (cmp > 0) {
-                        goto found;
-                    }
-                }
-                else {
-                    /* The dict was mutated, restart */
-                    goto start;
-                }
-            }
-        }
-        perturb >>= PERTURB_SHIFT;
-        i = (i*5 + perturb + 1) & mask;
-    }
-    Py_UNREACHABLE();
-found:
-    if (dk->dk_kind == DICT_KEYS_SPLIT) {
-        *value_addr = mp->ma_values[ix];
-    }
-    else {
-        *value_addr = ep0[ix].me_value;
-    }
-    return ix;
 }
 
 /*[clinic input]
@@ -385,43 +241,6 @@ dict___contains__(PyDictObject *self, PyObject *key)
     if (ix == DKIX_EMPTY || value == NULL)
         Py_RETURN_FALSE;
     Py_RETURN_TRUE;
-}
-
-static PyObject *
-dict_subscript(PyDictObject *mp, PyObject *key)
-{
-    Py_ssize_t ix;
-    Py_hash_t hash;
-    PyObject *value;
-
-    if (!PyUnicode_CheckExact(key) ||
-        (hash = ((PyASCIIObject *) key)->hash) == -1) {
-        hash = PyObject_Hash(key);
-        if (hash == -1)
-            return NULL;
-    }
-    ix = _Py_dict_lookup(mp, key, hash, &value);
-    if (ix == DKIX_ERROR)
-        return NULL;
-    if (ix == DKIX_EMPTY || value == NULL) {
-        if (!PyDict_CheckExact(mp)) {
-            /* Look up __missing__ method if we're a subclass. */
-            PyObject *missing, *res;
-            _Py_IDENTIFIER(__missing__);
-            missing = _PyObject_LookupSpecial((PyObject *)mp, &PyId___missing__);
-            if (missing != NULL) {
-                res = PyObject_CallOneArg(missing, key);
-                Py_DECREF(missing);
-                return res;
-            }
-            else if (PyErr_Occurred())
-                return NULL;
-        }
-        _PyErr_SetKeyError(key);
-        return NULL;
-    }
-    Py_INCREF(value);
-    return value;
 }
 
 static PyObject *
@@ -945,7 +764,7 @@ dictvalues_new(PyObject *dict, PyObject *Py_UNUSED(ignored))
    Using METH_FASTCALL|METH_KEYWORDS would make dict.update(**dict2) calls
    slower, see the issue #29312. */
 static PyObject *
-dict_update(PyObject *self, PyObject *args, PyObject *kwds)
+my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 {
     if (dict_update_common(self, args, kwds, "update") != -1)
         Py_RETURN_NONE;
@@ -1322,7 +1141,7 @@ static PyMethodDef mapp_methods[] = {
     items__doc__},
     {"values",          dictvalues_new,                 METH_NOARGS,
     values__doc__},
-    {"update",          (PyCFunction)(void(*)(void))dict_update, METH_VARARGS | METH_KEYWORDS,
+    {"update",          (PyCFunction)(void(*)(void))my_dict_update, METH_VARARGS | METH_KEYWORDS,
      update__doc__},
     DICT_FROMKEYS_METHODDEF
     {"clear",           (PyCFunction)dict_clear,        METH_NOARGS,
@@ -1334,92 +1153,428 @@ static PyMethodDef mapp_methods[] = {
     {NULL,              NULL}   /* sentinel */
 };
 
-static int
-Custom_init(CustomObject *self, PyObject *args, PyObject *kwds)
+static void
+dict_dealloc(PyDictObject *mp)
 {
-    printf("called Custom_init");
-    static char *kwlist[] = {"first", "last", "number", NULL};
-    PyObject *first = NULL, *last = NULL;
+    PyObject **values = mp->ma_values;
+    PyDictKeysObject *keys = mp->ma_keys;
+    Py_ssize_t i, n;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOi", kwlist,
-                                     &first, &last,
-                                     &self->number))
-        return -1;
-
-    if (first) {
-        PyObject *tmp = self->first;
-        Py_INCREF(first);
-        self->first = first;
-        Py_XDECREF(tmp);
+    /* bpo-31095: UnTrack is needed before calling any callbacks */
+    PyObject_GC_UnTrack(mp);
+    Py_TRASHCAN_BEGIN(mp, dict_dealloc)
+    if (values != NULL) {
+        if (values != empty_values) {
+            for (i = 0, n = mp->ma_keys->dk_nentries; i < n; i++) {
+                Py_XDECREF(values[i]);
+            }
+            free_values(values);
+        }
+        dictkeys_decref(keys);
     }
-    if (last) {
-        PyObject *tmp = self->last;
-        Py_INCREF(last);
-        self->last = last;
-        Py_XDECREF(tmp);
+    else if (keys != NULL) {
+        assert(keys->dk_refcnt == 1);
+        dictkeys_decref(keys);
+    }
+    struct _Py_dict_state *state = get_dict_state();
+#ifdef Py_DEBUG
+    // new_dict() must not be called after _PyDict_Fini()
+    assert(state->numfree != -1);
+#endif
+    if (state->numfree < PyDict_MAXFREELIST && Py_IS_TYPE(mp, &PyDict_Type)) {
+        state->free_list[state->numfree++] = mp;
+    }
+    else {
+        Py_TYPE(mp)->tp_free((PyObject *)mp);
+    }
+    Py_TRASHCAN_END
+}
+
+static PyObject *
+dict_repr(PyDictObject *mp)
+{
+    Py_ssize_t i;
+    PyObject *key = NULL, *value = NULL;
+    _PyUnicodeWriter writer;
+    int first;
+
+    i = Py_ReprEnter((PyObject *)mp);
+    if (i != 0) {
+        return i > 0 ? PyUnicode_FromString("{...}") : NULL;
+    }
+
+    if (mp->ma_used == 0) {
+        Py_ReprLeave((PyObject *)mp);
+        return PyUnicode_FromString("{}");
+    }
+
+    _PyUnicodeWriter_Init(&writer);
+    writer.overallocate = 1;
+    /* "{" + "1: 2" + ", 3: 4" * (len - 1) + "}" */
+    writer.min_length = 1 + 4 + (2 + 4) * (mp->ma_used - 1) + 1;
+
+    if (_PyUnicodeWriter_WriteChar(&writer, '{') < 0)
+        goto error;
+
+    /* Do repr() on each key+value pair, and insert ": " between them.
+       Note that repr may mutate the dict. */
+    i = 0;
+    first = 1;
+    while (PyDict_Next((PyObject *)mp, &i, &key, &value)) {
+        PyObject *s;
+        int res;
+
+        /* Prevent repr from deleting key or value during key format. */
+        Py_INCREF(key);
+        Py_INCREF(value);
+
+        if (!first) {
+            if (_PyUnicodeWriter_WriteASCIIString(&writer, ", ", 2) < 0)
+                goto error;
+        }
+        first = 0;
+
+        s = PyObject_Repr(key);
+        if (s == NULL)
+            goto error;
+        res = _PyUnicodeWriter_WriteStr(&writer, s);
+        Py_DECREF(s);
+        if (res < 0)
+            goto error;
+
+        if (_PyUnicodeWriter_WriteASCIIString(&writer, ": ", 2) < 0)
+            goto error;
+
+        s = PyObject_Repr(value);
+        if (s == NULL)
+            goto error;
+        res = _PyUnicodeWriter_WriteStr(&writer, s);
+        Py_DECREF(s);
+        if (res < 0)
+            goto error;
+
+        Py_CLEAR(key);
+        Py_CLEAR(value);
+    }
+
+    writer.overallocate = 0;
+    if (_PyUnicodeWriter_WriteChar(&writer, '}') < 0)
+        goto error;
+
+    Py_ReprLeave((PyObject *)mp);
+
+    return _PyUnicodeWriter_Finish(&writer);
+
+error:
+    Py_ReprLeave((PyObject *)mp);
+    _PyUnicodeWriter_Dealloc(&writer);
+    Py_XDECREF(key);
+    Py_XDECREF(value);
+    return NULL;
+}
+
+static int
+dict_traverse(PyObject *op, visitproc visit, void *arg)
+{
+    PyDictObject *mp = (PyDictObject *)op;
+    PyDictKeysObject *keys = mp->ma_keys;
+    PyDictKeyEntry *entries = DK_ENTRIES(keys);
+    Py_ssize_t i, n = keys->dk_nentries;
+
+    if (keys->dk_kind == DICT_KEYS_GENERAL) {
+        for (i = 0; i < n; i++) {
+            if (entries[i].me_value != NULL) {
+                Py_VISIT(entries[i].me_value);
+                Py_VISIT(entries[i].me_key);
+            }
+        }
+    }
+    else {
+        if (mp->ma_values != NULL) {
+            for (i = 0; i < n; i++) {
+                Py_VISIT(mp->ma_values[i]);
+            }
+        }
+        else {
+            for (i = 0; i < n; i++) {
+                Py_VISIT(entries[i].me_value);
+            }
+        }
     }
     return 0;
 }
 
-static PyMemberDef Custom_members[] = {
-    {"first", T_OBJECT_EX, offsetof(CustomObject, first), 0,
-     "first name"},
-    {"last", T_OBJECT_EX, offsetof(CustomObject, last), 0,
-     "last name"},
-    {"number", T_INT, offsetof(CustomObject, number), 0,
-     "custom number"},
-    {NULL}  /* Sentinel */
-};
-
-static PyObject *
-Custom_name(CustomObject *self, PyObject *Py_UNUSED(ignored))
+static int
+dict_tp_clear(PyObject *op)
 {
-    if (self->first == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "first");
-        return NULL;
-    }
-    if (self->last == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "last");
-        return NULL;
-    }
-    return PyUnicode_FromFormat("%S %S", self->first, self->last);
+    PyDict_Clear(op);
+    return 0;
 }
 
-static PyMethodDef Custom_methods[] = {
-    {"name", (PyCFunction) Custom_name, METH_NOARGS,
-     "Return the name, combining the first and last name"
-    },
-    {NULL}  /* Sentinel */
-};
+/* Return 1 if dicts equal, 0 if not, -1 if error.
+ * Gets out as soon as any difference is detected.
+ * Uses only Py_EQ comparison.
+ */
+static int
+dict_equal(PyDictObject *a, PyDictObject *b)
+{
+    Py_ssize_t i;
 
-static PyTypeObject CustomType = {
+    if (a->ma_used != b->ma_used)
+        /* can't be equal if # of entries differ */
+        return 0;
+    /* Same # of entries -- check all of 'em.  Exit early on any diff. */
+    for (i = 0; i < a->ma_keys->dk_nentries; i++) {
+        PyDictKeyEntry *ep = &DK_ENTRIES(a->ma_keys)[i];
+        PyObject *aval;
+        if (a->ma_values)
+            aval = a->ma_values[i];
+        else
+            aval = ep->me_value;
+        if (aval != NULL) {
+            int cmp;
+            PyObject *bval;
+            PyObject *key = ep->me_key;
+            /* temporarily bump aval's refcount to ensure it stays
+               alive until we're done with it */
+            Py_INCREF(aval);
+            /* ditto for key */
+            Py_INCREF(key);
+            /* reuse the known hash value */
+            _Py_dict_lookup(b, key, ep->me_hash, &bval);
+            if (bval == NULL) {
+                Py_DECREF(key);
+                Py_DECREF(aval);
+                if (PyErr_Occurred())
+                    return -1;
+                return 0;
+            }
+            Py_INCREF(bval);
+            cmp = PyObject_RichCompareBool(aval, bval, Py_EQ);
+            Py_DECREF(key);
+            Py_DECREF(aval);
+            Py_DECREF(bval);
+            if (cmp <= 0)  /* error or not equal */
+                return cmp;
+        }
+    }
+    return 1;
+}
+
+static PyObject *
+dict_richcompare(PyObject *v, PyObject *w, int op)
+{
+    int cmp;
+    PyObject *res;
+
+    if (!PyDict_Check(v) || !PyDict_Check(w)) {
+        res = Py_NotImplemented;
+    }
+    else if (op == Py_EQ || op == Py_NE) {
+        cmp = dict_equal((PyDictObject *)v, (PyDictObject *)w);
+        if (cmp < 0)
+            return NULL;
+        res = (cmp == (op == Py_EQ)) ? Py_True : Py_False;
+    }
+    else
+        res = Py_NotImplemented;
+    Py_INCREF(res);
+    return res;
+}
+
+static PyObject *
+dict_iter(PyDictObject *dict)
+{
+    return dictiter_new(dict, &PyDictIterKey_Type);
+}
+
+/* Inline functions trading binary compatibility for speed:
+   _PyObject_Init() is the fast version of PyObject_Init(), and
+   _PyObject_InitVar() is the fast version of PyObject_InitVar().
+
+   These inline functions must not be called with op=NULL. */
+static inline void
+_PyObject_Init(PyObject *op, PyTypeObject *typeobj)
+{
+    assert(op != NULL);
+    Py_SET_TYPE(op, typeobj);
+    if (_PyType_HasFeature(typeobj, Py_TPFLAGS_HEAPTYPE)) {
+        Py_INCREF(typeobj);
+    }
+    _Py_NewReference(op);
+}
+
+static inline void
+_PyObject_InitVar(PyVarObject *op, PyTypeObject *typeobj, Py_ssize_t size)
+{
+    assert(op != NULL);
+    Py_SET_SIZE(op, size);
+    _PyObject_Init((PyObject *)op, typeobj);
+}
+
+PyObject *
+_PyType_AllocNoTrack(PyTypeObject *type, Py_ssize_t nitems)
+{
+    PyObject *obj;
+    const size_t size = _PyObject_VAR_SIZE(type, nitems+1);
+    /* note that we need to add one, for the sentinel */
+
+    if (_PyType_IS_GC(type)) {
+        obj = _PyObject_GC_Malloc(size);
+    }
+    else {
+        obj = (PyObject *)PyObject_Malloc(size);
+    }
+
+    if (obj == NULL) {
+        return PyErr_NoMemory();
+    }
+
+    memset(obj, '\0', size);
+
+    if (type->tp_itemsize == 0) {
+        _PyObject_Init(obj, type);
+    }
+    else {
+        _PyObject_InitVar((PyVarObject *)obj, type, nitems);
+    }
+    return obj;
+}
+
+static inline void
+dictkeys_incref(PyDictKeysObject *dk)
+{
+#ifdef Py_REF_DEBUG
+    _Py_RefTotal++;
+#endif
+    dk->dk_refcnt++;
+}
+
+static PyObject *
+dict_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    assert(type != NULL);
+    assert(type->tp_alloc != NULL);
+    // dict subclasses must implement the GC protocol
+    assert(_PyType_IS_GC(type));
+
+    PyObject *self = type->tp_alloc(type, 0);
+    if (self == NULL) {
+        return NULL;
+    }
+    PyDictObject *d = (PyDictObject *)self;
+
+    d->ma_used = 0;
+    d->ma_version_tag = DICT_NEXT_VERSION();
+    dictkeys_incref(Py_EMPTY_KEYS);
+    d->ma_keys = Py_EMPTY_KEYS;
+    d->ma_values = empty_values;
+    ASSERT_CONSISTENT(d);
+
+    if (type != &PyDict_Type) {
+        // Don't track if a subclass tp_alloc is PyType_GenericAlloc()
+        if (!_PyObject_GC_IS_TRACKED(d)) {
+            _PyObject_GC_TRACK(d);
+        }
+    }
+    else {
+        // _PyType_AllocNoTrack() does not track the created object
+        assert(!_PyObject_GC_IS_TRACKED(d));
+    }
+    return self;
+}
+
+static PyObject *
+dict_vectorcall(PyObject *type, PyObject * const*args,
+                size_t nargsf, PyObject *kwnames)
+{
+    assert(PyType_Check(type));
+    Py_ssize_t nargs = PyVectorcall_NARGS(nargsf);
+    if (!_PyArg_CheckPositional("dict", nargs, 0, 1)) {
+        return NULL;
+    }
+
+    PyObject *self = dict_new((PyTypeObject *)type, NULL, NULL);
+    if (self == NULL) {
+        return NULL;
+    }
+    if (nargs == 1) {
+        if (dict_update_arg(self, args[0]) < 0) {
+            Py_DECREF(self);
+            return NULL;
+        }
+        args++;
+    }
+    if (kwnames != NULL) {
+        for (Py_ssize_t i = 0; i < PyTuple_GET_SIZE(kwnames); i++) {
+            if (PyDict_SetItem(self, PyTuple_GET_ITEM(kwnames, i), args[i]) < 0) {
+                Py_DECREF(self);
+                return NULL;
+            }
+        }
+    }
+    return self;
+}
+
+PyTypeObject MyPyDict_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "custom.Custom",
-    .tp_doc = "Custom objects",
-    .tp_basicsize = sizeof(CustomObject),
-    .tp_itemsize = 0,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
-    .tp_new = Custom_new,
-    .tp_init = (initproc) dict_init,
-    .tp_dealloc = (destructor) Custom_dealloc,
-    .tp_members = Custom_members,
-    .tp_methods = Custom_methods,
+    "dict",
+    sizeof(PyDictObject),
+    0,
+    (destructor)dict_dealloc,                   /* tp_dealloc */
+    0,                                          /* tp_vectorcall_offset */
+    0,                                          /* tp_getattr */
+    0,                                          /* tp_setattr */
+    0,                                          /* tp_as_async */
+    (reprfunc)dict_repr,                        /* tp_repr */
+    &dict_as_number,                            /* tp_as_number */
+    &dict_as_sequence,                          /* tp_as_sequence */
+    &dict_as_mapping,                           /* tp_as_mapping */
+    PyObject_HashNotImplemented,                /* tp_hash */
+    0,                                          /* tp_call */
+    0,                                          /* tp_str */
+    PyObject_GenericGetAttr,                    /* tp_getattro */
+    0,                                          /* tp_setattro */
+    0,                                          /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
+        Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DICT_SUBCLASS |
+        _Py_TPFLAGS_MATCH_SELF | Py_TPFLAGS_MAPPING,  /* tp_flags */
+    dictionary_doc,                             /* tp_doc */
+    dict_traverse,                              /* tp_traverse */
+    dict_tp_clear,                              /* tp_clear */
+    dict_richcompare,                           /* tp_richcompare */
+    0,                                          /* tp_weaklistoffset */
+    (getiterfunc)dict_iter,                     /* tp_iter */
+    0,                                          /* tp_iternext */
+    mapp_methods,                               /* tp_methods */
+    0,                                          /* tp_members */
+    0,                                          /* tp_getset */
+    0,                                          /* tp_base */
+    0,                                          /* tp_dict */
+    0,                                          /* tp_descr_get */
+    0,                                          /* tp_descr_set */
+    0,                                          /* tp_dictoffset */
+    dict_init,                                  /* tp_init */
+    _PyType_AllocNoTrack,                       /* tp_alloc */
+    dict_new,                                   /* tp_new */
+    PyObject_GC_Del,                            /* tp_free */
+    .tp_vectorcall = dict_vectorcall,
 };
 
 PyMODINIT_FUNC
 PyInit_custom(void)
 {
     PyObject *m;
-    if (PyType_Ready(&CustomType) < 0)
+    if (PyType_Ready(&MyPyDict_Type) < 0)
         return NULL;
 
     m = PyModule_Create(&custommodule);
     if (m == NULL)
         return NULL;
 
-    Py_INCREF(&CustomType);
-    if (PyModule_AddObject(m, "Custom", (PyObject *) &CustomType) < 0) {
-        Py_DECREF(&CustomType);
+    Py_INCREF(&MyPyDict_Type);
+    if (PyModule_AddObject(m, "Custom", (PyObject *) &MyPyDict_Type) < 0) {
+        Py_DECREF(&MyPyDict_Type);
         Py_DECREF(m);
         return NULL;
     }
