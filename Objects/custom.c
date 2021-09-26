@@ -205,7 +205,6 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
 static int
 dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    printf("called dict_init");
     return dict_update_common(self, args, kwds, "dict");
 }
 
@@ -1551,7 +1550,6 @@ PyInit_custom(void)
         return NULL;
     }
 
-    printf("here");
     return m;
 }
 

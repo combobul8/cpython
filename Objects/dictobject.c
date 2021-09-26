@@ -2415,6 +2415,7 @@ Return:
 static int
 dict_merge(PyObject *a, PyObject *b, int override)
 {
+    printf("called dict_merge");
     PyDictObject *mp, *other;
     Py_ssize_t i, n;
     PyDictKeyEntry *entry, *ep0;
@@ -2598,6 +2599,7 @@ PyDict_Update(PyObject *a, PyObject *b)
 int
 PyDict_Merge(PyObject *a, PyObject *b, int override)
 {
+    printf("called PyDict_Merge\n");
     /* XXX Deprecate override not in (0, 1). */
     return dict_merge(a, b, override != 0);
 }

@@ -1016,7 +1016,9 @@ typedef struct _is PyInterpreterState;
 static int
 dict_update_arg(PyObject *self, PyObject *arg)
 {
+    printf("called dict_update_arg\n");
     if (PyDict_CheckExact(arg)) {
+        printf("0\n");
         return PyDict_Merge(self, arg, 1);
     }
     _Py_IDENTIFIER(keys);
