@@ -26,7 +26,12 @@
 #  define _PyAsyncGen_MAXFREELIST 80
 #endif
 
-extern uint64_t _pydict_global_version;
+#define DKIX_DUMMY (-2)  /* Used internally */
+
+/*Global counter used to set ma_version_tag field of dictionary.
+ * It is incremented each time that a dictionary is created and each
+ * time that a dictionary is modified. */
+uint64_t _pydict_global_version = 0;
 #define DICT_NEXT_VERSION() (++_pydict_global_version)
 
 #ifdef DEBUG_PYDICT
@@ -169,6 +174,58 @@ PyDoc_STRVAR(dict_pop__doc__,
 
 #define DICT_POPITEM_METHODDEF    \
     {"popitem", (PyCFunction)dict_popitem, METH_NOARGS, dict_popitem__doc__},
+
+PyDoc_STRVAR(dict_popitem__doc__,
+"popitem($self, /)\n"
+"--\n"
+"\n"
+"Remove and return a (key, value) pair as a 2-tuple.\n"
+"\n"
+"Pairs are returned in LIFO (last-in, first-out) order.\n"
+"Raises KeyError if the dict is empty.");
+
+PyDoc_STRVAR(keys__doc__,
+             "D.keys() -> a set-like object providing a view on D's keys");
+PyDoc_STRVAR(items__doc__,
+             "D.items() -> a set-like object providing a view on D's items");
+PyDoc_STRVAR(values__doc__,
+             "D.values() -> an object providing a view on D's values");
+PyDoc_STRVAR(update__doc__,
+"D.update([E, ]**F) -> None.  Update D from dict/iterable E and F.\n\
+If E is present and has a .keys() method, then does:  for k in E: D[k] = E[k]\n\
+If E is present and lacks a .keys() method, then does:  for k, v in E: D[k] = v\n\
+In either case, this is followed by: for k in F:  D[k] = F[k]");
+
+#define DICT_FROMKEYS_METHODDEF    \
+    {"fromkeys", (PyCFunction)(void(*)(void))dict_fromkeys, METH_FASTCALL|METH_CLASS, dict_fromkeys__doc__},
+
+PyDoc_STRVAR(dict_fromkeys__doc__,
+"fromkeys($type, iterable, value=None, /)\n"
+"--\n"
+"\n"
+"Create a new dictionary with keys from iterable and values set to value.");
+PyDoc_STRVAR(clear__doc__,
+"D.clear() -> None.  Remove all items from D.");
+PyDoc_STRVAR(copy__doc__,
+"D.copy() -> a shallow copy of D");
+
+#define DICT___REVERSED___METHODDEF    \
+    {"__reversed__", (PyCFunction)dict___reversed__, METH_NOARGS, dict___reversed____doc__},
+
+PyDoc_STRVAR(dict___reversed____doc__,
+"__reversed__($self, /)\n"
+"--\n"
+"\n"
+"Return a reverse iterator over the dict keys.");
+
+typedef struct {
+    PyObject_HEAD
+    PyDictObject *di_dict; /* Set to NULL when iterator is exhausted */
+    Py_ssize_t di_used;
+    Py_ssize_t di_pos;
+    PyObject* di_result; /* reusable result tuple for iteritems */
+    Py_ssize_t len;
+} dictiterobject;
 
 typedef struct {
     PyObject_HEAD
