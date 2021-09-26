@@ -890,7 +890,7 @@ struct _is {
 typedef struct _is PyInterpreterState;
 
 #define DK_LOG_SIZE(dk)  ((dk)->dk_log2_size)
-#define DK_SIZE(dk)      (1<<DK_LOG_SIZE(dk))
+#define DK_SIZE(dk)      (((int64_t)1)<<DK_LOG_SIZE(dk))
 #define DK_IXSIZE(dk)                     \
     (DK_LOG_SIZE(dk) <= 7 ?               \
         1 : DK_LOG_SIZE(dk) <= 15 ?       \
