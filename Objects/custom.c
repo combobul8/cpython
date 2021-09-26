@@ -1519,47 +1519,18 @@ dict_vectorcall(PyObject *type, PyObject * const*args,
 
 PyTypeObject MyPyDict_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "dict",
-    sizeof(PyDictObject),
-    0,
-    (destructor)dict_dealloc,                   /* tp_dealloc */
-    0,                                          /* tp_vectorcall_offset */
-    0,                                          /* tp_getattr */
-    0,                                          /* tp_setattr */
-    0,                                          /* tp_as_async */
-    (reprfunc)dict_repr,                        /* tp_repr */
-    &dict_as_number,                            /* tp_as_number */
-    &dict_as_sequence,                          /* tp_as_sequence */
-    &dict_as_mapping,                           /* tp_as_mapping */
-    PyObject_HashNotImplemented,                /* tp_hash */
-    0,                                          /* tp_call */
-    0,                                          /* tp_str */
-    PyObject_GenericGetAttr,                    /* tp_getattro */
-    0,                                          /* tp_setattro */
-    0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
+    .tp_name = "dict",
+    .tp_doc = dictionary_doc,
+    .tp_basicsize = sizeof(PyDictObject),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
         Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DICT_SUBCLASS |
-        _Py_TPFLAGS_MATCH_SELF | Py_TPFLAGS_MAPPING,  /* tp_flags */
-    dictionary_doc,                             /* tp_doc */
-    dict_traverse,                              /* tp_traverse */
-    dict_tp_clear,                              /* tp_clear */
-    dict_richcompare,                           /* tp_richcompare */
-    0,                                          /* tp_weaklistoffset */
-    (getiterfunc)dict_iter,                     /* tp_iter */
-    0,                                          /* tp_iternext */
-    mapp_methods,                               /* tp_methods */
-    0,                                          /* tp_members */
-    0,                                          /* tp_getset */
-    0,                                          /* tp_base */
-    0,                                          /* tp_dict */
-    0,                                          /* tp_descr_get */
-    0,                                          /* tp_descr_set */
-    0,                                          /* tp_dictoffset */
-    dict_init,                                  /* tp_init */
-    _PyType_AllocNoTrack,                       /* tp_alloc */
-    dict_new,                                   /* tp_new */
-    PyObject_GC_Del,                            /* tp_free */
-    .tp_vectorcall = dict_vectorcall,
+        _Py_TPFLAGS_MATCH_SELF | Py_TPFLAGS_MAPPING,
+    .tp_new = dict_new,
+    .tp_init = dict_init,
+    .tp_dealloc = (destructor)dict_dealloc,
+    .tp_methods = mapp_methods,
+    .tp_traverse = dict_traverse
 };
 
 PyMODINIT_FUNC
