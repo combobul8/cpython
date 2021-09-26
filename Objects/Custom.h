@@ -29,6 +29,12 @@
 extern uint64_t _pydict_global_version;
 #define DICT_NEXT_VERSION() (++_pydict_global_version)
 
+#ifdef DEBUG_PYDICT
+#  define ASSERT_CONSISTENT(op) assert(_PyDict_CheckConsistency((PyObject *)(op), 1))
+#else
+#  define ASSERT_CONSISTENT(op) assert(_PyDict_CheckConsistency((PyObject *)(op), 0))
+#endif
+
 static PyObject *empty_values[1] = { NULL };
 
 typedef enum _Py_memory_order {
