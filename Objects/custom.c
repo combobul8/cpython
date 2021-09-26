@@ -263,6 +263,7 @@ static PyObject *
 dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value)
 /*[clinic end generated code: output=bba707729dee05bf input=279ddb5790b6b107]*/
 {
+    printf("called dict_get_impl");
     PyObject *val = NULL;
     Py_hash_t hash;
     Py_ssize_t ix;
@@ -1579,6 +1580,7 @@ PyInit_custom(void)
         return NULL;
     }
 
+    printf("here");
     return m;
 }
 
