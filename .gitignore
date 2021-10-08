@@ -130,3 +130,6 @@ Objects/build/temp.win-amd64-3.11/Release/custom.cp311-win_amd64.exp
 Objects/build/temp.win-amd64-3.11/Release/custom.cp311-win_amd64.lib
 Objects/build/temp.win-amd64-3.11/Release/custom.obj
 git_log.txt
+Objects/build/temp.win-amd64-3.9/Release/custom.cp39-win_amd64.exp
+Objects/build/temp.win-amd64-3.9/Release/custom.cp39-win_amd64.lib
+Objects/build/temp.win-amd64-3.9/Release/custom.obj
