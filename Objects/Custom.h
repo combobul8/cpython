@@ -1813,7 +1813,7 @@ custom_PyDict_Contains_KnownHash(PyObject *op, PyObject *key, Py_hash_t hash)
 static int
 dict_merge(PyObject *a, PyObject *b, int override)
 {
-    printf("called dict_merge");
+    printf("called dict_merge\n");
     PyDictObject *mp, *other;
     Py_ssize_t i, n;
     PyDictKeyEntry *entry, *ep0;
@@ -1950,6 +1950,7 @@ dict_merge(PyObject *a, PyObject *b, int override)
             return -1;
 
         for (key = PyIter_Next(iter); key; key = PyIter_Next(iter)) {
+            printf("for\n");
             if (override != 1) {
                 status = PyDict_Contains(a, key);
                 if (status != 0) {
@@ -1971,6 +1972,7 @@ dict_merge(PyObject *a, PyObject *b, int override)
                 Py_DECREF(key);
                 return -1;
             }
+            printf("value is not NULL\n");
             status = PyDict_SetItem(a, key, value);
             Py_DECREF(key);
             Py_DECREF(value);
@@ -2002,7 +2004,6 @@ dict_update_arg(PyObject *self, PyObject *arg)
 {
     printf("called dict_update_arg\n");
     if (PyDict_CheckExact(arg)) {
-        printf("PyDict_CheckExact\n");
         return custom_PyDict_Merge(self, arg, 1);
     }
     _Py_IDENTIFIER(keys);

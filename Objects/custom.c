@@ -95,6 +95,7 @@ static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname)
 {
+    printf("called dict_update_common\n");
     PyObject *arg = NULL;
     int result = 0;
 
@@ -104,10 +105,13 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
     else if (arg != NULL) {
         result = dict_update_arg(self, arg);
     }
+    printf("dict_update_common result: %d\n", result);
 
     if (result == 0 && kwds != NULL) {
-        if (PyArg_ValidateKeywordArguments(kwds))
+        if (PyArg_ValidateKeywordArguments(kwds)) {
+            printf("calling PyDict_Merge\n");
             result = PyDict_Merge(self, kwds, 1);
+        }
         else
             result = -1;
     }
@@ -117,6 +121,7 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
 static int
 dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
+    printf("called dict_init\n");
     return dict_update_common(self, args, kwds, "dict");
 }
 
@@ -426,8 +431,14 @@ dictvalues_new(PyObject *dict, PyObject *Py_UNUSED(ignored))
 static PyObject *
 my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    if (dict_update_common(self, args, kwds, "update") != -1)
+    printf("\ncalled my_dict_update\n");
+    int dict_update_common_rv;
+    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update")) != -1) {
+        printf("dict_update_common_rv: %d\n", dict_update_common_rv);
         Py_RETURN_NONE;
+    }
+
+    printf("dict_update_common_rv: %d\n", dict_update_common_rv);
     return NULL;
 }
 
