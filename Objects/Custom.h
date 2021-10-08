@@ -1798,7 +1798,7 @@ Fail:
 
 /* Internal version of PyDict_Contains used when the hash value is already known */
 int
-_PyDict_Contains_KnownHash(PyObject *op, PyObject *key, Py_hash_t hash)
+custom_PyDict_Contains_KnownHash(PyObject *op, PyObject *key, Py_hash_t hash)
 {
     PyDictObject *mp = (PyDictObject *)op;
     PyObject *value;
@@ -1902,7 +1902,7 @@ dict_merge(PyObject *a, PyObject *b, int override)
                 if (override == 1)
                     err = insertdict(mp, key, hash, value);
                 else {
-                    err = _PyDict_Contains_KnownHash(a, key, hash);
+                    err = custom_PyDict_Contains_KnownHash(a, key, hash);
                     if (err == 0) {
                         err = insertdict(mp, key, hash, value);
                     }
@@ -2002,7 +2002,7 @@ dict_update_arg(PyObject *self, PyObject *arg)
 {
     printf("called dict_update_arg\n");
     if (PyDict_CheckExact(arg)) {
-        printf("0\n");
+        printf("PyDict_CheckExact\n");
         return custom_PyDict_Merge(self, arg, 1);
     }
     _Py_IDENTIFIER(keys);
