@@ -1078,10 +1078,13 @@ _PyThreadState_GET(void)
    See also _PyInterpreterState_Get()
    and _PyGILState_GetInterpreterStateUnsafe(). */
 static inline PyInterpreterState* _PyInterpreterState_GET(void) {
+    printf("called _PyInterpreterState_GET\n");
     PyThreadState *tstate = _PyThreadState_GET();
+    printf("tstate == NULL: %d\n", (tstate == NULL));
 #ifdef Py_DEBUG
     _Py_EnsureTstateNotNULL(tstate);
 #endif
+    printf("_PyInterpreterState_GET returning\n");
     return tstate->interp;
 }
 
@@ -1235,7 +1238,9 @@ clone_combined_dict_keys(PyDictObject *orig)
 static struct _Py_dict_state *
 get_dict_state(void)
 {
+    printf("called get_dict_state\n");
     PyInterpreterState *interp = _PyInterpreterState_GET();
+    printf("after _PyInterpreterState_GET\n");
     return &interp->dict_state;
 }
 
@@ -1304,6 +1309,7 @@ new_keys_object(uint8_t log2_size)
     printf("es: %zd\n", es);
 
     struct _Py_dict_state *state = get_dict_state();
+    printf("after get_dict_state\n");
 #ifdef Py_DEBUG
     // new_keys_object() must not be called after _PyDict_Fini()
     assert(state->keys_numfree != -1);
