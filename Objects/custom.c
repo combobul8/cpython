@@ -178,7 +178,7 @@ static PyObject *
 dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value)
 /*[clinic end generated code: output=bba707729dee05bf input=279ddb5790b6b107]*/
 {
-    printf("called dict_get_impl");
+    printf("called dict_get_impl\n");
     PyObject *val = NULL;
     Py_hash_t hash;
     Py_ssize_t ix;
@@ -190,6 +190,7 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value)
             return NULL;
     }
     ix = _Py_dict_lookup(self, key, hash, &val);
+    printf("after _Py_dict_lookup\n");
     if (ix == DKIX_ERROR)
         return NULL;
     if (ix == DKIX_EMPTY || val == NULL) {

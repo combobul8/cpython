@@ -1593,6 +1593,7 @@ insertion_resize(PyDictObject *mp)
 Py_ssize_t _Py_HOT_FUNCTION
 _Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr)
 {
+    printf("called _Py_dict_lookup\n");
     PyDictKeysObject *dk;
 start:
     dk = mp->ma_keys;
