@@ -1280,6 +1280,7 @@ dictkeys_decref(PyDictKeysObject *dk)
 static PyDictKeysObject*
 new_keys_object(uint8_t log2_size)
 {
+    printf("called new_keys_object\n");
     PyDictKeysObject *dk;
     Py_ssize_t es, usable;
 
@@ -1300,6 +1301,7 @@ new_keys_object(uint8_t log2_size)
     else {
         es = sizeof(Py_ssize_t);
     }
+    printf("es: %zd\n", es);
 
     struct _Py_dict_state *state = get_dict_state();
 #ifdef Py_DEBUG
@@ -1810,6 +1812,79 @@ custom_PyDict_Contains_KnownHash(PyObject *op, PyObject *key, Py_hash_t hash)
     return (ix != DKIX_EMPTY && value != NULL);
 }
 
+// Same to insertdict but specialized for ma_keys = Py_EMPTY_KEYS.
+static int
+insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
+                    PyObject *value)
+{
+    printf("called insert_to_emptydict\n");
+    assert(mp->ma_keys == Py_EMPTY_KEYS);
+
+    PyDictKeysObject *newkeys = new_keys_object(PyDict_LOG_MINSIZE);
+    printf("after new_keys_object\n");
+    if (newkeys == NULL) {
+        printf("newkeys is NULL\n");
+        return -1;
+    }
+    if (!PyUnicode_CheckExact(key)) {
+        newkeys->dk_kind = DICT_KEYS_GENERAL;
+    }
+    printf("calling dictkeys_decref\n");
+    dictkeys_decref(Py_EMPTY_KEYS);
+    mp->ma_keys = newkeys;
+    mp->ma_values = NULL;
+
+    Py_INCREF(key);
+    Py_INCREF(value);
+    MAINTAIN_TRACKING(mp, key, value);
+
+    size_t hashpos = (size_t)hash & (PyDict_MINSIZE-1);
+    PyDictKeyEntry *ep = DK_ENTRIES(mp->ma_keys);
+    dictkeys_set_index(mp->ma_keys, hashpos, 0);
+    ep->me_key = key;
+    ep->me_hash = hash;
+    ep->me_value = value;
+    mp->ma_used++;
+    mp->ma_version_tag = DICT_NEXT_VERSION();
+    mp->ma_keys->dk_usable--;
+    mp->ma_keys->dk_nentries++;
+    return 0;
+}
+
+/* CAUTION: PyDict_SetItem() must guarantee that it won't resize the
+ * dictionary if it's merely replacing the value for an existing key.
+ * This means that it's safe to loop over a dictionary with PyDict_Next()
+ * and occasionally replace a value -- but you can't insert new keys or
+ * remove them.
+ */
+int
+custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value)
+{
+    printf("called custom_PyDict_SetItem\n");
+    PyDictObject *mp;
+    Py_hash_t hash;
+    if (!PyDict_Check(op)) {
+        PyErr_BadInternalCall();
+        return -1;
+    }
+    assert(key);
+    assert(value);
+    mp = (PyDictObject *)op;
+    if (!PyUnicode_CheckExact(key) ||
+        (hash = ((PyASCIIObject *) key)->hash) == -1)
+    {
+        hash = PyObject_Hash(key);
+        if (hash == -1)
+            return -1;
+    }
+
+    if (mp->ma_keys == Py_EMPTY_KEYS) {
+        return insert_to_emptydict(mp, key, hash, value);
+    }
+    /* insertdict() handles any resizing that might be necessary */
+    return insertdict(mp, key, hash, value);
+}
+
 static int
 dict_merge(PyObject *a, PyObject *b, int override)
 {
@@ -1973,7 +2048,8 @@ dict_merge(PyObject *a, PyObject *b, int override)
                 return -1;
             }
             printf("value is not NULL\n");
-            status = PyDict_SetItem(a, key, value);
+            status = custom_PyDict_SetItem(a, key, value);
+            printf("status: %d\n", status);
             Py_DECREF(key);
             Py_DECREF(value);
             if (status < 0) {
@@ -2113,7 +2189,7 @@ dict_ass_sub(PyDictObject *mp, PyObject *v, PyObject *w)
     if (w == NULL)
         return PyDict_DelItem((PyObject *)mp, v);
     else
-        return PyDict_SetItem((PyObject *)mp, v, w);
+        return custom_PyDict_SetItem((PyObject *)mp, v, w);
 }
 
 static PyMappingMethods dict_as_mapping = {

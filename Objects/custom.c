@@ -505,7 +505,7 @@ _PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
 
     if (PyDict_CheckExact(d)) {
         while ((key = PyIter_Next(it)) != NULL) {
-            status = PyDict_SetItem(d, key, value);
+            status = custom_PyDict_SetItem(d, key, value);
             Py_DECREF(key);
             if (status < 0)
                 goto Fail;
@@ -978,7 +978,7 @@ dict_vectorcall(PyObject *type, PyObject * const*args,
     }
     if (kwnames != NULL) {
         for (Py_ssize_t i = 0; i < PyTuple_GET_SIZE(kwnames); i++) {
-            if (PyDict_SetItem(self, PyTuple_GET_ITEM(kwnames, i), args[i]) < 0) {
+            if (custom_PyDict_SetItem(self, PyTuple_GET_ITEM(kwnames, i), args[i]) < 0) {
                 Py_DECREF(self);
                 return NULL;
             }
