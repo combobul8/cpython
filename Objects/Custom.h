@@ -1590,6 +1590,7 @@ insertion_resize(PyDictObject *mp)
     return dictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)));
 }
 
+// TODO: insert random strings and measure how much probing is needed for find.
 Py_ssize_t _Py_HOT_FUNCTION
 _Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr)
 {
