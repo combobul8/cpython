@@ -1321,7 +1321,6 @@ new_keys_object(uint8_t log2_size)
     printf("es: %zd\n", es);
 
     struct _Py_dict_state *state = get_dict_state();
-    printf("state == NULL: %d\n", (state == NULL));
 #ifdef Py_DEBUG
     // new_keys_object() must not be called after _PyDict_Fini()
     assert(state->keys_numfree != -1);
@@ -1332,11 +1331,9 @@ new_keys_object(uint8_t log2_size)
     }
     else
     {
-        printf("calling PyObject_Malloc\n");
         dk = PyObject_Malloc(sizeof(PyDictKeysObject)
                              + (es<<log2_size)
                              + sizeof(PyDictKeyEntry) * usable);
-        printf("after PyObject_Malloc\n");
         if (dk == NULL) {
             PyErr_NoMemory();
             return NULL;
@@ -1842,15 +1839,12 @@ insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
     assert(mp->ma_keys == Py_EMPTY_KEYS);
 
     PyDictKeysObject *newkeys = new_keys_object(PyDict_LOG_MINSIZE);
-    printf("after new_keys_object\n");
     if (newkeys == NULL) {
-        printf("newkeys is NULL\n");
         return -1;
     }
     if (!PyUnicode_CheckExact(key)) {
         newkeys->dk_kind = DICT_KEYS_GENERAL;
     }
-    printf("calling dictkeys_decref\n");
     dictkeys_decref(Py_EMPTY_KEYS);
     mp->ma_keys = newkeys;
     mp->ma_values = NULL;
@@ -2046,7 +2040,6 @@ dict_merge(PyObject *a, PyObject *b, int override)
             return -1;
 
         for (key = PyIter_Next(iter); key; key = PyIter_Next(iter)) {
-            printf("for\n");
             if (override != 1) {
                 status = PyDict_Contains(a, key);
                 if (status != 0) {
@@ -2068,7 +2061,6 @@ dict_merge(PyObject *a, PyObject *b, int override)
                 Py_DECREF(key);
                 return -1;
             }
-            printf("value is not NULL\n");
             status = custom_PyDict_SetItem(a, key, value);
             printf("status: %d\n", status);
             Py_DECREF(key);
@@ -2101,21 +2093,17 @@ dict_update_arg(PyObject *self, PyObject *arg)
 {
     printf("called dict_update_arg\n");
     if (PyDict_CheckExact(arg)) {
-        printf("0\n");
         return custom_PyDict_Merge(self, arg, 1);
     }
     _Py_IDENTIFIER(keys);
     PyObject *func;
     if (_PyObject_LookupAttrId(arg, &PyId_keys, &func) < 0) {
-        printf("1\n");
         return -1;
     }
     if (func != NULL) {
-        printf("2\n");
         Py_DECREF(func);
         return custom_PyDict_Merge(self, arg, 1);
     }
-    printf("3\n");
     return PyDict_MergeFromSeq2(self, arg, 1);
 }
 

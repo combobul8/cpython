@@ -105,7 +105,6 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
     else if (arg != NULL) {
         result = dict_update_arg(self, arg);
     }
-    printf("dict_update_common result: %d\n", result);
 
     if (result == 0 && kwds != NULL) {
         if (PyArg_ValidateKeywordArguments(kwds)) {
@@ -291,11 +290,13 @@ exit:
 static PyObject *
 dict_get(PyDictObject *self, PyObject *const *args, Py_ssize_t nargs)
 {
+    printf("\ncalled dict_get\n");
     PyObject *return_value = NULL;
     PyObject *key;
     PyObject *default_value = Py_None;
 
     if (!_PyArg_CheckPositional("get", nargs, 1, 2)) {
+        printf("dict_get first if\n");
         goto exit;
     }
     key = args[0];
@@ -434,7 +435,7 @@ my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
     printf("\ncalled my_dict_update\n");
     int dict_update_common_rv;
     if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update")) != -1) {
-        printf("dict_update_common_rv: %d\n", dict_update_common_rv);
+        printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
         Py_RETURN_NONE;
     }
 
