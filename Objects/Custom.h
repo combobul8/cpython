@@ -653,6 +653,8 @@ struct _Py_dict_state {
     int keys_numfree;
 };
 
+struct _Py_dict_state *dstate;
+
 struct _Py_frame_state {
     PyFrameObject *free_list;
     /* number of frames currently in free_list */
@@ -1240,9 +1242,18 @@ static struct _Py_dict_state *
 get_dict_state(void)
 {
     printf("called get_dict_state\n");
-    PyInterpreterState *interp = _PyInterpreterState_GET();
-    printf("after _PyInterpreterState_GET\n");
-    return &interp->dict_state;
+    // PyInterpreterState *interp = _PyInterpreterState_GET();
+
+    if (dstate == NULL) {
+        dstate = malloc(sizeof *dstate);
+        dstate->keys_numfree = 0;
+        assert(dstate);
+    }
+
+    // printf("after _PyInterpreterState_GET\n");
+    // return &interp->dict_state;
+
+    return dstate;
 }
 
 static void
@@ -1310,19 +1321,22 @@ new_keys_object(uint8_t log2_size)
     printf("es: %zd\n", es);
 
     struct _Py_dict_state *state = get_dict_state();
-    printf("after get_dict_state\n");
+    printf("state == NULL: %d\n", (state == NULL));
 #ifdef Py_DEBUG
     // new_keys_object() must not be called after _PyDict_Fini()
     assert(state->keys_numfree != -1);
 #endif
     if (log2_size == PyDict_LOG_MINSIZE && state->keys_numfree > 0) {
+        printf("state->keys_numfree: %d\n", state->keys_numfree);
         dk = state->keys_free_list[--state->keys_numfree];
     }
     else
     {
+        printf("calling PyObject_Malloc\n");
         dk = PyObject_Malloc(sizeof(PyDictKeysObject)
                              + (es<<log2_size)
                              + sizeof(PyDictKeyEntry) * usable);
+        printf("after PyObject_Malloc\n");
         if (dk == NULL) {
             PyErr_NoMemory();
             return NULL;
@@ -2087,17 +2101,21 @@ dict_update_arg(PyObject *self, PyObject *arg)
 {
     printf("called dict_update_arg\n");
     if (PyDict_CheckExact(arg)) {
+        printf("0\n");
         return custom_PyDict_Merge(self, arg, 1);
     }
     _Py_IDENTIFIER(keys);
     PyObject *func;
     if (_PyObject_LookupAttrId(arg, &PyId_keys, &func) < 0) {
+        printf("1\n");
         return -1;
     }
     if (func != NULL) {
+        printf("2\n");
         Py_DECREF(func);
-        return PyDict_Merge(self, arg, 1);
+        return custom_PyDict_Merge(self, arg, 1);
     }
+    printf("3\n");
     return PyDict_MergeFromSeq2(self, arg, 1);
 }
 
