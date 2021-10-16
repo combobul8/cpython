@@ -133,3 +133,5 @@ git_log.txt
 Objects/build/temp.win-amd64-3.9/Release/custom.cp39-win_amd64.exp
 Objects/build/temp.win-amd64-3.9/Release/custom.cp39-win_amd64.lib
 Objects/build/temp.win-amd64-3.9/Release/custom.obj
+Objects/iweb_wordFreq_sample_forms.txt
+Objects/words.txt

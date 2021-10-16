@@ -95,7 +95,10 @@ static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname)
 {
+#ifdef EBUG
     printf("called dict_update_common\n");
+#endif
+
     PyObject *arg = NULL;
     int result = 0;
 
@@ -120,7 +123,10 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
 static int
 dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
+#ifdef EBUG
     printf("called dict_init\n");
+#endif
+
     return dict_update_common(self, args, kwds, "dict");
 }
 
@@ -178,7 +184,10 @@ static PyObject *
 dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value)
 /*[clinic end generated code: output=bba707729dee05bf input=279ddb5790b6b107]*/
 {
+#ifdef EBUG
     printf("called dict_get_impl\n");
+#endif
+
     PyObject *val = NULL;
     Py_hash_t hash;
     Py_ssize_t ix;
@@ -190,7 +199,11 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value)
             return NULL;
     }
     ix = _Py_dict_lookup(self, key, hash, &val);
+
+#ifdef EBUG
     printf("after _Py_dict_lookup\n");
+#endif
+
     if (ix == DKIX_ERROR)
         return NULL;
     if (ix == DKIX_EMPTY || val == NULL) {
@@ -291,7 +304,10 @@ exit:
 static PyObject *
 dict_get(PyDictObject *self, PyObject *const *args, Py_ssize_t nargs)
 {
+#ifdef EBUG
     printf("\ncalled dict_get\n");
+#endif
+
     PyObject *return_value = NULL;
     PyObject *key;
     PyObject *default_value = Py_None;
@@ -433,14 +449,23 @@ dictvalues_new(PyObject *dict, PyObject *Py_UNUSED(ignored))
 static PyObject *
 my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 {
+#ifdef EBUG
     printf("\ncalled my_dict_update\n");
+#endif
+
     int dict_update_common_rv;
     if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update")) != -1) {
+#ifdef EBUG
         printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
+#endif
+
         Py_RETURN_NONE;
     }
 
+#ifdef EBUG
     printf("dict_update_common_rv: %d\n", dict_update_common_rv);
+#endif
+
     return NULL;
 }
 

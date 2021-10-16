@@ -1081,9 +1081,8 @@ _PyThreadState_GET(void)
    See also _PyInterpreterState_Get()
    and _PyGILState_GetInterpreterStateUnsafe(). */
 static inline PyInterpreterState* _PyInterpreterState_GET(void) {
-    printf("called _PyInterpreterState_GET\n");
     PyThreadState *tstate = _PyThreadState_GET();
-    printf("tstate == NULL: %d\n", (tstate == NULL));
+
 #ifdef Py_DEBUG
     _Py_EnsureTstateNotNULL(tstate);
 #endif
@@ -1241,7 +1240,9 @@ clone_combined_dict_keys(PyDictObject *orig)
 static struct _Py_dict_state *
 get_dict_state(void)
 {
+#ifdef EBUG
     printf("called get_dict_state\n");
+#endif
     // PyInterpreterState *interp = _PyInterpreterState_GET();
 
     if (dstate == NULL) {
@@ -1250,7 +1251,6 @@ get_dict_state(void)
         assert(dstate);
     }
 
-    // printf("after _PyInterpreterState_GET\n");
     // return &interp->dict_state;
 
     return dstate;
@@ -1297,7 +1297,10 @@ dictkeys_decref(PyDictKeysObject *dk)
 static PyDictKeysObject*
 new_keys_object(uint8_t log2_size)
 {
+#ifdef EBUG
     printf("called new_keys_object\n");
+#endif
+
     PyDictKeysObject *dk;
     Py_ssize_t es, usable;
 
@@ -1318,7 +1321,10 @@ new_keys_object(uint8_t log2_size)
     else {
         es = sizeof(Py_ssize_t);
     }
+
+#ifdef EBUG
     printf("es: %zd\n", es);
+#endif
 
     struct _Py_dict_state *state = get_dict_state();
 #ifdef Py_DEBUG
@@ -1594,7 +1600,10 @@ insertion_resize(PyDictObject *mp)
 Py_ssize_t _Py_HOT_FUNCTION
 _Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr)
 {
+#ifdef EBUG
     printf("called _Py_dict_lookup\n");
+#endif
+
     PyDictKeysObject *dk;
 start:
     dk = mp->ma_keys;
@@ -1837,7 +1846,10 @@ static int
 insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
                     PyObject *value)
 {
+#ifdef DEBUG
     printf("called insert_to_emptydict\n");
+#endif
+
     assert(mp->ma_keys == Py_EMPTY_KEYS);
 
     PyDictKeysObject *newkeys = new_keys_object(PyDict_LOG_MINSIZE);
@@ -1877,7 +1889,10 @@ insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
 int
 custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value)
 {
+#ifdef DEBUG
     printf("called custom_PyDict_SetItem\n");
+#endif
+
     PyDictObject *mp;
     Py_hash_t hash;
     if (!PyDict_Check(op)) {
@@ -1905,7 +1920,10 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value)
 static int
 dict_merge(PyObject *a, PyObject *b, int override)
 {
+#ifdef DEBUG
     printf("called dict_merge\n");
+#endif
+
     PyDictObject *mp, *other;
     Py_ssize_t i, n;
     PyDictKeyEntry *entry, *ep0;
@@ -2064,7 +2082,11 @@ dict_merge(PyObject *a, PyObject *b, int override)
                 return -1;
             }
             status = custom_PyDict_SetItem(a, key, value);
+
+#ifdef EBUG
             printf("status: %d\n", status);
+#endif
+
             Py_DECREF(key);
             Py_DECREF(value);
             if (status < 0) {
@@ -2084,7 +2106,10 @@ dict_merge(PyObject *a, PyObject *b, int override)
 int
 custom_PyDict_Merge(PyObject *a, PyObject *b, int override)
 {
+#ifdef EBUG
     printf("called custom_PyDict_Merge\n");
+#endif
+
     /* XXX Deprecate override not in (0, 1). */
     return dict_merge(a, b, override != 0);
 }
@@ -2093,7 +2118,10 @@ custom_PyDict_Merge(PyObject *a, PyObject *b, int override)
 static int
 dict_update_arg(PyObject *self, PyObject *arg)
 {
+#ifdef EBUG
     printf("called dict_update_arg\n");
+#endif
+
     if (PyDict_CheckExact(arg)) {
         return custom_PyDict_Merge(self, arg, 1);
     }
