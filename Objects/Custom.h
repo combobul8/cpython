@@ -1874,8 +1874,8 @@ static int
 insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
                     PyObject *value)
 {
+    printf("called insert_to_emptydict; hash: %lld\n", hash);
 #ifdef DEBUG
-    printf("called insert_to_emptydict\n");
 #endif
 
     assert(mp->ma_keys == Py_EMPTY_KEYS);
@@ -1930,10 +1930,12 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value)
     assert(key);
     assert(value);
     mp = (PyDictObject *)op;
+
+    hash = PyObject_Hash(key);
+
     if (!PyUnicode_CheckExact(key) ||
         (hash = ((PyASCIIObject *) key)->hash) == -1)
     {
-        hash = PyObject_Hash(key);
         if (hash == -1)
             return -1;
     }
