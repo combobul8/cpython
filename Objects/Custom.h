@@ -1363,28 +1363,37 @@ new_keys_object(uint8_t log2_size)
 static inline Py_ssize_t
 dictkeys_get_index(const PyDictKeysObject *keys, Py_ssize_t i)
 {
+    // printf("dictkeys_get_index i: %lld\n", i);
+
     Py_ssize_t s = DK_SIZE(keys);
     Py_ssize_t ix;
 
     if (s <= 0xff) {
+        // printf("0\n");
         const int8_t *indices = (const int8_t*)(keys->dk_indices);
         ix = indices[i];
     }
     else if (s <= 0xffff) {
+        // printf("1\n");
         const int16_t *indices = (const int16_t*)(keys->dk_indices);
         ix = indices[i];
     }
 #if SIZEOF_VOID_P > 4
     else if (s > 0xffffffff) {
+        printf("2\n");
         const int64_t *indices = (const int64_t*)(keys->dk_indices);
         ix = indices[i];
     }
 #endif
     else {
+        printf("3\n");
         const int32_t *indices = (const int32_t*)(keys->dk_indices);
         ix = indices[i];
     }
     assert(ix >= DKIX_DUMMY);
+
+    // printf("dictkeys_get_index ix: %lld\n", ix);
+
     return ix;
 }
 
@@ -1401,11 +1410,13 @@ dictkeys_set_index(PyDictKeysObject *keys, Py_ssize_t i, Py_ssize_t ix)
         int8_t *indices = (int8_t*)(keys->dk_indices);
         assert(ix <= 0x7f);
         indices[i] = (char)ix;
+        printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
     }
     else if (s <= 0xffff) {
         int16_t *indices = (int16_t*)(keys->dk_indices);
         assert(ix <= 0x7fff);
         indices[i] = (int16_t)ix;
+        printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
     }
 #if SIZEOF_VOID_P > 4
     else if (s > 0xffffffff) {
@@ -1600,8 +1611,8 @@ insertion_resize(PyDictObject *mp)
 Py_ssize_t _Py_HOT_FUNCTION
 _Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr)
 {
-#ifdef EBUG
     printf("called _Py_dict_lookup\n");
+#ifdef EBUG
 #endif
 
     PyDictKeysObject *dk;
@@ -1617,6 +1628,9 @@ start:
         /* Strings only */
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
+
+            printf("0(i, ix): (%lld, %lld)\n", i, ix);
+
             if (ix >= 0) {
                 PyDictKeyEntry *ep = &ep0[ix];
                 assert(ep->me_key != NULL);
@@ -1633,6 +1647,9 @@ start:
             perturb >>= PERTURB_SHIFT;
             i = mask & (i*5 + perturb + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
+
+            printf("1(i, ix): (%lld, %lld)\n", i, ix);
+
             if (ix >= 0) {
                 PyDictKeyEntry *ep = &ep0[ix];
                 assert(ep->me_key != NULL);
@@ -1724,10 +1741,16 @@ find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash)
 
     const size_t mask = DK_MASK(keys);
     size_t i = hash & mask;
+
+    printf("find_empty_slot calls dictkeys_get_index before the for loop.\n");
+
     Py_ssize_t ix = dictkeys_get_index(keys, i);
     for (size_t perturb = hash; ix >= 0;) {
         perturb >>= PERTURB_SHIFT;
         i = (i*5 + perturb + 1) & mask;
+
+        printf("find_empty_slot computed a new i.\n");
+
         ix = dictkeys_get_index(keys, i);
     }
     return i;
@@ -1750,6 +1773,8 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
         if (insertion_resize(mp) < 0)
             goto Fail;
     }
+
+    printf("insertdict calls _Py_dict_lookup\n");
 
     Py_ssize_t ix = _Py_dict_lookup(mp, key, hash, &old_value);
     if (ix == DKIX_ERROR)
@@ -1780,6 +1805,9 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
         if (!PyUnicode_CheckExact(key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
+
+        printf("insert_dict calls find_empty_slot\n");
+
         Py_ssize_t hashpos = find_empty_slot(mp->ma_keys, hash);
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
