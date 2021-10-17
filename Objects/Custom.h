@@ -1908,6 +1908,36 @@ insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
     return 0;
 }
 
+Py_hash_t
+custom_PyObject_Hash(PyObject *v)
+{
+    printf("called custom_PyObject_Hash\n");
+
+    PyTypeObject *tp = Py_TYPE(v);
+
+    printf("custom_PyObject_Hash tp->name: %s\n", tp->tp_name);
+
+    if (tp->tp_hash != NULL) {
+        printf("custom_PyObject_Hash if statement.\n");
+
+        // return (*tp->tp_hash)(v);
+        return unicode_hash(v);
+    }
+    /* To keep to the general practice that inheriting
+     * solely from object in C code should work without
+     * an explicit call to PyType_Ready, we implicitly call
+     * PyType_Ready here and then check the tp_hash slot again
+     */
+    if (tp->tp_dict == NULL) {
+        if (PyType_Ready(tp) < 0)
+            return -1;
+        if (tp->tp_hash != NULL)
+            return (*tp->tp_hash)(v);
+    }
+    /* Otherwise, the object can't be hashed */
+    return PyObject_HashNotImplemented(v);
+}
+
 /* CAUTION: PyDict_SetItem() must guarantee that it won't resize the
  * dictionary if it's merely replacing the value for an existing key.
  * This means that it's safe to loop over a dictionary with PyDict_Next()
@@ -1931,7 +1961,8 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value)
     assert(value);
     mp = (PyDictObject *)op;
 
-    hash = PyObject_Hash(key);
+    hash = custom_PyObject_Hash(key);
+    printf("custom_PyDict_setItem hash: %lld\n", hash);
 
     if (!PyUnicode_CheckExact(key) ||
         (hash = ((PyASCIIObject *) key)->hash) == -1)
