@@ -124,8 +124,8 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
 static int
 dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
-#ifdef EBUG
     printf("called dict_init\n");
+#ifdef EBUG
 #endif
 
     return dict_update_common(self, args, kwds, "dict");
@@ -450,8 +450,8 @@ dictvalues_new(PyObject *dict, PyObject *Py_UNUSED(ignored))
 static PyObject *
 my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 {
-#ifdef EBUG
     printf("\ncalled my_dict_update\n");
+#ifdef EBUG
 #endif
 
     int dict_update_common_rv;
