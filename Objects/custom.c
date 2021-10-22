@@ -95,8 +95,8 @@ static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname)
 {
-#ifdef EBUG
     printf("called dict_update_common\n");
+#ifdef EBUG
 #endif
 
     PyObject *arg = NULL;
@@ -106,6 +106,7 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
         result = -1;
     }
     else if (arg != NULL) {
+        printf("calling dict_update_arg\n");
         result = dict_update_arg(self, arg);
     }
 

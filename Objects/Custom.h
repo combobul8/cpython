@@ -1920,8 +1920,8 @@ custom_PyObject_Hash(PyObject *v)
     if (tp->tp_hash != NULL) {
         printf("custom_PyObject_Hash if statement.\n");
 
-        // return (*tp->tp_hash)(v);
-        return unicode_hash(v);
+        return (*tp->tp_hash)(v);
+        // return unicode_hash(v);
     }
     /* To keep to the general practice that inheriting
      * solely from object in C code should work without
@@ -2179,11 +2179,12 @@ custom_PyDict_Merge(PyObject *a, PyObject *b, int override)
 static int
 dict_update_arg(PyObject *self, PyObject *arg)
 {
-#ifdef EBUG
     printf("called dict_update_arg\n");
+#ifdef EBUG
 #endif
 
     if (PyDict_CheckExact(arg)) {
+        printf("dict_update_arg PyDSict_CheckExact returned non-zero.\n");
         return custom_PyDict_Merge(self, arg, 1);
     }
     _Py_IDENTIFIER(keys);
