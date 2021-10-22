@@ -1947,8 +1947,8 @@ custom_PyObject_Hash(PyObject *v)
 int
 custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value)
 {
-#ifdef DEBUG
     printf("called custom_PyDict_SetItem\n");
+#ifdef DEBUG
 #endif
 
     PyDictObject *mp;
@@ -1981,8 +1981,8 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value)
 static int
 dict_merge(PyObject *a, PyObject *b, int override)
 {
+    printf("dict_merge override: %d\n", override);
 #ifdef DEBUG
-    printf("called dict_merge\n");
 #endif
 
     PyDictObject *mp, *other;
@@ -2002,6 +2002,8 @@ dict_merge(PyObject *a, PyObject *b, int override)
     }
     mp = (PyDictObject*)a;
     if (PyDict_Check(b) && (Py_TYPE(b)->tp_iter == (getiterfunc)dict_iter)) {
+        printf("dict_merge if condition true.\n");
+
         other = (PyDictObject*)b;
         if (other == mp || other->ma_used == 0)
             /* a.update(a) or a.update({}); nothing to do */
@@ -2101,6 +2103,8 @@ dict_merge(PyObject *a, PyObject *b, int override)
         }
     }
     else {
+        printf("dict_merge else.\n");
+
         /* Do it the generic, slower way */
         PyObject *keys = PyMapping_Keys(b);
         PyObject *iter;
@@ -2121,8 +2125,11 @@ dict_merge(PyObject *a, PyObject *b, int override)
             return -1;
 
         for (key = PyIter_Next(iter); key; key = PyIter_Next(iter)) {
+            printf("dict_merge for loop iteration.\n");
+
             if (override != 1) {
                 status = PyDict_Contains(a, key);
+
                 if (status != 0) {
                     if (status > 0) {
                         if (override == 0) {
@@ -2167,8 +2174,8 @@ dict_merge(PyObject *a, PyObject *b, int override)
 int
 custom_PyDict_Merge(PyObject *a, PyObject *b, int override)
 {
-#ifdef EBUG
     printf("called custom_PyDict_Merge\n");
+#ifdef EBUG
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
