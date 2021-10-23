@@ -1954,7 +1954,10 @@ fnv(const void *src, Py_ssize_t len)
     }
     blocks = (len - remainder) / SIZEOF_PY_UHASH_T;
 
-    x = (Py_uhash_t) _Py_HashSecret.fnv.prefix;
+    // printf("_Py_HashSecret.fnv.prefix: %lld.\n", _Py_HashSecret.fnv.prefix);
+
+    // x = (Py_uhash_t) _Py_HashSecret.fnv.prefix;
+    x = 0;
     x ^= (Py_uhash_t) *p << 7;
     while (blocks--) {
         PY_UHASH_CPY(block.bytes, p);
@@ -1965,7 +1968,8 @@ fnv(const void *src, Py_ssize_t len)
     for (; remainder > 0; remainder--)
         x = (_PyHASH_MULTIPLIER * x) ^ (Py_uhash_t) *p++;
     x ^= (Py_uhash_t) len;
-    x ^= (Py_uhash_t) _Py_HashSecret.fnv.suffix;
+    // x ^= (Py_uhash_t) _Py_HashSecret.fnv.suffix;
+    x ^= 0;
     if (x == (Py_uhash_t) -1) {
         x = (Py_uhash_t) -2;
     }
@@ -1993,6 +1997,8 @@ custom_Py_HashBytes(const void *src, Py_ssize_t len)
 
 #if Py_HASH_CUTOFF > 0
     if (len < Py_HASH_CUTOFF) {
+        printf("custom_Py_HashBytes %d < %d\n.", len, Py_HASH_CUTOFF);
+
         /* Optimize hashing of very small strings with inline DJBX33A. */
         Py_uhash_t hash;
         const unsigned char *p = src;
@@ -2014,9 +2020,14 @@ custom_Py_HashBytes(const void *src, Py_ssize_t len)
         hash ^= (Py_uhash_t) _Py_HashSecret.djbx33a.suffix;
         x = (Py_hash_t)hash;
     }
-    else
+    else {
 #endif /* Py_HASH_CUTOFF */
+        printf("custom_Py_HashBytes calling PyHash_Func.hash.\n");
         x = PyHash_Func.hash(src, len);
+
+#if Py_HASH_CUTOFF > 0
+    }
+#endif
 
     if (x == -1)
         return -2;
@@ -2043,6 +2054,7 @@ unicode_hash(PyObject *self)
 
 #ifdef EBUG
     printf("unicode_hash calling custom_Py_HashBytes.\n");
+#endif
 
     x = custom_Py_HashBytes(PyUnicode_DATA(self),
                       PyUnicode_GET_LENGTH(self) * PyUnicode_KIND(self));
