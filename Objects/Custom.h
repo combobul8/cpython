@@ -1041,6 +1041,9 @@ struct _is {
 /* struct _is is defined in internal/pycore_interp.h */
 typedef struct _is PyInterpreterState;
 
+#define _PyUnicode_HASH(op)                             \
+    (((PyASCIIObject *)(op))->hash)
+
 static inline PyThreadState*
 _PyRuntimeState_GetThreadState(_PyRuntimeState *runtime)
 {
@@ -1875,7 +1878,7 @@ insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
                     PyObject *value)
 {
     printf("called insert_to_emptydict; hash: %lld\n", hash);
-#ifdef DEBUG
+#ifdef EBUG
 #endif
 
     assert(mp->ma_keys == Py_EMPTY_KEYS);
@@ -1908,6 +1911,145 @@ insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
     return 0;
 }
 
+/* Optimized memcpy() for Windows */
+#ifdef _MSC_VER
+#  if SIZEOF_PY_UHASH_T == 4
+#    define PY_UHASH_CPY(dst, src) do {                                    \
+       dst[0] = src[0]; dst[1] = src[1]; dst[2] = src[2]; dst[3] = src[3]; \
+       } while(0)
+#  elif SIZEOF_PY_UHASH_T == 8
+#    define PY_UHASH_CPY(dst, src) do {                                    \
+       dst[0] = src[0]; dst[1] = src[1]; dst[2] = src[2]; dst[3] = src[3]; \
+       dst[4] = src[4]; dst[5] = src[5]; dst[6] = src[6]; dst[7] = src[7]; \
+       } while(0)
+#  else
+#    error SIZEOF_PY_UHASH_T must be 4 or 8
+#  endif /* SIZEOF_PY_UHASH_T */
+#else /* not Windows */
+#  define PY_UHASH_CPY(dst, src) memcpy(dst, src, SIZEOF_PY_UHASH_T)
+#endif /* _MSC_VER */
+
+/* **************************************************************************
+ * Modified Fowler-Noll-Vo (FNV) hash function
+ */
+static Py_hash_t
+fnv(const void *src, Py_ssize_t len)
+{
+    const unsigned char *p = src;
+    Py_uhash_t x;
+    Py_ssize_t remainder, blocks;
+    union {
+        Py_uhash_t value;
+        unsigned char bytes[SIZEOF_PY_UHASH_T];
+    } block;
+
+#ifdef Py_DEBUG
+    assert(_Py_HashSecret_Initialized);
+#endif
+    remainder = len % SIZEOF_PY_UHASH_T;
+    if (remainder == 0) {
+        /* Process at least one block byte by byte to reduce hash collisions
+         * for strings with common prefixes. */
+        remainder = SIZEOF_PY_UHASH_T;
+    }
+    blocks = (len - remainder) / SIZEOF_PY_UHASH_T;
+
+    x = (Py_uhash_t) _Py_HashSecret.fnv.prefix;
+    x ^= (Py_uhash_t) *p << 7;
+    while (blocks--) {
+        PY_UHASH_CPY(block.bytes, p);
+        x = (_PyHASH_MULTIPLIER * x) ^ block.value;
+        p += SIZEOF_PY_UHASH_T;
+    }
+    /* add remainder */
+    for (; remainder > 0; remainder--)
+        x = (_PyHASH_MULTIPLIER * x) ^ (Py_uhash_t) *p++;
+    x ^= (Py_uhash_t) len;
+    x ^= (Py_uhash_t) _Py_HashSecret.fnv.suffix;
+    if (x == (Py_uhash_t) -1) {
+        x = (Py_uhash_t) -2;
+    }
+    return x;
+}
+
+static PyHash_FuncDef PyHash_Func = {fnv, "fnv", 8 * SIZEOF_PY_HASH_T,
+                                     16 * SIZEOF_PY_HASH_T};
+
+Py_hash_t
+custom_Py_HashBytes(const void *src, Py_ssize_t len)
+{
+    Py_hash_t x;
+    /*
+      We make the hash of the empty string be 0, rather than using
+      (prefix ^ suffix), since this slightly obfuscates the hash secret
+    */
+    if (len == 0) {
+        return 0;
+    }
+
+#ifdef Py_HASH_STATS
+    hashstats[(len <= Py_HASH_STATS_MAX) ? len : 0]++;
+#endif
+
+#if Py_HASH_CUTOFF > 0
+    if (len < Py_HASH_CUTOFF) {
+        /* Optimize hashing of very small strings with inline DJBX33A. */
+        Py_uhash_t hash;
+        const unsigned char *p = src;
+        hash = 5381; /* DJBX33A starts with 5381 */
+
+        switch(len) {
+            /* ((hash << 5) + hash) + *p == hash * 33 + *p */
+            case 7: hash = ((hash << 5) + hash) + *p++; /* fallthrough */
+            case 6: hash = ((hash << 5) + hash) + *p++; /* fallthrough */
+            case 5: hash = ((hash << 5) + hash) + *p++; /* fallthrough */
+            case 4: hash = ((hash << 5) + hash) + *p++; /* fallthrough */
+            case 3: hash = ((hash << 5) + hash) + *p++; /* fallthrough */
+            case 2: hash = ((hash << 5) + hash) + *p++; /* fallthrough */
+            case 1: hash = ((hash << 5) + hash) + *p++; break;
+            default:
+                Py_UNREACHABLE();
+        }
+        hash ^= len;
+        hash ^= (Py_uhash_t) _Py_HashSecret.djbx33a.suffix;
+        x = (Py_hash_t)hash;
+    }
+    else
+#endif /* Py_HASH_CUTOFF */
+        x = PyHash_Func.hash(src, len);
+
+    if (x == -1)
+        return -2;
+    return x;
+}
+
+/* Believe it or not, this produces the same value for ASCII strings
+   as bytes_hash(). */
+static Py_hash_t
+unicode_hash(PyObject *self)
+{
+    Py_uhash_t x;  /* Unsigned for defined overflow behavior. */
+
+#ifdef Py_DEBUG
+    assert(_Py_HashSecret_Initialized);
+#endif
+    /* if (_PyUnicode_HASH(self) != -1) {
+        printf("_PyUnicode_HASH(self) != -1.\n");
+
+        return _PyUnicode_HASH(self);
+    }
+    if (PyUnicode_READY(self) == -1)
+        return -1; */
+
+#ifdef EBUG
+    printf("unicode_hash calling custom_Py_HashBytes.\n");
+
+    x = custom_Py_HashBytes(PyUnicode_DATA(self),
+                      PyUnicode_GET_LENGTH(self) * PyUnicode_KIND(self));
+    _PyUnicode_HASH(self) = x;
+    return x;
+}
+
 Py_hash_t
 custom_PyObject_Hash(PyObject *v)
 {
@@ -1920,8 +2062,8 @@ custom_PyObject_Hash(PyObject *v)
     if (tp->tp_hash != NULL) {
         printf("custom_PyObject_Hash if statement.\n");
 
-        return (*tp->tp_hash)(v);
-        // return unicode_hash(v);
+        // return (*tp->tp_hash)(v);
+        return unicode_hash(v);
     }
     /* To keep to the general practice that inheriting
      * solely from object in C code should work without
@@ -1948,7 +2090,7 @@ int
 custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value)
 {
     printf("called custom_PyDict_SetItem\n");
-#ifdef DEBUG
+#ifdef EBUG
 #endif
 
     PyDictObject *mp;
@@ -1982,7 +2124,7 @@ static int
 dict_merge(PyObject *a, PyObject *b, int override)
 {
     printf("dict_merge override: %d\n", override);
-#ifdef DEBUG
+#ifdef EBUG
 #endif
 
     PyDictObject *mp, *other;
