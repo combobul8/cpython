@@ -1933,7 +1933,7 @@ insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
  * Modified Fowler-Noll-Vo (FNV) hash function
  */
 static Py_hash_t
-fnv(const void *src, Py_ssize_t len)
+fnv(const void *src, Py_ssize_t len, Py_ssize_t prefix, Py_ssize_t suffix)
 {
     const unsigned char *p = src;
     Py_uhash_t x;
@@ -1957,7 +1957,7 @@ fnv(const void *src, Py_ssize_t len)
     // printf("_Py_HashSecret.fnv.prefix: %lld.\n", _Py_HashSecret.fnv.prefix);
 
     // x = (Py_uhash_t) _Py_HashSecret.fnv.prefix;
-    x = 0;
+    x = prefix;
     x ^= (Py_uhash_t) *p << 7;
     while (blocks--) {
         PY_UHASH_CPY(block.bytes, p);
@@ -1969,18 +1969,15 @@ fnv(const void *src, Py_ssize_t len)
         x = (_PyHASH_MULTIPLIER * x) ^ (Py_uhash_t) *p++;
     x ^= (Py_uhash_t) len;
     // x ^= (Py_uhash_t) _Py_HashSecret.fnv.suffix;
-    x ^= 0;
+    x ^= suffix;
     if (x == (Py_uhash_t) -1) {
         x = (Py_uhash_t) -2;
     }
     return x;
 }
 
-static PyHash_FuncDef PyHash_Func = {fnv, "fnv", 8 * SIZEOF_PY_HASH_T,
-                                     16 * SIZEOF_PY_HASH_T};
-
 Py_hash_t
-custom_Py_HashBytes(const void *src, Py_ssize_t len)
+custom_Py_HashBytes(const void *src, Py_ssize_t len, Py_ssize_t prefix, Py_ssize_t suffix)
 {
     Py_hash_t x;
     /*
@@ -2020,14 +2017,9 @@ custom_Py_HashBytes(const void *src, Py_ssize_t len)
         hash ^= (Py_uhash_t) _Py_HashSecret.djbx33a.suffix;
         x = (Py_hash_t)hash;
     }
-    else {
+    else
 #endif /* Py_HASH_CUTOFF */
-        printf("custom_Py_HashBytes calling PyHash_Func.hash.\n");
-        x = PyHash_Func.hash(src, len);
-
-#if Py_HASH_CUTOFF > 0
-    }
-#endif
+        x = fnv(src, len, prefix, suffix);
 
     if (x == -1)
         return -2;
@@ -2037,7 +2029,7 @@ custom_Py_HashBytes(const void *src, Py_ssize_t len)
 /* Believe it or not, this produces the same value for ASCII strings
    as bytes_hash(). */
 static Py_hash_t
-unicode_hash(PyObject *self)
+unicode_hash(PyObject *self, Py_ssize_t prefix, Py_ssize_t suffix)
 {
     Py_uhash_t x;  /* Unsigned for defined overflow behavior. */
 
@@ -2057,7 +2049,9 @@ unicode_hash(PyObject *self)
 #endif
 
     x = custom_Py_HashBytes(PyUnicode_DATA(self),
-                      PyUnicode_GET_LENGTH(self) * PyUnicode_KIND(self));
+                      PyUnicode_GET_LENGTH(self) * PyUnicode_KIND(self),
+                      prefix,
+                      suffix);
     _PyUnicode_HASH(self) = x;
     return x;
 }
@@ -2075,7 +2069,7 @@ custom_PyObject_Hash(PyObject *v)
         printf("custom_PyObject_Hash if statement.\n");
 
         // return (*tp->tp_hash)(v);
-        return unicode_hash(v);
+        return unicode_hash(v, 0, 0);
     }
     /* To keep to the general practice that inheriting
      * solely from object in C code should work without
