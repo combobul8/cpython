@@ -93,10 +93,10 @@ Custom_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
-                   const char *methname)
+                   const char *methname, size_t (*next)(size_t))
 {
-#ifdef EBUG
     printf("called dict_update_common\n");
+#ifdef EBUG
 #endif
 
     PyObject *arg = NULL;
@@ -106,7 +106,7 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
         result = -1;
     }
     else if (arg != NULL) {
-        result = dict_update_arg(self, arg);
+        result = dict_update_arg(self, arg, next);
     }
 
     if (result == 0 && kwds != NULL) {
@@ -118,6 +118,12 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
             result = -1;
     }
     return result;
+}
+
+size_t
+next(int i)
+{
+    return 
 }
 
 static int
@@ -157,7 +163,7 @@ dict___contains__(PyDictObject *self, PyObject *key)
         if (hash == -1)
             return NULL;
     }
-    ix = _Py_dict_lookup(mp, key, hash, &value, &num_cmps);
+    // ix = _Py_dict_lookup(mp, key, hash, &value, &num_cmps);
     if (ix == DKIX_ERROR)
         return NULL;
     if (ix == DKIX_EMPTY || value == NULL)
@@ -200,7 +206,7 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value)
             return NULL;
     }
     int num_cmps;
-    ix = _Py_dict_lookup(self, key, hash, &val, &num_cmps);
+    // ix = _Py_dict_lookup(self, key, hash, &val, &num_cmps);
     printf("num_cmps: %d\n", num_cmps);
 
 #ifdef EBUG
@@ -499,7 +505,7 @@ _PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
             }
 
             while (_PyDict_Next(iterable, &pos, &key, &oldvalue, &hash)) {
-                if (insertdict(mp, key, hash, value)) {
+                if (/*insertdict(mp, key, hash, value)*/ 1) {
                     Py_DECREF(d);
                     return NULL;
                 }
@@ -518,7 +524,7 @@ _PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
             }
 
             while (_PySet_NextEntry(iterable, &pos, &key, &hash)) {
-                if (insertdict(mp, key, hash, value)) {
+                if (/*insertdict(mp, key, hash, value)*/ 1) {
                     Py_DECREF(d);
                     return NULL;
                 }
@@ -535,7 +541,7 @@ _PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
 
     if (PyDict_CheckExact(d)) {
         while ((key = PyIter_Next(it)) != NULL) {
-            status = custom_PyDict_SetItem(d, key, value);
+            // status = custom_PyDict_SetItem(d, key, value);
             Py_DECREF(key);
             if (status < 0)
                 goto Fail;
@@ -849,7 +855,7 @@ dict_equal(PyDictObject *a, PyDictObject *b)
             /* ditto for key */
             Py_INCREF(key);
             /* reuse the known hash value */
-            _Py_dict_lookup(b, key, ep->me_hash, &bval, &num_cmps);
+            // _Py_dict_lookup(b, key, ep->me_hash, &bval, &num_cmps);
             if (bval == NULL) {
                 Py_DECREF(key);
                 Py_DECREF(aval);
@@ -1001,7 +1007,7 @@ dict_vectorcall(PyObject *type, PyObject * const*args,
         return NULL;
     }
     if (nargs == 1) {
-        if (dict_update_arg(self, args[0]) < 0) {
+        if (/* dict_update_arg(self, args[0]) < 0 */ 0) {
             Py_DECREF(self);
             return NULL;
         }
@@ -1009,7 +1015,7 @@ dict_vectorcall(PyObject *type, PyObject * const*args,
     }
     if (kwnames != NULL) {
         for (Py_ssize_t i = 0; i < PyTuple_GET_SIZE(kwnames); i++) {
-            if (custom_PyDict_SetItem(self, PyTuple_GET_ITEM(kwnames, i), args[i]) < 0) {
+            if (/*custom_PyDict_SetItem(self, PyTuple_GET_ITEM(kwnames, i), args[i])*/ 1 < 0) {
                 Py_DECREF(self);
                 return NULL;
             }
