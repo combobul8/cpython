@@ -1311,8 +1311,8 @@ new_keys_object(uint8_t log2_size)
 
     usable = USABLE_FRACTION(1<<log2_size);
 
-#ifdef EBUG
     printf("usable: %lld.\n", usable);
+#ifdef EBUG
 #endif
 
     if (log2_size <= 7) {
@@ -1796,7 +1796,6 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
     Py_INCREF(key);
     Py_INCREF(value);
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
-        printf("insertdict first if statement.\n");
         if (insertion_resize(mp) < 0)
             goto Fail;
     }
@@ -1814,7 +1813,6 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
     if (_PyDict_HasSplitTable(mp) &&
         ((ix >= 0 && old_value == NULL && mp->ma_used != ix) ||
          (ix == DKIX_EMPTY && mp->ma_used != mp->ma_keys->dk_nentries))) {
-        printf("insertdict HasSplitTable.\n");
         if (insertion_resize(mp) < 0)
             goto Fail;
         ix = DKIX_EMPTY;
@@ -1826,7 +1824,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
         assert(old_value == NULL);
         if (mp->ma_keys->dk_usable <= 0) {
             /* Need to resize. */
-                printf("insertdict dk_usable <= 0.\n");
+            printf("insertdict dk_usable <= 0.\n");
             if (insertion_resize(mp) < 0)
                 goto Fail;
         }
