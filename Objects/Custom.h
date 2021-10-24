@@ -1877,8 +1877,8 @@ static int
 insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
                     PyObject *value)
 {
-    printf("called insert_to_emptydict; hash: %lld\n", hash);
 #ifdef EBUG
+    printf("called insert_to_emptydict; hash: %lld\n", hash);
 #endif
 
     assert(mp->ma_keys == Py_EMPTY_KEYS);
@@ -2059,15 +2059,9 @@ unicode_hash(PyObject *self, Py_ssize_t prefix, Py_ssize_t suffix)
 Py_hash_t
 custom_PyObject_Hash(PyObject *v)
 {
-    printf("called custom_PyObject_Hash\n");
-
     PyTypeObject *tp = Py_TYPE(v);
 
-    printf("custom_PyObject_Hash tp->name: %s\n", tp->tp_name);
-
     if (tp->tp_hash != NULL) {
-        printf("custom_PyObject_Hash if statement.\n");
-
         // return (*tp->tp_hash)(v);
         return unicode_hash(v, 0, 0);
     }
@@ -2095,8 +2089,8 @@ custom_PyObject_Hash(PyObject *v)
 int
 custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value)
 {
-    printf("called custom_PyDict_SetItem\n");
 #ifdef EBUG
+    printf("called custom_PyDict_SetItem\n");
 #endif
 
     PyDictObject *mp;
@@ -2129,8 +2123,8 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value)
 static int
 dict_merge(PyObject *a, PyObject *b, int override)
 {
-    printf("dict_merge override: %d\n", override);
 #ifdef EBUG
+    printf("dict_merge override: %d\n", override);
 #endif
 
     PyDictObject *mp, *other;
@@ -2150,8 +2144,6 @@ dict_merge(PyObject *a, PyObject *b, int override)
     }
     mp = (PyDictObject*)a;
     if (PyDict_Check(b) && (Py_TYPE(b)->tp_iter == (getiterfunc)dict_iter)) {
-        printf("dict_merge if condition true.\n");
-
         other = (PyDictObject*)b;
         if (other == mp || other->ma_used == 0)
             /* a.update(a) or a.update({}); nothing to do */
@@ -2251,8 +2243,6 @@ dict_merge(PyObject *a, PyObject *b, int override)
         }
     }
     else {
-        printf("dict_merge else.\n");
-
         /* Do it the generic, slower way */
         PyObject *keys = PyMapping_Keys(b);
         PyObject *iter;
@@ -2273,7 +2263,9 @@ dict_merge(PyObject *a, PyObject *b, int override)
             return -1;
 
         for (key = PyIter_Next(iter); key; key = PyIter_Next(iter)) {
+#ifdef EBUG
             printf("dict_merge for loop iteration.\n");
+#endif
 
             if (override != 1) {
                 status = PyDict_Contains(a, key);
@@ -2322,8 +2314,8 @@ dict_merge(PyObject *a, PyObject *b, int override)
 int
 custom_PyDict_Merge(PyObject *a, PyObject *b, int override)
 {
-    printf("called custom_PyDict_Merge\n");
 #ifdef EBUG
+    printf("called custom_PyDict_Merge\n");
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
@@ -2334,12 +2326,11 @@ custom_PyDict_Merge(PyObject *a, PyObject *b, int override)
 static int
 dict_update_arg(PyObject *self, PyObject *arg)
 {
-    printf("called dict_update_arg\n");
 #ifdef EBUG
+    printf("called dict_update_arg\n");
 #endif
 
     if (PyDict_CheckExact(arg)) {
-        printf("dict_update_arg PyDSict_CheckExact returned non-zero.\n");
         return custom_PyDict_Merge(self, arg, 1);
     }
     _Py_IDENTIFIER(keys);

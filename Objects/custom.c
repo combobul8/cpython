@@ -95,8 +95,8 @@ static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname)
 {
-    printf("called dict_update_common\n");
 #ifdef EBUG
+    printf("called dict_update_common\n");
 #endif
 
     PyObject *arg = NULL;
@@ -106,7 +106,6 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
         result = -1;
     }
     else if (arg != NULL) {
-        printf("calling dict_update_arg\n");
         result = dict_update_arg(self, arg);
     }
 
@@ -124,8 +123,8 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
 static int
 dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    printf("called dict_init\n");
 #ifdef EBUG
+    printf("called dict_init\n");
 #endif
 
     return dict_update_common(self, args, kwds, "dict");
@@ -450,8 +449,8 @@ dictvalues_new(PyObject *dict, PyObject *Py_UNUSED(ignored))
 static PyObject *
 my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    printf("\ncalled my_dict_update\n");
 #ifdef EBUG
+    printf("\ncalled my_dict_update\n");
 #endif
 
     int dict_update_common_rv;
