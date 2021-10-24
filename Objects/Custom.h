@@ -1612,10 +1612,10 @@ insertion_resize(PyDictObject *mp)
 
 // TODO: insert random strings and measure how much probing is needed for find.
 Py_ssize_t _Py_HOT_FUNCTION
-_Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr)
+_Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
 {
-    printf("called _Py_dict_lookup\n");
 #ifdef EBUG
+    printf("called _Py_dict_lookup\n");
 #endif
 
     PyDictKeysObject *dk;
@@ -1627,17 +1627,21 @@ start:
     size_t perturb = hash;
     size_t i = (size_t)hash & mask;
     Py_ssize_t ix;
+    *num_cmps = 0;
     if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
         /* Strings only */
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("0(i, ix): (%lld, %lld)\n", i, ix);
+#endif
 
             if (ix >= 0) {
                 PyDictKeyEntry *ep = &ep0[ix];
                 assert(ep->me_key != NULL);
                 assert(PyUnicode_CheckExact(ep->me_key));
+                (*num_cmps)++;
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
                     goto found;
@@ -1651,12 +1655,15 @@ start:
             i = mask & (i*5 + perturb + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("1(i, ix): (%lld, %lld)\n", i, ix);
+#endif
 
             if (ix >= 0) {
                 PyDictKeyEntry *ep = &ep0[ix];
                 assert(ep->me_key != NULL);
                 assert(PyUnicode_CheckExact(ep->me_key));
+                (*num_cmps)++;
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
                     goto found;
@@ -1745,15 +1752,10 @@ find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash)
     const size_t mask = DK_MASK(keys);
     size_t i = hash & mask;
 
-    printf("find_empty_slot calls dictkeys_get_index before the for loop.\n");
-
     Py_ssize_t ix = dictkeys_get_index(keys, i);
     for (size_t perturb = hash; ix >= 0;) {
         perturb >>= PERTURB_SHIFT;
         i = (i*5 + perturb + 1) & mask;
-
-        printf("find_empty_slot computed a new i.\n");
-
         ix = dictkeys_get_index(keys, i);
     }
     return i;
@@ -1777,9 +1779,8 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
             goto Fail;
     }
 
-    printf("insertdict calls _Py_dict_lookup\n");
-
-    Py_ssize_t ix = _Py_dict_lookup(mp, key, hash, &old_value);
+    int num_cmps;   /* currently not measuring the efficiency of insert */
+    Py_ssize_t ix = _Py_dict_lookup(mp, key, hash, &old_value, &num_cmps);
     if (ix == DKIX_ERROR)
         goto Fail;
 
@@ -1808,8 +1809,6 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
         if (!PyUnicode_CheckExact(key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
-
-        printf("insert_dict calls find_empty_slot\n");
 
         Py_ssize_t hashpos = find_empty_slot(mp->ma_keys, hash);
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
@@ -1865,8 +1864,9 @@ custom_PyDict_Contains_KnownHash(PyObject *op, PyObject *key, Py_hash_t hash)
     PyDictObject *mp = (PyDictObject *)op;
     PyObject *value;
     Py_ssize_t ix;
+    int num_cmps;   // currently unused
 
-    ix = _Py_dict_lookup(mp, key, hash, &value);
+    ix = _Py_dict_lookup(mp, key, hash, &value, &num_cmps);
     if (ix == DKIX_ERROR)
         return -1;
     return (ix != DKIX_EMPTY && value != NULL);
@@ -2403,6 +2403,7 @@ dict_subscript(PyDictObject *mp, PyObject *key)
     Py_ssize_t ix;
     Py_hash_t hash;
     PyObject *value;
+    int num_cmps;   // currently unused
 
     if (!PyUnicode_CheckExact(key) ||
         (hash = ((PyASCIIObject *) key)->hash) == -1) {
@@ -2410,7 +2411,7 @@ dict_subscript(PyDictObject *mp, PyObject *key)
         if (hash == -1)
             return NULL;
     }
-    ix = _Py_dict_lookup(mp, key, hash, &value);
+    ix = _Py_dict_lookup(mp, key, hash, &value, &num_cmps);
     if (ix == DKIX_ERROR)
         return NULL;
     if (ix == DKIX_EMPTY || value == NULL) {

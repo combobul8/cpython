@@ -149,6 +149,7 @@ dict___contains__(PyDictObject *self, PyObject *key)
     Py_hash_t hash;
     Py_ssize_t ix;
     PyObject *value;
+    int num_cmps;   // currently unused
 
     if (!PyUnicode_CheckExact(key) ||
         (hash = ((PyASCIIObject *) key)->hash) == -1) {
@@ -156,7 +157,7 @@ dict___contains__(PyDictObject *self, PyObject *key)
         if (hash == -1)
             return NULL;
     }
-    ix = _Py_dict_lookup(mp, key, hash, &value);
+    ix = _Py_dict_lookup(mp, key, hash, &value, &num_cmps);
     if (ix == DKIX_ERROR)
         return NULL;
     if (ix == DKIX_EMPTY || value == NULL)
@@ -198,7 +199,9 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value)
         if (hash == -1)
             return NULL;
     }
-    ix = _Py_dict_lookup(self, key, hash, &val);
+    int num_cmps;
+    ix = _Py_dict_lookup(self, key, hash, &val, &num_cmps);
+    printf("num_cmps: %d\n", num_cmps);
 
 #ifdef EBUG
     printf("after _Py_dict_lookup\n");
@@ -839,13 +842,14 @@ dict_equal(PyDictObject *a, PyDictObject *b)
             int cmp;
             PyObject *bval;
             PyObject *key = ep->me_key;
+            int num_cmps;   // currently unused
             /* temporarily bump aval's refcount to ensure it stays
                alive until we're done with it */
             Py_INCREF(aval);
             /* ditto for key */
             Py_INCREF(key);
             /* reuse the known hash value */
-            _Py_dict_lookup(b, key, ep->me_hash, &bval);
+            _Py_dict_lookup(b, key, ep->me_hash, &bval, &num_cmps);
             if (bval == NULL) {
                 Py_DECREF(key);
                 Py_DECREF(aval);
