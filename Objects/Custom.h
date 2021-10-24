@@ -1310,6 +1310,11 @@ new_keys_object(uint8_t log2_size)
     assert(log2_size >= PyDict_LOG_MINSIZE);
 
     usable = USABLE_FRACTION(1<<log2_size);
+
+#ifdef EBUG
+    printf("usable: %lld.\n", usable);
+#endif
+
     if (log2_size <= 7) {
         es = 1;
     }
@@ -1340,6 +1345,10 @@ new_keys_object(uint8_t log2_size)
     }
     else
     {
+#ifdef EBUG
+        printf("es<<log2_size: %lld.\n", (es<<log2_size));
+#endif
+
         dk = PyObject_Malloc(sizeof(PyDictKeysObject)
                              + (es<<log2_size)
                              + sizeof(PyDictKeyEntry) * usable);
@@ -1413,13 +1422,19 @@ dictkeys_set_index(PyDictKeysObject *keys, Py_ssize_t i, Py_ssize_t ix)
         int8_t *indices = (int8_t*)(keys->dk_indices);
         assert(ix <= 0x7f);
         indices[i] = (char)ix;
+
+#ifdef EBUG
         printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
+#endif
     }
     else if (s <= 0xffff) {
         int16_t *indices = (int16_t*)(keys->dk_indices);
         assert(ix <= 0x7fff);
         indices[i] = (int16_t)ix;
+
+#ifdef EBUG
         printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
+#endif
     }
 #if SIZEOF_VOID_P > 4
     else if (s > 0xffffffff) {
@@ -1465,6 +1480,8 @@ but can be resplit by make_keys_shared().
 static int
 dictresize(PyDictObject *mp, uint8_t log2_newsize)
 {
+    // printf("dictresize log2_newsize: %ld.\n", log2_newsize);
+
     Py_ssize_t numentries;
     PyDictKeysObject *oldkeys;
     PyObject **oldvalues;
@@ -1478,6 +1495,8 @@ dictresize(PyDictObject *mp, uint8_t log2_newsize)
 
     oldkeys = mp->ma_keys;
 
+    printf("old capacity: %lld.\n", DK_SIZE(mp->ma_keys));
+
     /* NOTE: Current odict checks mp->ma_keys to detect resize happen.
      * So we can't reuse oldkeys even if oldkeys->dk_size == newsize.
      * TODO: Try reusing oldkeys when reimplement odict.
@@ -1489,6 +1508,8 @@ dictresize(PyDictObject *mp, uint8_t log2_newsize)
         mp->ma_keys = oldkeys;
         return -1;
     }
+    printf("capacity: %lld.\n", DK_SIZE(mp->ma_keys));
+
     // New table must be large enough.
     assert(mp->ma_keys->dk_usable >= mp->ma_used);
     if (oldkeys->dk_kind == DICT_KEYS_GENERAL)
@@ -1775,6 +1796,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
     Py_INCREF(key);
     Py_INCREF(value);
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
+        printf("insertdict first if statement.\n");
         if (insertion_resize(mp) < 0)
             goto Fail;
     }
@@ -1792,6 +1814,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
     if (_PyDict_HasSplitTable(mp) &&
         ((ix >= 0 && old_value == NULL && mp->ma_used != ix) ||
          (ix == DKIX_EMPTY && mp->ma_used != mp->ma_keys->dk_nentries))) {
+        printf("insertdict HasSplitTable.\n");
         if (insertion_resize(mp) < 0)
             goto Fail;
         ix = DKIX_EMPTY;
@@ -1803,6 +1826,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
         assert(old_value == NULL);
         if (mp->ma_keys->dk_usable <= 0) {
             /* Need to resize. */
+                printf("insertdict dk_usable <= 0.\n");
             if (insertion_resize(mp) < 0)
                 goto Fail;
         }
@@ -2104,7 +2128,10 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value)
     mp = (PyDictObject *)op;
 
     hash = custom_PyObject_Hash(key);
+
+#ifdef EBUG
     printf("custom_PyDict_setItem hash: %lld\n", hash);
+#endif
 
     if (!PyUnicode_CheckExact(key) ||
         (hash = ((PyASCIIObject *) key)->hash) == -1)

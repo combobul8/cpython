@@ -14,10 +14,12 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
             mycustom.update({word: i})
 
         i += 1
+        print("i: " + str(i))
 
         if i >= 1024:
-            # break
-            mycustom.get(word)
+            break
+            # mycustom.get(word)
+            None
         if i >= 2048:
             break
 toc = time.perf_counter()
