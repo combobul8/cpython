@@ -16,7 +16,7 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
         i += 1
         # print("i: " + str(i))
 
-        if i >= 8:
+        if i >= 16:
             break
             # mycustom.get(word)
             None
@@ -27,5 +27,5 @@ toc = time.perf_counter()
 
 for key in list(mycustom.keys()):
     # print(mycustom.get(key))
-    # mycustom.get(key)
+    mycustom.get(key)
     None
