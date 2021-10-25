@@ -93,7 +93,8 @@ Custom_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
-                   const char *methname, size_t (*next)(size_t))
+                   const char *methname,
+                   Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
     printf("called dict_update_common\n");
 #ifdef EBUG
@@ -106,24 +107,17 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
         result = -1;
     }
     else if (arg != NULL) {
-        result = dict_update_arg(self, arg, next);
+        result = dict_update_arg(self, arg, lookup);
     }
 
     if (result == 0 && kwds != NULL) {
         if (PyArg_ValidateKeywordArguments(kwds)) {
-            printf("calling PyDict_Merge\n");
             result = PyDict_Merge(self, kwds, 1);
         }
         else
             result = -1;
     }
     return result;
-}
-
-size_t
-next(int i)
-{
-    return 
 }
 
 static int
@@ -133,7 +127,7 @@ dict_init(PyObject *self, PyObject *args, PyObject *kwds)
     printf("called dict_init\n");
 #endif
 
-    return dict_update_common(self, args, kwds, "dict");
+    return dict_update_common(self, args, kwds, "dict", _Py_dict_lookup);
 }
 
 /*[clinic input]
@@ -463,7 +457,7 @@ my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 #endif
 
     int dict_update_common_rv;
-    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update")) != -1) {
+    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", _Py_dict_lookup)) != -1) {
 #ifdef EBUG
         printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
 #endif

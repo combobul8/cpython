@@ -1628,8 +1628,7 @@ insertion_resize(PyDictObject *mp)
 
 // TODO: insert random strings and measure how much probing is needed for find.
 Py_ssize_t _Py_HOT_FUNCTION
-_Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps,
-        size_t (*next)(size_t))
+_Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
 {
 #ifdef EBUG
     printf("called _Py_dict_lookup\n");
@@ -1786,7 +1785,8 @@ Used both by the internal resize routine and by the public insert routine.
 Returns -1 if an error occurred, or 0 on success.
 */
 static int
-insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value, size_t (*next)(size_t))
+insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
+        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
     PyObject *old_value;
     PyDictKeyEntry *ep;
@@ -1799,7 +1799,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value, siz
     }
 
     int num_cmps;   /* currently not measuring the efficiency of insert */
-    Py_ssize_t ix = _Py_dict_lookup(mp, key, hash, &old_value, &num_cmps, next);
+    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &num_cmps, next);
     if (ix == DKIX_ERROR)
         goto Fail;
 
@@ -2105,7 +2105,8 @@ custom_PyObject_Hash(PyObject *v)
  * remove them.
  */
 int
-custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value, size_t (*next)(size_t))
+custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
+        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
     printf("called custom_PyDict_SetItem\n");
 #ifdef EBUG
@@ -2138,11 +2139,12 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value, size_t (*nex
         return insert_to_emptydict(mp, key, hash, value);
     }
     /* insertdict() handles any resizing that might be necessary */
-    return insertdict(mp, key, hash, value, next);
+    return insertdict(mp, key, hash, value, lookup);
 }
 
 static int
-dict_merge(PyObject *a, PyObject *b, int override, size_t (*next)(size_t))
+dict_merge(PyObject *a, PyObject *b, int override, size_t (*next)(size_t),
+        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
     printf("dict_merge override: %d\n", override);
 #ifdef EBUG
@@ -2234,11 +2236,11 @@ dict_merge(PyObject *a, PyObject *b, int override, size_t (*next)(size_t))
                 Py_INCREF(key);
                 Py_INCREF(value);
                 if (override == 1)
-                    err = insertdict(mp, key, hash, value, next);
+                    err = insertdict(mp, key, hash, value, lookup);
                 else {
                     err = custom_PyDict_Contains_KnownHash(a, key, hash);
                     if (err == 0) {
-                        err = insertdict(mp, key, hash, value, next);
+                        err = insertdict(mp, key, hash, value, lookup);
                     }
                     else if (err > 0) {
                         if (override != 0) {
@@ -2310,7 +2312,7 @@ dict_merge(PyObject *a, PyObject *b, int override, size_t (*next)(size_t))
                 Py_DECREF(key);
                 return -1;
             }
-            status = custom_PyDict_SetItem(a, key, value, next);
+            status = custom_PyDict_SetItem(a, key, value, lookup);
 
 #ifdef EBUG
             printf("status: %d\n", status);
@@ -2333,26 +2335,28 @@ dict_merge(PyObject *a, PyObject *b, int override, size_t (*next)(size_t))
 }
 
 int
-custom_PyDict_Merge(PyObject *a, PyObject *b, int override, size_t (*next)(size_t))
+custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
+        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
     printf("called custom_PyDict_Merge\n");
 #ifdef EBUG
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
-    return dict_merge(a, b, override != 0, next);
+    return dict_merge(a, b, override != 0, lookup);
 }
 
 /* Single-arg dict update; used by dict_update_common and operators. */
 static int
-dict_update_arg(PyObject *self, PyObject *arg, size_t (*next)(size_t))
+dict_update_arg(PyObject *self, PyObject *arg
+        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
     printf("called dict_update_arg\n");
 #ifdef EBUG
 #endif
 
     if (PyDict_CheckExact(arg)) {
-        return custom_PyDict_Merge(self, arg, 1, next);
+        return custom_PyDict_Merge(self, arg, 1, lookup);
     }
     _Py_IDENTIFIER(keys);
     PyObject *func;
@@ -2361,7 +2365,7 @@ dict_update_arg(PyObject *self, PyObject *arg, size_t (*next)(size_t))
     }
     if (func != NULL) {
         Py_DECREF(func);
-        return custom_PyDict_Merge(self, arg, 1, next);
+        return custom_PyDict_Merge(self, arg, 1, lookup);
     }
     return PyDict_MergeFromSeq2(self, arg, 1);
 }
