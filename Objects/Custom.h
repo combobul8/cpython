@@ -1413,8 +1413,8 @@ dictkeys_set_index(PyDictKeysObject *keys, Py_ssize_t i, Py_ssize_t ix)
         assert(ix <= 0x7f);
         indices[i] = (char)ix;
 
-#ifdef EBUG
         printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
+#ifdef EBUG
 #endif
     }
     else if (s <= 0xffff) {
@@ -1422,8 +1422,8 @@ dictkeys_set_index(PyDictKeysObject *keys, Py_ssize_t i, Py_ssize_t ix)
         assert(ix <= 0x7fff);
         indices[i] = (int16_t)ix;
 
-#ifdef EBUG
         printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
+#ifdef EBUG
 #endif
     }
 #if SIZEOF_VOID_P > 4
@@ -1747,7 +1747,6 @@ custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_
 #endif
 
     PyDictKeysObject *dk;
-start:
     dk = mp->ma_keys;
     DictKeysKind kind = dk->dk_kind;
     PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
@@ -2196,8 +2195,8 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
 
     hash = custom_PyObject_Hash(key);
 
-    printf("custom_PyDict_SetItem hash: %lld\n", hash);
 #ifdef EBUG
+    printf("custom_PyDict_SetItem hash: %lld\n", hash);
 #endif
 
     if (!PyUnicode_CheckExact(key) ||
