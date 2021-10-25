@@ -2106,8 +2106,8 @@ int
 custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
-    printf("called custom_PyDict_SetItem\n");
 #ifdef EBUG
+    printf("called custom_PyDict_SetItem\n");
 #endif
 
     PyDictObject *mp;
@@ -2122,8 +2122,8 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
 
     hash = custom_PyObject_Hash(key);
 
+    printf("custom_PyDict_SetItem hash: %lld\n", hash);
 #ifdef EBUG
-    printf("custom_PyDict_setItem hash: %lld\n", hash);
 #endif
 
     if (!PyUnicode_CheckExact(key) ||
@@ -2144,8 +2144,8 @@ static int
 dict_merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
-    printf("dict_merge override: %d\n", override);
 #ifdef EBUG
+    printf("dict_merge override: %d\n", override);
 #endif
 
     PyDictObject *mp, *other;
@@ -2336,8 +2336,8 @@ int
 custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
-    printf("called custom_PyDict_Merge\n");
 #ifdef EBUG
+    printf("called custom_PyDict_Merge\n");
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
@@ -2349,8 +2349,8 @@ static int
 dict_update_arg(PyObject *self, PyObject *arg,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
-    printf("called dict_update_arg\n");
 #ifdef EBUG
+    printf("called dict_update_arg\n");
 #endif
 
     if (PyDict_CheckExact(arg)) {

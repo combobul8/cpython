@@ -96,8 +96,8 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname,
                    Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
-    printf("called dict_update_common\n");
 #ifdef EBUG
+    printf("called dict_update_common\n");
 #endif
 
     PyObject *arg = NULL;
