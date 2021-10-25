@@ -147,9 +147,9 @@ dict___contains__(PyDictObject *self, PyObject *key)
 {
     register PyDictObject *mp = self;
     Py_hash_t hash;
-    Py_ssize_t ix;
-    PyObject *value;
-    int num_cmps;   // currently unused
+    Py_ssize_t ix = 0;
+    PyObject *value = key;
+    // int num_cmps;   // currently unused
 
     if (!PyUnicode_CheckExact(key) ||
         (hash = ((PyASCIIObject *) key)->hash) == -1) {
@@ -182,7 +182,8 @@ Return the value for key if key is in the dictionary, else default.
 [clinic start generated code]*/
 
 static PyObject *
-dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value)
+dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value,
+        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 /*[clinic end generated code: output=bba707729dee05bf input=279ddb5790b6b107]*/
 {
 #ifdef EBUG
@@ -200,7 +201,7 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value)
             return NULL;
     }
     int num_cmps;
-    // ix = _Py_dict_lookup(self, key, hash, &val, &num_cmps);
+    ix = lookup(self, key, hash, &val, &num_cmps);
     printf("num_cmps: %d\n", num_cmps);
 
 #ifdef EBUG
@@ -325,7 +326,7 @@ dict_get(PyDictObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
     default_value = args[1];
 skip_optional:
-    return_value = dict_get_impl(self, key, default_value);
+    return_value = dict_get_impl(self, key, default_value, _Py_dict_lookup);
 
 exit:
     return return_value;
@@ -479,7 +480,7 @@ _PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
     PyObject *it;       /* iter(iterable) */
     PyObject *key;
     PyObject *d;
-    int status;
+    int status = 0;
 
     d = _PyObject_CallNoArg(cls);
     if (d == NULL)
@@ -842,7 +843,7 @@ dict_equal(PyDictObject *a, PyDictObject *b)
             int cmp;
             PyObject *bval;
             PyObject *key = ep->me_key;
-            int num_cmps;   // currently unused
+            // int num_cmps;   // currently unused
             /* temporarily bump aval's refcount to ensure it stays
                alive until we're done with it */
             Py_INCREF(aval);

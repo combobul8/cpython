@@ -1668,8 +1668,7 @@ start:
                 return DKIX_EMPTY;
             }
             perturb >>= PERTURB_SHIFT;
-            // i = mask & (i*5 + perturb + 1);
-            i = mask & next(i);
+            i = mask & (i*5 + perturb + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
 #ifdef EBUG
@@ -1691,8 +1690,7 @@ start:
                 return DKIX_EMPTY;
             }
             perturb >>= PERTURB_SHIFT;
-            // i = mask & (i*5 + perturb + 1);
-            i = mask & next(i);
+            i = mask & (i*5 + perturb + 1);
         }
         Py_UNREACHABLE();
     }
@@ -1799,7 +1797,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
     }
 
     int num_cmps;   /* currently not measuring the efficiency of insert */
-    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &num_cmps, next);
+    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &num_cmps);
     if (ix == DKIX_ERROR)
         goto Fail;
 
@@ -1881,8 +1879,8 @@ int
 custom_PyDict_Contains_KnownHash(PyObject *op, PyObject *key, Py_hash_t hash)
 {
     PyDictObject *mp = (PyDictObject *)op;
-    PyObject *value;
-    Py_ssize_t ix;
+    PyObject *value = op;
+    Py_ssize_t ix = 0;
 
     // ix = _Py_dict_lookup(mp, key, hash, &value, &num_cmps);
     if (ix == DKIX_ERROR)
@@ -2143,7 +2141,7 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
 }
 
 static int
-dict_merge(PyObject *a, PyObject *b, int override, size_t (*next)(size_t),
+dict_merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
     printf("dict_merge override: %d\n", override);
@@ -2348,7 +2346,7 @@ custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
 
 /* Single-arg dict update; used by dict_update_common and operators. */
 static int
-dict_update_arg(PyObject *self, PyObject *arg
+dict_update_arg(PyObject *self, PyObject *arg,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 {
     printf("called dict_update_arg\n");
@@ -2425,9 +2423,9 @@ dict_length(PyDictObject *mp)
 static PyObject *
 dict_subscript(PyDictObject *mp, PyObject *key)
 {
-    Py_ssize_t ix;
+    Py_ssize_t ix = 0;
     Py_hash_t hash;
-    PyObject *value;
+    PyObject *value = key;
 
     if (!PyUnicode_CheckExact(key) ||
         (hash = ((PyASCIIObject *) key)->hash) == -1) {
