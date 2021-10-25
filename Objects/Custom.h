@@ -1648,8 +1648,8 @@ start:
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-            printf("0(i, ix): (%lld, %lld)\n", i, ix);
 #ifdef EBUG
+            printf("0(i, ix): (%lld, %lld)\n", i, ix);
 #endif
 
             if (ix >= 0) {
@@ -1670,8 +1670,8 @@ start:
             i = mask & (i*5 + perturb + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-            printf("1(i, ix): (%lld, %lld)\n", i, ix);
 #ifdef EBUG
+            printf("1(i, ix): (%lld, %lld)\n", i, ix);
 #endif
 
             if (ix >= 0) {
@@ -1759,8 +1759,8 @@ custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-            printf("0(i, ix): (%lld, %lld)\n", i, ix);
 #ifdef EBUG
+            printf("0(i, ix): (%lld, %lld)\n", i, ix);
 #endif
 
             if (ix >= 0) {
@@ -1780,8 +1780,8 @@ custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_
             i = mask & (i + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-            printf("1(i, ix): (%lld, %lld)\n", i, ix);
 #ifdef EBUG
+            printf("1(i, ix): (%lld, %lld)\n", i, ix);
 #endif
 
             if (ix >= 0) {
@@ -1850,6 +1850,26 @@ find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash)
     return i;
 }
 
+/* Internal function to find slot for an item from its hash
+   when it is known that the key is not present in the dict.
+
+   The dict must be combined. */
+static Py_ssize_t
+custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash)
+{
+    assert(keys != NULL);
+
+    const size_t mask = DK_MASK(keys);
+    size_t i = hash & mask;
+
+    Py_ssize_t ix = dictkeys_get_index(keys, i);
+    for (; ix >= 0;) {
+        i = (i + 1) & mask;
+        ix = dictkeys_get_index(keys, i);
+    }
+    return i;
+}
+
 /*
 Internal routine to insert a new item into the table.
 Used both by the internal resize routine and by the public insert routine.
@@ -1857,7 +1877,8 @@ Returns -1 if an error occurred, or 0 on success.
 */
 static int
 insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
-        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
+        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t))
 {
     PyObject *old_value;
     PyDictKeyEntry *ep;
@@ -1900,7 +1921,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
 
-        Py_ssize_t hashpos = find_empty_slot(mp->ma_keys, hash);
+        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash);
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
         ep->me_key = key;
@@ -2177,7 +2198,8 @@ custom_PyObject_Hash(PyObject *v)
  */
 int
 custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
-        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
+        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash))
 {
 #ifdef EBUG
     printf("called custom_PyDict_SetItem\n");
@@ -2210,12 +2232,13 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
         return insert_to_emptydict(mp, key, hash, value);
     }
     /* insertdict() handles any resizing that might be necessary */
-    return insertdict(mp, key, hash, value, lookup);
+    return insertdict(mp, key, hash, value, lookup, empty_slot);
 }
 
 static int
 dict_merge(PyObject *a, PyObject *b, int override,
-        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
+        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash))
 {
 #ifdef EBUG
     printf("dict_merge override: %d\n", override);
@@ -2307,11 +2330,11 @@ dict_merge(PyObject *a, PyObject *b, int override,
                 Py_INCREF(key);
                 Py_INCREF(value);
                 if (override == 1)
-                    err = insertdict(mp, key, hash, value, lookup);
+                    err = insertdict(mp, key, hash, value, lookup, empty_slot);
                 else {
                     err = custom_PyDict_Contains_KnownHash(a, key, hash);
                     if (err == 0) {
-                        err = insertdict(mp, key, hash, value, lookup);
+                        err = insertdict(mp, key, hash, value, lookup, empty_slot);
                     }
                     else if (err > 0) {
                         if (override != 0) {
@@ -2383,7 +2406,7 @@ dict_merge(PyObject *a, PyObject *b, int override,
                 Py_DECREF(key);
                 return -1;
             }
-            status = custom_PyDict_SetItem(a, key, value, lookup);
+            status = custom_PyDict_SetItem(a, key, value, lookup, empty_slot);
 
 #ifdef EBUG
             printf("status: %d\n", status);
@@ -2407,27 +2430,29 @@ dict_merge(PyObject *a, PyObject *b, int override,
 
 int
 custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
-        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
+        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash))
 {
 #ifdef EBUG
     printf("called custom_PyDict_Merge\n");
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
-    return dict_merge(a, b, override != 0, lookup);
+    return dict_merge(a, b, override != 0, lookup, empty_slot);
 }
 
 /* Single-arg dict update; used by dict_update_common and operators. */
 static int
 dict_update_arg(PyObject *self, PyObject *arg,
-        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
+        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash))
 {
 #ifdef EBUG
     printf("called dict_update_arg\n");
 #endif
 
     if (PyDict_CheckExact(arg)) {
-        return custom_PyDict_Merge(self, arg, 1, lookup);
+        return custom_PyDict_Merge(self, arg, 1, lookup, empty_slot);
     }
     _Py_IDENTIFIER(keys);
     PyObject *func;
@@ -2436,7 +2461,7 @@ dict_update_arg(PyObject *self, PyObject *arg,
     }
     if (func != NULL) {
         Py_DECREF(func);
-        return custom_PyDict_Merge(self, arg, 1, lookup);
+        return custom_PyDict_Merge(self, arg, 1, lookup, empty_slot);
     }
     return PyDict_MergeFromSeq2(self, arg, 1);
 }

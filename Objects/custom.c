@@ -94,7 +94,8 @@ Custom_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname,
-                   Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
+                   Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+                   Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash))
 {
 #ifdef EBUG
     printf("called dict_update_common\n");
@@ -107,7 +108,7 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
         result = -1;
     }
     else if (arg != NULL) {
-        result = dict_update_arg(self, arg, lookup);
+        result = dict_update_arg(self, arg, lookup, empty_slot);
     }
 
     if (result == 0 && kwds != NULL) {
@@ -130,9 +131,9 @@ dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 #endif
 
 #ifdef ORIG_LOOKUP
-    return dict_update_common(self, args, kwds, "dict", _Py_dict_lookup);
+    return dict_update_common(self, args, kwds, "dict", _Py_dict_lookup, find_empty_slot);
 #else
-    return dict_update_common(self, args, kwds, "dict", custom_lookup);
+    return dict_update_common(self, args, kwds, "dict", custom_lookup, custom_find_empty_slot);
 #endif
 }
 
@@ -465,9 +466,9 @@ my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 
     int dict_update_common_rv;
 #ifdef ORIG_LOOKUP
-    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", _Py_dict_lookup)) != -1) {
+    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", _Py_dict_lookup, find_empty_slot)) != -1) {
 #else
-    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", custom_lookup)) != -1) {
+    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", custom_lookup, custom_find_empty_slot)) != -1) {
 #endif
 #ifdef EBUG
         printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
