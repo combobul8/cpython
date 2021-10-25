@@ -1626,7 +1626,6 @@ insertion_resize(PyDictObject *mp)
     return dictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)));
 }
 
-// TODO: insert random strings and measure how much probing is needed for find.
 Py_ssize_t _Py_HOT_FUNCTION
 _Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
 {
@@ -1649,8 +1648,8 @@ start:
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-#ifdef EBUG
             printf("0(i, ix): (%lld, %lld)\n", i, ix);
+#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -1671,8 +1670,8 @@ start:
             i = mask & (i*5 + perturb + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-#ifdef EBUG
             printf("1(i, ix): (%lld, %lld)\n", i, ix);
+#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -1728,6 +1727,81 @@ start:
         }
         perturb >>= PERTURB_SHIFT;
         i = (i*5 + perturb + 1) & mask;
+    }
+    Py_UNREACHABLE();
+found:
+    if (dk->dk_kind == DICT_KEYS_SPLIT) {
+        *value_addr = mp->ma_values[ix];
+    }
+    else {
+        *value_addr = ep0[ix].me_value;
+    }
+    return ix;
+}
+
+Py_ssize_t _Py_HOT_FUNCTION
+custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
+{
+#ifdef EBUG
+    printf("called custom_lookup\n");
+#endif
+
+    PyDictKeysObject *dk;
+start:
+    dk = mp->ma_keys;
+    DictKeysKind kind = dk->dk_kind;
+    PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
+    size_t mask = DK_MASK(dk);
+    size_t i = (size_t)hash & mask;
+    Py_ssize_t ix;
+    *num_cmps = 0;
+    if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
+        /* Strings only */
+        for (;;) {
+            ix = dictkeys_get_index(mp->ma_keys, i);
+
+            printf("0(i, ix): (%lld, %lld)\n", i, ix);
+#ifdef EBUG
+#endif
+
+            if (ix >= 0) {
+                PyDictKeyEntry *ep = &ep0[ix];
+                assert(ep->me_key != NULL);
+                assert(PyUnicode_CheckExact(ep->me_key));
+                (*num_cmps)++;
+                if (ep->me_key == key ||
+                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                    goto found;
+                }
+            }
+            else if (ix == DKIX_EMPTY) {
+                *value_addr = NULL;
+                return DKIX_EMPTY;
+            }
+            i = mask & (i + 1);
+            ix = dictkeys_get_index(mp->ma_keys, i);
+
+            printf("1(i, ix): (%lld, %lld)\n", i, ix);
+#ifdef EBUG
+#endif
+
+            if (ix >= 0) {
+                PyDictKeyEntry *ep = &ep0[ix];
+                assert(ep->me_key != NULL);
+                assert(PyUnicode_CheckExact(ep->me_key));
+                (*num_cmps)++;
+                if (ep->me_key == key ||
+                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                    goto found;
+                }
+            }
+            else if (ix == DKIX_EMPTY) {
+                *value_addr = NULL;
+                return DKIX_EMPTY;
+            }
+            i = mask & (i + 1);
+        }
+        Py_UNREACHABLE();
     }
     Py_UNREACHABLE();
 found:

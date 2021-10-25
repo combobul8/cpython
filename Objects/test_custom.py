@@ -16,7 +16,7 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
         i += 1
         # print("i: " + str(i))
 
-        if i >= 1024:
+        if i >= 4:
             break
             # mycustom.get(word)
             None

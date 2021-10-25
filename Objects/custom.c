@@ -120,6 +120,8 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
     return result;
 }
 
+// #define ORIG_LOOKUP
+
 static int
 dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
@@ -127,7 +129,11 @@ dict_init(PyObject *self, PyObject *args, PyObject *kwds)
     printf("called dict_init\n");
 #endif
 
+#ifdef ORIG_LOOKUP
     return dict_update_common(self, args, kwds, "dict", _Py_dict_lookup);
+#else
+    return dict_update_common(self, args, kwds, "dict", custom_lookup);
+#endif
 }
 
 /*[clinic input]
@@ -203,10 +209,6 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value,
     int num_cmps;
     ix = lookup(self, key, hash, &val, &num_cmps);
     printf("num_cmps: %d\n", num_cmps);
-
-#ifdef EBUG
-    printf("after _Py_dict_lookup\n");
-#endif
 
     if (ix == DKIX_ERROR)
         return NULL;
@@ -326,7 +328,11 @@ dict_get(PyDictObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
     default_value = args[1];
 skip_optional:
+#ifdef ORIG_LOOKUP
     return_value = dict_get_impl(self, key, default_value, _Py_dict_lookup);
+#else
+    return_value = dict_get_impl(self, key, default_value, custom_lookup);
+#endif
 
 exit:
     return return_value;
@@ -458,7 +464,11 @@ my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 #endif
 
     int dict_update_common_rv;
+#ifdef ORIG_LOOKUP
     if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", _Py_dict_lookup)) != -1) {
+#else
+    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", custom_lookup)) != -1) {
+#endif
 #ifdef EBUG
         printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
 #endif
