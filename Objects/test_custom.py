@@ -9,8 +9,8 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
     i = 0
     for line in f:
         word = line.strip()
-        print(word, flush = True)
-        print("dictionary size: " + str(len(mycustom.keys())), flush = True)
+        # print(word, flush = True)
+        # print("dictionary size: " + str(len(mycustom.keys())), flush = True)
 
         if i >= 5000:
             break
