@@ -9,8 +9,7 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\test.txt") as f:
     i = 0
     for line in f:
         word = line.strip()
-        print(word)
-        # print(mycustom.get(word))
+        # print(word)
 
         if i >= 5000:
             break
