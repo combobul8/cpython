@@ -1894,8 +1894,6 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
     int num_cmps;   /* currently not measuring the efficiency of insert */
     Py_ssize_t ix = lookup(mp, key, hash, &old_value, &num_cmps);
 
-    printf("insertdict ix: %lld; old_value == NULL: %d.\n", ix, (old_value == NULL));
-
     if (ix == DKIX_ERROR)
         goto Fail;
 

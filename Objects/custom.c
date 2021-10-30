@@ -210,6 +210,7 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value,
 
     int num_cmps;
     ix = lookup(self, key, hash, &val, &num_cmps);
+    printf("num_cmps: %d.\n", num_cmps);
 
     if (ix == DKIX_ERROR)
         return NULL;
