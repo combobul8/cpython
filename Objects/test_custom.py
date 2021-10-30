@@ -9,14 +9,14 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
     i = 0
     for line in f:
         word = line.strip()
-        # print(word)
+        print(word, flush = True)
+        print("dictionary size: " + str(len(mycustom.keys())), flush = True)
 
         if i >= 5000:
-            print("")
             break
         elif mycustom.get(word) != None:
-            # print("already seen " + word)
-            # i += 1
+            print("already seen " + word, flush = True)
+            i += 1
             None
         else:
             mycustom.update({word: i})
@@ -29,7 +29,7 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
 toc = time.perf_counter()
 # print(str((toc - tic) * 1000) + " milliseconds")
 
-# print(len(mycustom.keys()))
+print("# keys: " + str(len(mycustom.keys())), flush = True)
 
 # j = 0
 for key in list(mycustom.keys()):
