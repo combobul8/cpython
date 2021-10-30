@@ -152,6 +152,8 @@ static PyObject *
 dict___contains__(PyDictObject *self, PyObject *key)
 /*[clinic end generated code: output=a3d03db709ed6e6b input=fe1cb42ad831e820]*/
 {
+    printf("called dict__contains__.\n");
+
     register PyDictObject *mp = self;
     Py_hash_t hash;
     Py_ssize_t ix = 0;
@@ -193,9 +195,7 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
 /*[clinic end generated code: output=bba707729dee05bf input=279ddb5790b6b107]*/
 {
-#ifdef EBUG
-    printf("called dict_get_impl\n");
-#endif
+    printf("dict_get_impl key->hash: %lld.\n", ((PyASCIIObject *) key)->hash);
 
     PyObject *val = NULL;
     Py_hash_t hash;
@@ -207,9 +207,13 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value,
         if (hash == -1)
             return NULL;
     }
+
+    printf("dict_get_impl hash: %lld.\n", hash);
+
     int num_cmps;
     ix = lookup(self, key, hash, &val, &num_cmps);
-    printf("num_cmps: %d\n", num_cmps);
+
+    printf("dict_get_impl num_cmps: %d\n", num_cmps);
 
     if (ix == DKIX_ERROR)
         return NULL;
@@ -311,8 +315,8 @@ exit:
 static PyObject *
 dict_get(PyDictObject *self, PyObject *const *args, Py_ssize_t nargs)
 {
-#ifdef EBUG
     printf("\ncalled dict_get\n");
+#ifdef EBUG
 #endif
 
     PyObject *return_value = NULL;
@@ -330,6 +334,7 @@ dict_get(PyDictObject *self, PyObject *const *args, Py_ssize_t nargs)
     default_value = args[1];
 skip_optional:
 #ifdef ORIG_LOOKUP
+    printf("dict_get ORIG_LOOKUP.\n");
     return_value = dict_get_impl(self, key, default_value, _Py_dict_lookup);
 #else
     return_value = dict_get_impl(self, key, default_value, custom_lookup);
@@ -460,12 +465,14 @@ dictvalues_new(PyObject *dict, PyObject *Py_UNUSED(ignored))
 static PyObject *
 my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 {
-#ifdef EBUG
     printf("\ncalled my_dict_update\n");
+#ifdef EBUG
 #endif
 
     int dict_update_common_rv;
 #ifdef ORIG_LOOKUP
+    printf("my_dict_update ORIG_LOOKUP.\n");
+
     if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", _Py_dict_lookup, find_empty_slot)) != -1) {
 #else
     if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", custom_lookup, custom_find_empty_slot)) != -1) {

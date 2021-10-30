@@ -1641,6 +1641,9 @@ start:
     size_t mask = DK_MASK(dk);
     size_t perturb = hash;
     size_t i = (size_t)hash & mask;
+
+    printf("_Py_dict_lookup hash: %lld; mask: %lld; i: %lld.\n", hash, mask, i);
+
     Py_ssize_t ix;
     *num_cmps = 0;
     if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
@@ -1648,8 +1651,8 @@ start:
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-#ifdef EBUG
             printf("0(i, ix): (%lld, %lld)\n", i, ix);
+#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -1659,6 +1662,8 @@ start:
                 (*num_cmps)++;
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                    printf("going to found.\n");
+
                     goto found;
                 }
             }
@@ -1892,6 +1897,9 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
 
     int num_cmps;   /* currently not measuring the efficiency of insert */
     Py_ssize_t ix = lookup(mp, key, hash, &old_value, &num_cmps);
+
+    printf("insertdict ix: %lld; old_value == NULL: %d.\n", ix, (old_value == NULL));
+
     if (ix == DKIX_ERROR)
         goto Fail;
 
@@ -1953,6 +1961,9 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
         }
         else {
             assert(old_value != NULL);
+
+            printf("updating me_value.\n");
+
             DK_ENTRIES(mp->ma_keys)[ix].me_value = value;
         }
         mp->ma_version_tag = DICT_NEXT_VERSION();
@@ -2009,6 +2020,9 @@ insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
     MAINTAIN_TRACKING(mp, key, value);
 
     size_t hashpos = (size_t)hash & (PyDict_MINSIZE-1);
+
+    printf("insert_to_emptydict hashpos: %lld.\n", hashpos);
+
     PyDictKeyEntry *ep = DK_ENTRIES(mp->ma_keys);
     dictkeys_set_index(mp->ma_keys, hashpos, 0);
     ep->me_key = key;
