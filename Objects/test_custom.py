@@ -12,6 +12,7 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
         # print(word)
 
         if i >= 5000:
+            print("")
             break
         elif mycustom.get(word) != None:
             # print("already seen " + word)
@@ -28,8 +29,14 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
 toc = time.perf_counter()
 # print(str((toc - tic) * 1000) + " milliseconds")
 
-print("--- " + str(len(mycustom.keys())))
+# print(len(mycustom.keys()))
+
+# j = 0
 for key in list(mycustom.keys()):
+    # if j == 100:
+        # print("j: " + str(j))
+    # j += 1
+
     # print(mycustom.get(key))
     mycustom.get(key)
     None
