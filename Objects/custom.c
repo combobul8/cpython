@@ -201,6 +201,8 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value,
     Py_hash_t hash;
     Py_ssize_t ix;
 
+    hash = custom_PyObject_Hash(key);
+
     if (!PyUnicode_CheckExact(key) ||
         (hash = ((PyASCIIObject *) key)->hash) == -1) {
         hash = PyObject_Hash(key);
@@ -213,7 +215,7 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value,
     int num_cmps;
     ix = lookup(self, key, hash, &val, &num_cmps);
 
-    printf("dict_get_impl num_cmps: %d\n", num_cmps);
+    printf("dict_get_impl ix: %lld; val == NULL: %d; num_cmps: %d\n", ix, (val == NULL), num_cmps);
 
     if (ix == DKIX_ERROR)
         return NULL;
@@ -341,6 +343,8 @@ skip_optional:
 #endif
 
 exit:
+    printf("dict_get return_value == NULL: %d.\n", (return_value == NULL));
+
     return return_value;
 }
 
