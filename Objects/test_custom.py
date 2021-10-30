@@ -14,18 +14,13 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\test.txt") as f:
 
         if i >= 5000:
             break
-        else:
-            get_rv = mycustom.get(word)
-            print(get_rv)
-
-            if get_rv:
-                print("already seen " + word)
-
+        elif mycustom.get(word) != None:
+            print("already seen " + word)
             i += 1
-        # else:
+        else:
             mycustom.update({word: i})
             # words.update({word: i})
-            # i += 1
+            i += 1
 
         # print("i: " + str(i))
         # print("")
