@@ -11,32 +11,20 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
 
     for line in f:
         word = line.strip()
-        print("\n" + word, flush = True)
+        # print("\n" + word, flush = True)
         # print("dictionary size: " + str(len(mycustom.keys())), flush = True)
 
         if i >= 5000:
             break
         elif mycustom.get(word) != None:
-            print("already seen " + word, flush = True)
+            # print("already seen " + word, flush = True)
             i += 1
             None
         else:
             mycustom.update({word: i})
             # words.update({word: i})
 
-            if (word == "far"):
-                print("far was not in the dictionary.", flush = True)
-
-                if flag:
-                    break
-                else:
-                    flag = True
-
             i += 1
-
-            mycustom.get(word)
-            # if word == "far":
-                # break
 
         # print("i: " + str(i))
         # print("")
@@ -53,5 +41,5 @@ for key in list(mycustom.keys()):
     # j += 1
 
     # print(mycustom.get(key))
-    # mycustom.get(key)
+    mycustom.get(key)
     None

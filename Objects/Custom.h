@@ -1413,9 +1413,9 @@ dictkeys_set_index(PyDictKeysObject *keys, Py_ssize_t i, Py_ssize_t ix)
         assert(ix <= 0x7f);
         indices[i] = (char)ix;
 
+#ifdef EBUG
         printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
         fflush(stdout);
-#ifdef EBUG
 #endif
     }
     else if (s <= 0xffff) {
@@ -1423,9 +1423,9 @@ dictkeys_set_index(PyDictKeysObject *keys, Py_ssize_t i, Py_ssize_t ix)
         assert(ix <= 0x7fff);
         indices[i] = (int16_t)ix;
 
+#ifdef EBUG
         printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
         fflush(stdout);
-#ifdef EBUG
 #endif
     }
 #if SIZEOF_VOID_P > 4
@@ -1671,11 +1671,11 @@ start:
             fflush(stdout);
 #endif
 
+            (*num_cmps)++;
             if (ix >= 0) {
                 PyDictKeyEntry *ep = &ep0[ix];
                 assert(ep->me_key != NULL);
                 assert(PyUnicode_CheckExact(ep->me_key));
-                (*num_cmps)++;
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
                     goto found;
@@ -1694,11 +1694,11 @@ start:
             fflush(stdout);
 #endif
 
+            (*num_cmps)++;
             if (ix >= 0) {
                 PyDictKeyEntry *ep = &ep0[ix];
                 assert(ep->me_key != NULL);
                 assert(PyUnicode_CheckExact(ep->me_key));
-                (*num_cmps)++;
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
                     goto found;
@@ -1762,9 +1762,9 @@ found:
 Py_ssize_t _Py_HOT_FUNCTION
 custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
 {
+#ifdef EBUG
     printf("custom_lookup hash: %lld.\n", hash);
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     PyDictKeysObject *dk;
@@ -1780,16 +1780,16 @@ custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("0(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
+            (*num_cmps)++;
             if (ix >= 0) {
                 PyDictKeyEntry *ep = &ep0[ix];
                 assert(ep->me_key != NULL);
                 assert(PyUnicode_CheckExact(ep->me_key));
-                (*num_cmps)++;
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
                     goto found;
@@ -1802,16 +1802,16 @@ custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_
             i = mask & (i + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("1(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
+            (*num_cmps)++;
             if (ix >= 0) {
                 PyDictKeyEntry *ep = &ep0[ix];
                 assert(ep->me_key != NULL);
                 assert(PyUnicode_CheckExact(ep->me_key));
-                (*num_cmps)++;
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
                     goto found;
@@ -1934,9 +1934,6 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
     }
 
     if (ix == DKIX_EMPTY) {
-        printf("inserting!\n");
-        fflush(stdout);
-
         /* Insert into new slot. */
         mp->ma_keys->dk_version = 0;
         assert(old_value == NULL);
@@ -2274,9 +2271,9 @@ dict_merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
+#ifdef EBUG
     printf("\ndict_merge override: %d\n", override);
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     PyDictObject *mp, *other;

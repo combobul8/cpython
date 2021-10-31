@@ -213,17 +213,16 @@ dict_get_impl(PyDictObject *self, PyObject *key, PyObject *default_value,
 
     int num_cmps;
     ix = lookup(self, key, hash, &val, &num_cmps);
+
     printf("num_cmps: %d.\n", num_cmps);
     fflush(stdout);
+#ifdef EBUG
+#endif
 
     if (ix == DKIX_ERROR)
         return NULL;
-    if (ix == DKIX_EMPTY || val == NULL) {
-        printf("dict_get_impl ix == DKIX_EMPTY: %d; val == NULL: %d.\n", (ix == DKIX_EMPTY), (val == NULL));
-        fflush(stdout);
-
+    if (ix == DKIX_EMPTY || val == NULL)
         val = default_value;
-    }
     Py_INCREF(val);
 
     return val;
@@ -320,9 +319,9 @@ exit:
 static PyObject *
 dict_get(PyDictObject *self, PyObject *const *args, Py_ssize_t nargs)
 {
+#ifdef EBUG
     printf("\ncalled dict_get\n");
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     PyObject *return_value = NULL;
@@ -346,8 +345,6 @@ skip_optional:
 #endif
 
 exit:
-    printf("dict_get returning NULL: %d.\n", (return_value == NULL));
-    fflush(stdout);
     return return_value;
 }
 
