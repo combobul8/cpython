@@ -21,16 +21,17 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
             i += 1
             None
         else:
+            mycustom.update({word: i})
+            # words.update({word: i})
+
             if (word == "far"):
-                print("far is not in the dictionary.", flush = True)
+                print("far was not in the dictionary.", flush = True)
 
                 if flag:
                     break
                 else:
                     flag = True
 
-            mycustom.update({word: i})
-            # words.update({word: i})
             i += 1
 
             mycustom.get(word)

@@ -1413,8 +1413,9 @@ dictkeys_set_index(PyDictKeysObject *keys, Py_ssize_t i, Py_ssize_t ix)
         assert(ix <= 0x7f);
         indices[i] = (char)ix;
 
-#ifdef EBUG
         printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
+        fflush(stdout);
+#ifdef EBUG
 #endif
     }
     else if (s <= 0xffff) {
@@ -1422,8 +1423,9 @@ dictkeys_set_index(PyDictKeysObject *keys, Py_ssize_t i, Py_ssize_t ix)
         assert(ix <= 0x7fff);
         indices[i] = (int16_t)ix;
 
-#ifdef EBUG
         printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
+        fflush(stdout);
+#ifdef EBUG
 #endif
     }
 #if SIZEOF_VOID_P > 4
