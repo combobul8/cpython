@@ -1459,6 +1459,20 @@ build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
     }
 }
 
+static void
+custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
+{
+    size_t mask = (size_t)DK_SIZE(keys) - 1;
+    for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
+        Py_hash_t hash = ep->me_hash;
+        size_t i = hash & mask;
+        for (; dictkeys_get_index(keys, i) != DKIX_EMPTY;) {
+            i = mask & (i + 1);
+        }
+        dictkeys_set_index(keys, i, ix);
+    }
+}
+
 /*
 Restructure the table by allocating a new table and reinserting all
 items again.  When entries have been deleted, the new table may
@@ -1470,7 +1484,8 @@ After resizing a table is always combined,
 but can be resplit by make_keys_shared().
 */
 static int
-dictresize(PyDictObject *mp, uint8_t log2_newsize)
+dictresize(PyDictObject *mp, uint8_t log2_newsize,
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     // printf("dictresize log2_newsize: %ld.\n", log2_newsize);
 
@@ -1570,7 +1585,7 @@ dictresize(PyDictObject *mp, uint8_t log2_newsize)
         }
     }
 
-    build_indices(mp->ma_keys, newentries, numentries);
+    build_idxs(mp->ma_keys, newentries, numentries);
     mp->ma_keys->dk_usable -= numentries;
     mp->ma_keys->dk_nentries = numentries;
     return 0;
@@ -1623,9 +1638,9 @@ estimate_log2_keysize(Py_ssize_t n)
 #define GROWTH_RATE(d) ((d)->ma_used*3)
 
 static int
-insertion_resize(PyDictObject *mp)
+insertion_resize(PyDictObject *mp, void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    return dictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)));
+    return dictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)), build_idxs);
 }
 
 Py_ssize_t _Py_HOT_FUNCTION
@@ -1886,7 +1901,8 @@ Returns -1 if an error occurred, or 0 on success.
 static int
 insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t))
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t),
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     PyObject *old_value;
     PyDictKeyEntry *ep;
@@ -1894,7 +1910,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
     Py_INCREF(key);
     Py_INCREF(value);
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
-        if (insertion_resize(mp) < 0)
+        if (insertion_resize(mp, build_idxs) < 0)
             goto Fail;
     }
 
@@ -1912,7 +1928,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
     if (_PyDict_HasSplitTable(mp) &&
         ((ix >= 0 && old_value == NULL && mp->ma_used != ix) ||
          (ix == DKIX_EMPTY && mp->ma_used != mp->ma_keys->dk_nentries))) {
-        if (insertion_resize(mp) < 0)
+        if (insertion_resize(mp, build_idxs) < 0)
             goto Fail;
         ix = DKIX_EMPTY;
     }
@@ -1926,7 +1942,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
         assert(old_value == NULL);
         if (mp->ma_keys->dk_usable <= 0) {
             /* Need to resize. */
-            if (insertion_resize(mp) < 0)
+            if (insertion_resize(mp, build_idxs) < 0)
                 goto Fail;
         }
         if (!PyUnicode_CheckExact(key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
@@ -2215,7 +2231,8 @@ custom_PyObject_Hash(PyObject *v)
 int
 custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash))
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
     printf("called custom_PyDict_SetItem\n");
@@ -2248,13 +2265,14 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
         return insert_to_emptydict(mp, key, hash, value);
     }
     /* insertdict() handles any resizing that might be necessary */
-    return insertdict(mp, key, hash, value, lookup, empty_slot);
+    return insertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
 }
 
 static int
 dict_merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash))
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     printf("\ndict_merge override: %d\n", override);
     fflush(stdout);
@@ -2326,7 +2344,7 @@ dict_merge(PyObject *a, PyObject *b, int override,
          * that there will be no (or few) overlapping keys.
          */
         if (USABLE_FRACTION(DK_SIZE(mp->ma_keys)) < other->ma_used) {
-            if (dictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used))) {
+            if (dictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used), build_idxs)) {
                return -1;
             }
         }
@@ -2347,11 +2365,11 @@ dict_merge(PyObject *a, PyObject *b, int override,
                 Py_INCREF(key);
                 Py_INCREF(value);
                 if (override == 1)
-                    err = insertdict(mp, key, hash, value, lookup, empty_slot);
+                    err = insertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
                 else {
                     err = custom_PyDict_Contains_KnownHash(a, key, hash);
                     if (err == 0) {
-                        err = insertdict(mp, key, hash, value, lookup, empty_slot);
+                        err = insertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
                     }
                     else if (err > 0) {
                         if (override != 0) {
@@ -2423,7 +2441,7 @@ dict_merge(PyObject *a, PyObject *b, int override,
                 Py_DECREF(key);
                 return -1;
             }
-            status = custom_PyDict_SetItem(a, key, value, lookup, empty_slot);
+            status = custom_PyDict_SetItem(a, key, value, lookup, empty_slot, build_idxs);
 
 #ifdef EBUG
             printf("status: %d\n", status);
@@ -2448,28 +2466,30 @@ dict_merge(PyObject *a, PyObject *b, int override,
 int
 custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash))
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
     printf("called custom_PyDict_Merge\n");
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
-    return dict_merge(a, b, override != 0, lookup, empty_slot);
+    return dict_merge(a, b, override != 0, lookup, empty_slot, build_idxs);
 }
 
 /* Single-arg dict update; used by dict_update_common and operators. */
 static int
 dict_update_arg(PyObject *self, PyObject *arg,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash))
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
     printf("called dict_update_arg\n");
 #endif
 
     if (PyDict_CheckExact(arg)) {
-        return custom_PyDict_Merge(self, arg, 1, lookup, empty_slot);
+        return custom_PyDict_Merge(self, arg, 1, lookup, empty_slot, build_idxs);
     }
     _Py_IDENTIFIER(keys);
     PyObject *func;
@@ -2478,7 +2498,7 @@ dict_update_arg(PyObject *self, PyObject *arg,
     }
     if (func != NULL) {
         Py_DECREF(func);
-        return custom_PyDict_Merge(self, arg, 1, lookup, empty_slot);
+        return custom_PyDict_Merge(self, arg, 1, lookup, empty_slot, build_idxs);
     }
     return PyDict_MergeFromSeq2(self, arg, 1);
 }

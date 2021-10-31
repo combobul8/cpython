@@ -95,7 +95,8 @@ static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname,
                    Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-                   Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash))
+                   Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
+                   void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
     printf("called dict_update_common\n");
@@ -108,7 +109,7 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
         result = -1;
     }
     else if (arg != NULL) {
-        result = dict_update_arg(self, arg, lookup, empty_slot);
+        result = dict_update_arg(self, arg, lookup, empty_slot, build_idxs);
     }
 
     if (result == 0 && kwds != NULL) {
@@ -131,9 +132,11 @@ dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 #endif
 
 #ifdef ORIG_LOOKUP
-    return dict_update_common(self, args, kwds, "dict", _Py_dict_lookup, find_empty_slot);
+    return dict_update_common(self, args, kwds, "dict", _Py_dict_lookup, find_empty_slot,
+            build_indices);
 #else
-    return dict_update_common(self, args, kwds, "dict", custom_lookup, custom_find_empty_slot);
+    return dict_update_common(self, args, kwds, "dict", custom_lookup, custom_find_empty_slot,
+            custom_build_indices);
 #endif
 }
 
@@ -406,7 +409,7 @@ dict_popitem_impl(PyDictObject *self)
     }
     /* Convert split table to combined table */
     if (self->ma_keys->dk_kind == DICT_KEYS_SPLIT) {
-        if (dictresize(self, DK_LOG_SIZE(self->ma_keys))) {
+        if (dictresize(self, DK_LOG_SIZE(self->ma_keys), NULL)) {
             Py_DECREF(res);
             return NULL;
         }
@@ -475,9 +478,11 @@ my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 
     int dict_update_common_rv;
 #ifdef ORIG_LOOKUP
-    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", _Py_dict_lookup, find_empty_slot)) != -1) {
+    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", _Py_dict_lookup,
+            find_empty_slot, build_indices)) != -1) {
 #else
-    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", custom_lookup, custom_find_empty_slot)) != -1) {
+    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", custom_lookup,
+            custom_find_empty_slot, custom_build_indices)) != -1) {
 #endif
 #ifdef EBUG
         printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
@@ -514,7 +519,7 @@ _PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
             PyObject *key;
             Py_hash_t hash;
 
-            if (dictresize(mp, estimate_log2_keysize(PyDict_GET_SIZE(iterable)))) {
+            if (dictresize(mp, estimate_log2_keysize(PyDict_GET_SIZE(iterable)), NULL)) {
                 Py_DECREF(d);
                 return NULL;
             }
@@ -533,7 +538,7 @@ _PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
             PyObject *key;
             Py_hash_t hash;
 
-            if (dictresize(mp, estimate_log2_keysize(PySet_GET_SIZE(iterable)))) {
+            if (dictresize(mp, estimate_log2_keysize(PySet_GET_SIZE(iterable)), NULL)) {
                 Py_DECREF(d);
                 return NULL;
             }
