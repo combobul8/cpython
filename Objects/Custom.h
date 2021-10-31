@@ -1651,6 +1651,7 @@ start:
 
 #ifdef EBUG
             printf("0(i, ix): (%lld, %lld)\n", i, ix);
+            fflush(stdout);
 #endif
 
             if (ix >= 0) {
@@ -1673,6 +1674,7 @@ start:
 
 #ifdef EBUG
             printf("1(i, ix): (%lld, %lld)\n", i, ix);
+            fflush(stdout);
 #endif
 
             if (ix >= 0) {
@@ -1743,8 +1745,9 @@ found:
 Py_ssize_t _Py_HOT_FUNCTION
 custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
 {
+    printf("custom_lookup hash: %lld.\n", hash);
+    fflush(stdout);
 #ifdef EBUG
-    printf("called custom_lookup\n");
 #endif
 
     PyDictKeysObject *dk;
@@ -1760,8 +1763,9 @@ custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-#ifdef EBUG
             printf("0(i, ix): (%lld, %lld)\n", i, ix);
+            fflush(stdout);
+#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -1781,8 +1785,9 @@ custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_
             i = mask & (i + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-#ifdef EBUG
             printf("1(i, ix): (%lld, %lld)\n", i, ix);
+            fflush(stdout);
+#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -1911,6 +1916,9 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
     }
 
     if (ix == DKIX_EMPTY) {
+        printf("inserting!\n");
+        fflush(stdout);
+
         /* Insert into new slot. */
         mp->ma_keys->dk_version = 0;
         assert(old_value == NULL);
@@ -2246,8 +2254,9 @@ dict_merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash))
 {
+    printf("\ndict_merge override: %d\n", override);
+    fflush(stdout);
 #ifdef EBUG
-    printf("dict_merge override: %d\n", override);
 #endif
 
     PyDictObject *mp, *other;

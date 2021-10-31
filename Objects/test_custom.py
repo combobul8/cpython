@@ -7,9 +7,11 @@ words = {}
 tic = time.perf_counter()
 with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
     i = 0
+    flag = False
+
     for line in f:
         word = line.strip()
-        # print(word, flush = True)
+        print("\n" + word, flush = True)
         # print("dictionary size: " + str(len(mycustom.keys())), flush = True)
 
         if i >= 5000:
@@ -19,9 +21,21 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
             i += 1
             None
         else:
+            if (word == "far"):
+                print("far is not in the dictionary.", flush = True)
+
+                if flag:
+                    break
+                else:
+                    flag = True
+
             mycustom.update({word: i})
             # words.update({word: i})
             i += 1
+
+            mycustom.get(word)
+            # if word == "far":
+                # break
 
         # print("i: " + str(i))
         # print("")
@@ -38,5 +52,5 @@ for key in list(mycustom.keys()):
     # j += 1
 
     # print(mycustom.get(key))
-    mycustom.get(key)
+    # mycustom.get(key)
     None
