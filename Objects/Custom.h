@@ -324,6 +324,10 @@ typedef struct {
 typedef struct _dictkeysobject PyDictKeysObject;
 
 typedef struct {
+    PyDictObject *mp;
+} Layer;
+
+typedef struct {
     /* Cached hash code of me_key. */
     Py_hash_t me_hash;
     PyObject *me_key;
@@ -1792,6 +1796,9 @@ custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_
                 assert(PyUnicode_CheckExact(ep->me_key));
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                    //printf("here.\n");
+                    //fflush(stdout);
+                    //assert(ep->me_layer != NULL);
                     goto found;
                 }
             }
@@ -1958,6 +1965,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
         else {
             ep->me_value = value;
         }
+        //ep->me_layer = NULL;
         mp->ma_used++;
         mp->ma_version_tag = DICT_NEXT_VERSION();
         mp->ma_keys->dk_usable--;
