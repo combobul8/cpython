@@ -55,42 +55,6 @@ PyAPI_DATA(_PyRuntimeState) _PyRuntime;
         _PyObject_GC_UNTRACK(__FILE__, __LINE__, _PyObject_CAST(op))
 #endif
 
-static PyModuleDef custommodule = {
-    PyModuleDef_HEAD_INIT,
-    .m_name = "custom",
-    .m_doc = "Example module that creates an extension type.",
-    .m_size = -1,
-};
-
-static void
-Custom_dealloc(CustomObject *self)
-{
-    Py_XDECREF(self->first);
-    Py_XDECREF(self->last);
-    Py_TYPE(self)->tp_free((PyObject *) self);
-}
-
-static PyObject *
-Custom_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    CustomObject *self = (CustomObject *) type->tp_alloc(type, 0);
-    if (self == NULL) {
-        return NULL;
-    }
-    self->first = PyUnicode_FromString("");
-    if (self->first == NULL) {
-        Py_DECREF(self);
-        return NULL;
-    }
-    self->last = PyUnicode_FromString("");
-    if (self->last == NULL) {
-        Py_DECREF(self);
-        return NULL;
-    }
-    self->number = 0;
-    return (PyObject *) self;
-}
-
 static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname,

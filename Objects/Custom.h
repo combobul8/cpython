@@ -42,6 +42,10 @@
 /* Set if instances of the type object are treated as mappings for pattern matching */
 #define Py_TPFLAGS_MAPPING (1 << 6)
 
+typedef struct {
+    PyDictObject *mp;
+} Layer;
+
 struct _dictkeysobject {
     Py_ssize_t dk_refcnt;
 
@@ -75,8 +79,7 @@ struct _dictkeysobject {
        Dynamically sized, SIZEOF_VOID_P is minimum. */
     char dk_indices[];  /* char is required to avoid strict aliasing. */
 
-    /* "PyDictKeyEntry dk_entries[dk_usable];" array follows:
-       see the DK_ENTRIES() macro */
+    Layer* dk_layer;
 };
 
 typedef enum {
@@ -314,18 +317,7 @@ typedef struct {
     Py_ssize_t len;
 } dictiterobject;
 
-typedef struct {
-    PyObject_HEAD
-    PyObject *first; /* first name */
-    PyObject *last;  /* last name */
-    int number;
-} CustomObject;
-
 typedef struct _dictkeysobject PyDictKeysObject;
-
-typedef struct {
-    PyDictObject *mp;
-} Layer;
 
 typedef struct {
     /* Cached hash code of me_key. */
