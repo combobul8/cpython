@@ -64,6 +64,8 @@ struct _dictkeysobject {
     /* Number of used entries in dk_entries. */
     Py_ssize_t dk_nentries;
 
+    Layer* dk_layer;
+
     /* Actual hash table of dk_size entries. It holds indices in dk_entries,
        or DKIX_EMPTY(-1) or DKIX_DUMMY(-2).
 
@@ -78,8 +80,6 @@ struct _dictkeysobject {
 
        Dynamically sized, SIZEOF_VOID_P is minimum. */
     char dk_indices[];  /* char is required to avoid strict aliasing. */
-
-    Layer* dk_layer;
 };
 
 typedef enum {
@@ -98,6 +98,7 @@ static PyDictKeysObject empty_keys_struct = {
         1, /* dk_version */
         0, /* dk_usable (immutable) */
         0, /* dk_nentries */
+        NULL, /* dk_layer */
         {DKIX_EMPTY, DKIX_EMPTY, DKIX_EMPTY, DKIX_EMPTY,
          DKIX_EMPTY, DKIX_EMPTY, DKIX_EMPTY, DKIX_EMPTY}, /* dk_indices */
 };
