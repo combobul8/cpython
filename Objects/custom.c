@@ -55,6 +55,13 @@ PyAPI_DATA(_PyRuntimeState) _PyRuntime;
         _PyObject_GC_UNTRACK(__FILE__, __LINE__, _PyObject_CAST(op))
 #endif
 
+static PyModuleDef custommodule = {
+    PyModuleDef_HEAD_INIT,
+    .m_name = "custom",
+    .m_doc = "Example module that creates an extension type.",
+    .m_size = -1,
+};
+
 static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname,
@@ -1020,3 +1027,24 @@ PyTypeObject MyPyDict_Type = {
     .tp_methods = mapp_methods,
     .tp_traverse = dict_traverse
 };
+
+PyMODINIT_FUNC
+PyInit_custom(void)
+{
+    PyObject *m;
+    if (PyType_Ready(&MyPyDict_Type) < 0)
+        return NULL;
+
+    m = PyModule_Create(&custommodule);
+    if (m == NULL)
+        return NULL;
+
+    Py_INCREF(&MyPyDict_Type);
+    if (PyModule_AddObject(m, "Custom", (PyObject *) &MyPyDict_Type) < 0) {
+        Py_DECREF(&MyPyDict_Type);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    return m;
+}
