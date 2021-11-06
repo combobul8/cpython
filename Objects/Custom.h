@@ -648,7 +648,6 @@ struct _Py_list_state {
     int numfree;
 };
 
-// TODO: make a global instance of this struct.
 struct _Py_dict_state {
     /* Dictionary reuse scheme to save calls to malloc and free */
     PyDictObject *free_list[PyDict_MAXFREELIST];
