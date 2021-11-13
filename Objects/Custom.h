@@ -2548,6 +2548,20 @@ Fail:
 
 /* Internal version of PyDict_Contains used when the hash value is already known */
 int
+custom_PyDict_Contains_KnownHash2(PyObject *op, PyObject *key, Py_hash_t hash)
+{
+    CustomPyDictObject *mp = (CustomPyDictObject *)op;
+    PyObject *value = op;
+    Py_ssize_t ix = 0;
+
+    // ix = _Py_dict_lookup(mp, key, hash, &value, &num_cmps);
+    if (ix == DKIX_ERROR)
+        return -1;
+    return (ix != DKIX_EMPTY && value != NULL);
+}
+
+/* Internal version of PyDict_Contains used when the hash value is already known */
+int
 custom_PyDict_Contains_KnownHash(PyObject *op, PyObject *key, Py_hash_t hash)
 {
     PyDictObject *mp = (PyDictObject *)op;
@@ -2558,6 +2572,46 @@ custom_PyDict_Contains_KnownHash(PyObject *op, PyObject *key, Py_hash_t hash)
     if (ix == DKIX_ERROR)
         return -1;
     return (ix != DKIX_EMPTY && value != NULL);
+}
+
+// Same to insertdict but specialized for ma_keys = Py_EMPTY_KEYS.
+static int
+custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash,
+                    PyObject *value)
+{
+#ifdef EBUG
+    printf("called insert_to_emptydict; hash: %lld\n", hash);
+#endif
+
+    assert(mp->ma_keys == Py_EMPTY_KEYS);
+
+    PyDictKeysObject *newkeys = new_keys_object(PyDict_LOG_MINSIZE);
+    if (newkeys == NULL) {
+        return -1;
+    }
+    if (!PyUnicode_CheckExact(key)) {
+        newkeys->dk_kind = DICT_KEYS_GENERAL;
+    }
+    dictkeys_decref(Py_EMPTY_KEYS);
+    mp->ma_keys = newkeys;
+    mp->ma_values = NULL;
+
+    Py_INCREF(key);
+    Py_INCREF(value);
+    MAINTAIN_TRACKING(mp, key, value);
+
+    size_t hashpos = (size_t)hash & (PyDict_MINSIZE-1);
+
+    PyDictKeyEntry *ep = DK_ENTRIES(mp->ma_keys);
+    dictkeys_set_index(mp->ma_keys, hashpos, 0);
+    ep->me_key = key;
+    ep->me_hash = hash;
+    ep->me_value = value;
+    mp->ma_used++;
+    mp->ma_version_tag = DICT_NEXT_VERSION();
+    mp->ma_keys->dk_usable--;
+    mp->ma_keys->dk_nentries++;
+    return 0;
 }
 
 // Same to insertdict but specialized for ma_keys = Py_EMPTY_KEYS.
@@ -2776,6 +2830,52 @@ custom_PyObject_Hash(PyObject *v)
  * remove them.
  */
 int
+custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+{
+#ifdef EBUG
+    printf("called custom_PyDict_SetItem\n");
+#endif
+
+    CustomPyDictObject *mp;
+    Py_hash_t hash;
+    if (!PyDict_Check(op)) {
+        PyErr_BadInternalCall();
+        return -1;
+    }
+    assert(key);
+    assert(value);
+    mp = (CustomPyDictObject *)op;
+
+    hash = custom_PyObject_Hash(key);
+
+#ifdef EBUG
+    printf("custom_PyDict_SetItem hash: %lld\n", hash);
+#endif
+
+    if (!PyUnicode_CheckExact(key) ||
+        (hash = ((PyASCIIObject *) key)->hash) == -1)
+    {
+        if (hash == -1)
+            return -1;
+    }
+
+    if (mp->ma_keys == Py_EMPTY_KEYS) {
+        return custom_insert_to_emptydict(mp, key, hash, value);
+    }
+    /* insertdict() handles any resizing that might be necessary */
+    return custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+}
+
+/* CAUTION: PyDict_SetItem() must guarantee that it won't resize the
+ * dictionary if it's merely replacing the value for an existing key.
+ * This means that it's safe to loop over a dictionary with PyDict_Next()
+ * and occasionally replace a value -- but you can't insert new keys or
+ * remove them.
+ */
+int
 custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
@@ -2813,6 +2913,201 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
     }
     /* insertdict() handles any resizing that might be necessary */
     return insertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+}
+
+static int
+custom_dict_merge(PyObject *a, PyObject *b, int override,
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+{
+#ifdef EBUG
+    printf("\ndict_merge override: %d\n", override);
+    fflush(stdout);
+#endif
+
+    CustomPyDictObject *mp, *other;
+    Py_ssize_t i, n;
+    PyDictKeyEntry *entry, *ep0;
+
+    assert(0 <= override && override <= 2);
+
+    /* We accept for the argument either a concrete dictionary object,
+     * or an abstract "mapping" object.  For the former, we can do
+     * things quite efficiently.  For the latter, we only require that
+     * PyMapping_Keys() and PyObject_GetItem() be supported.
+     */
+    if (a == NULL || !PyDict_Check(a) || b == NULL) {
+        PyErr_BadInternalCall();
+        return -1;
+    }
+    mp = (CustomPyDictObject*)a;
+    if (PyDict_Check(b) && (Py_TYPE(b)->tp_iter == (getiterfunc)dict_iter)) {
+        other = (CustomPyDictObject*)b;
+        if (other == mp || other->ma_used == 0)
+            /* a.update(a) or a.update({}); nothing to do */
+            return 0;
+        if (mp->ma_used == 0) {
+            /* Since the target dict is empty, PyDict_GetItem()
+             * always returns NULL.  Setting override to 1
+             * skips the unnecessary test.
+             */
+            override = 1;
+            PyDictKeysObject *okeys = other->ma_keys;
+
+            // If other is clean, combined, and just allocated, just clone it.
+            if (other->ma_values == NULL &&
+                    other->ma_used == okeys->dk_nentries &&
+                    (DK_SIZE(okeys) == PyDict_MINSIZE ||
+                     USABLE_FRACTION(DK_SIZE(okeys)/2) < other->ma_used)) {
+                PyDictKeysObject *keys = custom_clone_combined_dict_keys(other);
+                if (keys == NULL) {
+                    return -1;
+                }
+
+                dictkeys_decref(mp->ma_keys);
+                mp->ma_keys = keys;
+                if (mp->ma_values != NULL) {
+                    if (mp->ma_values != empty_values) {
+                        free_values(mp->ma_values);
+                    }
+                    mp->ma_values = NULL;
+                }
+
+                mp->ma_used = other->ma_used;
+                mp->ma_version_tag = DICT_NEXT_VERSION();
+                ASSERT_CONSISTENT(mp);
+
+                if (_PyObject_GC_IS_TRACKED(other) && !_PyObject_GC_IS_TRACKED(mp)) {
+                    /* Maintain tracking. */
+                    _PyObject_GC_TRACK(mp);
+                }
+
+                return 0;
+            }
+        }
+        /* Do one big resize at the start, rather than
+         * incrementally resizing as we insert new items.  Expect
+         * that there will be no (or few) overlapping keys.
+         */
+        if (USABLE_FRACTION(DK_SIZE(mp->ma_keys)) < other->ma_used) {
+            if (customdictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used), build_idxs)) {
+               return -1;
+            }
+        }
+        ep0 = DK_ENTRIES(other->ma_keys);
+        for (i = 0, n = other->ma_keys->dk_nentries; i < n; i++) {
+            PyObject *key, *value;
+            Py_hash_t hash;
+            entry = &ep0[i];
+            key = entry->me_key;
+            hash = entry->me_hash;
+            if (other->ma_values)
+                value = other->ma_values[i];
+            else
+                value = entry->me_value;
+
+            if (value != NULL) {
+                int err = 0;
+                Py_INCREF(key);
+                Py_INCREF(value);
+                if (override == 1)
+                    err = custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+                else {
+                    err = custom_PyDict_Contains_KnownHash(a, key, hash);
+                    if (err == 0) {
+                        err = custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+                    }
+                    else if (err > 0) {
+                        if (override != 0) {
+                            _PyErr_SetKeyError(key);
+                            Py_DECREF(value);
+                            Py_DECREF(key);
+                            return -1;
+                        }
+                        err = 0;
+                    }
+                }
+                Py_DECREF(value);
+                Py_DECREF(key);
+                if (err != 0)
+                    return -1;
+
+                if (n != other->ma_keys->dk_nentries) {
+                    PyErr_SetString(PyExc_RuntimeError,
+                                    "dict mutated during update");
+                    return -1;
+                }
+            }
+        }
+    }
+    else {
+        /* Do it the generic, slower way */
+        PyObject *keys = PyMapping_Keys(b);
+        PyObject *iter;
+        PyObject *key, *value;
+        int status;
+
+        if (keys == NULL)
+            /* Docstring says this is equivalent to E.keys() so
+             * if E doesn't have a .keys() method we want
+             * AttributeError to percolate up.  Might as well
+             * do the same for any other error.
+             */
+            return -1;
+
+        iter = PyObject_GetIter(keys);
+        Py_DECREF(keys);
+        if (iter == NULL)
+            return -1;
+
+        for (key = PyIter_Next(iter); key; key = PyIter_Next(iter)) {
+#ifdef EBUG
+            printf("dict_merge for loop iteration.\n");
+#endif
+
+            if (override != 1) {
+                status = PyDict_Contains(a, key);
+
+                if (status != 0) {
+                    if (status > 0) {
+                        if (override == 0) {
+                            Py_DECREF(key);
+                            continue;
+                        }
+                        _PyErr_SetKeyError(key);
+                    }
+                    Py_DECREF(key);
+                    Py_DECREF(iter);
+                    return -1;
+                }
+            }
+            value = PyObject_GetItem(b, key);
+            if (value == NULL) {
+                Py_DECREF(iter);
+                Py_DECREF(key);
+                return -1;
+            }
+            status = custom_PyDict_SetItem2(a, key, value, lookup, empty_slot, build_idxs);
+
+#ifdef EBUG
+            printf("status: %d\n", status);
+#endif
+
+            Py_DECREF(key);
+            Py_DECREF(value);
+            if (status < 0) {
+                Py_DECREF(iter);
+                return -1;
+            }
+        }
+        Py_DECREF(iter);
+        if (PyErr_Occurred())
+            /* Iterator completed, via error */
+            return -1;
+    }
+    ASSERT_CONSISTENT(a);
+    return 0;
 }
 
 static int
@@ -3011,6 +3306,20 @@ dict_merge(PyObject *a, PyObject *b, int override,
 }
 
 int
+custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+{
+#ifdef EBUG
+    printf("called custom_PyDict_Merge\n");
+#endif
+
+    /* XXX Deprecate override not in (0, 1). */
+    return custom_dict_merge(a, b, override != 0, lookup, empty_slot, build_idxs);
+}
+
+int
 custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
@@ -3022,6 +3331,32 @@ custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
 
     /* XXX Deprecate override not in (0, 1). */
     return dict_merge(a, b, override != 0, lookup, empty_slot, build_idxs);
+}
+
+/* Single-arg dict update; used by dict_update_common and operators. */
+static int
+custom_dict_update_arg(PyObject *self, PyObject *arg,
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+{
+#ifdef EBUG
+    printf("called dict_update_arg\n");
+#endif
+
+    if (PyDict_CheckExact(arg)) {
+        return custom_PyDict_Merge2(self, arg, 1, lookup, empty_slot, build_idxs);
+    }
+    _Py_IDENTIFIER(keys);
+    PyObject *func;
+    if (_PyObject_LookupAttrId(arg, &PyId_keys, &func) < 0) {
+        return -1;
+    }
+    if (func != NULL) {
+        Py_DECREF(func);
+        return custom_PyDict_Merge2(self, arg, 1, lookup, empty_slot, build_idxs);
+    }
+    return PyDict_MergeFromSeq2(self, arg, 1);
 }
 
 /* Single-arg dict update; used by dict_update_common and operators. */
@@ -3097,9 +3432,52 @@ static PySequenceMethods dict_as_sequence = {
 };
 
 static Py_ssize_t
+custom_dict_length(CustomPyDictObject *mp)
+{
+    return mp->ma_used;
+}
+
+static Py_ssize_t
 dict_length(PyDictObject *mp)
 {
     return mp->ma_used;
+}
+
+static PyObject *
+custom_dict_subscript(CustomPyDictObject *mp, PyObject *key)
+{
+    Py_ssize_t ix = 0;
+    Py_hash_t hash;
+    PyObject *value = key;
+
+    if (!PyUnicode_CheckExact(key) ||
+        (hash = ((PyASCIIObject *) key)->hash) == -1) {
+        hash = PyObject_Hash(key);
+        if (hash == -1)
+            return NULL;
+    }
+    // ix = _Py_dict_lookup(mp, key, hash, &value, &num_cmps);
+    if (ix == DKIX_ERROR)
+        return NULL;
+    if (ix == DKIX_EMPTY || value == NULL) {
+        if (!PyDict_CheckExact(mp)) {
+            /* Look up __missing__ method if we're a subclass. */
+            PyObject *missing, *res;
+            _Py_IDENTIFIER(__missing__);
+            missing = _PyObject_LookupSpecial((PyObject *)mp, &PyId___missing__);
+            if (missing != NULL) {
+                res = PyObject_CallOneArg(missing, key);
+                Py_DECREF(missing);
+                return res;
+            }
+            else if (PyErr_Occurred())
+                return NULL;
+        }
+        _PyErr_SetKeyError(key);
+        return NULL;
+    }
+    Py_INCREF(value);
+    return value;
 }
 
 static PyObject *
@@ -3137,6 +3515,15 @@ dict_subscript(PyDictObject *mp, PyObject *key)
     }
     Py_INCREF(value);
     return value;
+}
+
+static int
+custom_dict_ass_sub(CustomPyDictObject *mp, PyObject *v, PyObject *w)
+{
+    if (w == NULL)
+        return PyDict_DelItem((PyObject *)mp, v);
+    else
+        return DKIX_ERROR; // custom_PyDict_SetItem((PyObject *)mp, v, w);
 }
 
 static int
