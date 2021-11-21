@@ -62,6 +62,13 @@ static PyModuleDef custommodule = {
     .m_size = -1,
 };
 
+static PyModuleDef custommodule2 = {
+    PyModuleDef_HEAD_INIT,
+    .m_name = "custom2",
+    .m_doc = "Example module that creates an extension type.",
+    .m_size = -1,
+};
+
 static int
 custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname,
@@ -1541,16 +1548,16 @@ PyMODINIT_FUNC
 PyInit_custom2(void)
 {
     PyObject *m;
-    if (PyType_Ready(&MyPyDict_Type) < 0)
+    if (PyType_Ready(&MyPyDict_Type2) < 0)
         return NULL;
 
-    m = PyModule_Create(&custommodule);
+    m = PyModule_Create(&custommodule2);
     if (m == NULL)
         return NULL;
 
-    Py_INCREF(&MyPyDict_Type);
-    if (PyModule_AddObject(m, "Custom", (PyObject *) &MyPyDict_Type) < 0) {
-        Py_DECREF(&MyPyDict_Type);
+    Py_INCREF(&MyPyDict_Type2);
+    if (PyModule_AddObject(m, "Custom", (PyObject *) &MyPyDict_Type2) < 0) {
+        Py_DECREF(&MyPyDict_Type2);
         Py_DECREF(m);
         return NULL;
     }

@@ -1,7 +1,7 @@
-import custom
+import custom2
 import time
 
-mycustom = custom.Custom()
+mycustom = custom2.Custom()
 words = {}
 
 tic = time.perf_counter()

@@ -140,3 +140,5 @@ Objects/test.txt
 Objects/truth.py
 Objects/truth.txt
 Notebooks/.ipynb_checkpoints/Untitled-Copy1-checkpoint.ipynb
+Objects/build/temp.win-amd64-3.11/Release/custom2.cp311-win_amd64.exp
+Objects/build/temp.win-amd64-3.11/Release/custom2.cp311-win_amd64.lib
