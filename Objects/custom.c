@@ -137,8 +137,24 @@ dict_init(PyObject *self, PyObject *args, PyObject *kwds)
     return dict_update_common(self, args, kwds, "dict", _Py_dict_lookup, find_empty_slot,
             build_indices);
 #else
-    return dict_update_common(self, args, kwds, "dict", custom_lookup, custom_find_empty_slot,
-            custom_build_indices);
+    return dict_update_common(self, args, kwds, "dict", custom_lookup, find_empty_slot,
+            build_indices);
+#endif
+}
+
+static int
+custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
+{
+#ifdef EBUG
+    printf("called dict_init\n");
+#endif
+
+#ifdef ORIG_LOOKUP
+    return custom_dict_update_common(self, args, kwds, "dict", _Custom_Py_dict_lookup, find_empty_slot,
+            build_indices);
+#else
+    return custom_dict_update_common(self, args, kwds, "dict", custom_lookup2, find_empty_slot,
+            build_indices);
 #endif
 }
 
@@ -784,7 +800,7 @@ my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
             find_empty_slot, build_indices)) != -1) {
 #else
     if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", custom_lookup,
-            custom_find_empty_slot, custom_build_indices)) != -1) {
+            find_empty_slot, build_indices)) != -1) {
 #endif
 #ifdef EBUG
         printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
@@ -1403,6 +1419,40 @@ dict_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
+custom_dict_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    assert(type != NULL);
+    assert(type->tp_alloc != NULL);
+    // dict subclasses must implement the GC protocol
+    assert(_PyType_IS_GC(type));
+
+    PyObject *self = type->tp_alloc(type, 0);
+    if (self == NULL) {
+        return NULL;
+    }
+    CustomPyDictObject *d = (CustomPyDictObject *)self;
+
+    d->ma_used = 0;
+    d->ma_version_tag = DICT_NEXT_VERSION();
+    dictkeys_incref(Py_EMPTY_KEYS);
+    d->ma_keys = Py_EMPTY_KEYS;
+    d->ma_values = empty_values;
+    ASSERT_CONSISTENT(d);
+
+    if (type != &PyDict_Type) {
+        // Don't track if a subclass tp_alloc is PyType_GenericAlloc()
+        if (!_PyObject_GC_IS_TRACKED(d)) {
+            _PyObject_GC_TRACK(d);
+        }
+    }
+    else {
+        // _PyType_AllocNoTrack() does not track the created object
+        assert(!_PyObject_GC_IS_TRACKED(d));
+    }
+    return self;
+}
+
+static PyObject *
 dict_vectorcall(PyObject *type, PyObject * const*args,
                 size_t nargsf, PyObject *kwnames)
 {
@@ -1450,8 +1500,45 @@ PyTypeObject MyPyDict_Type = {
     .tp_traverse = dict_traverse
 };
 
-PyMODINIT_FUNC
+PyTypeObject MyPyDict_Type2 = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "dict",
+    .tp_doc = dictionary_doc,
+    .tp_basicsize = sizeof(CustomPyDictObject),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
+        Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DICT_SUBCLASS |
+        _Py_TPFLAGS_MATCH_SELF | Py_TPFLAGS_MAPPING,
+    .tp_new = custom_dict_new,
+    .tp_init = dict_init,
+    .tp_dealloc = (destructor)dict_dealloc,
+    .tp_methods = mapp_methods,
+    .tp_traverse = dict_traverse
+};
+
+/* PyMODINIT_FUNC
 PyInit_custom(void)
+{
+    PyObject *m;
+    if (PyType_Ready(&MyPyDict_Type) < 0)
+        return NULL;
+
+    m = PyModule_Create(&custommodule);
+    if (m == NULL)
+        return NULL;
+
+    Py_INCREF(&MyPyDict_Type);
+    if (PyModule_AddObject(m, "Custom", (PyObject *) &MyPyDict_Type) < 0) {
+        Py_DECREF(&MyPyDict_Type);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    return m;
+} */
+
+PyMODINIT_FUNC
+PyInit_custom2(void)
 {
     PyObject *m;
     if (PyType_Ready(&MyPyDict_Type) < 0)

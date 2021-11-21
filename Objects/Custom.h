@@ -1581,20 +1581,6 @@ build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
     }
 }
 
-static void
-custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
-{
-    size_t mask = (size_t)DK_SIZE(keys) - 1;
-    for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
-        Py_hash_t hash = ep->me_hash;
-        size_t i = hash & mask;
-        for (; dictkeys_get_index(keys, i) != DKIX_EMPTY;) {
-            i = mask & (i + 1);
-        }
-        dictkeys_set_index(keys, i, ix);
-    }
-}
-
 /*
 Restructure the table by allocating a new table and reinserting all
 items again.  When entries have been deleted, the new table may
@@ -2313,26 +2299,6 @@ find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash)
     for (size_t perturb = hash; ix >= 0;) {
         perturb >>= PERTURB_SHIFT;
         i = (i*5 + perturb + 1) & mask;
-        ix = dictkeys_get_index(keys, i);
-    }
-    return i;
-}
-
-/* Internal function to find slot for an item from its hash
-   when it is known that the key is not present in the dict.
-
-   The dict must be combined. */
-static Py_ssize_t
-custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash)
-{
-    assert(keys != NULL);
-
-    const size_t mask = DK_MASK(keys);
-    size_t i = hash & mask;
-
-    Py_ssize_t ix = dictkeys_get_index(keys, i);
-    for (; ix >= 0;) {
-        i = (i + 1) & mask;
         ix = dictkeys_get_index(keys, i);
     }
     return i;
