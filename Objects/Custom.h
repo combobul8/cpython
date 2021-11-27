@@ -1582,6 +1582,24 @@ build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
 }
 
 /*
+Internal routine used by dictresize() to build a hashtable of entries.
+*/
+static void
+custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
+{
+    size_t mask = (size_t)DK_SIZE(keys) - 1;
+    for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
+        Py_hash_t hash = ep->me_hash;
+        size_t i = hash & mask;
+        for (size_t perturb = hash; dictkeys_get_index(keys, i) != DKIX_EMPTY;) {
+            perturb >>= PERTURB_SHIFT;
+            i = mask & (i + 1);
+        }
+        dictkeys_set_index(keys, i, ix);
+    }
+}
+
+/*
 Restructure the table by allocating a new table and reinserting all
 items again.  When entries have been deleted, the new table may
 actually be smaller than the old one.

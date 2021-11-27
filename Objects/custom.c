@@ -163,7 +163,7 @@ custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
             build_indices);
 #else
     return custom_dict_update_common(self, args, kwds, "dict", custom_lookup2, custom_find_empty_slot,
-            build_indices);
+            custom_build_indices);
 #endif
 }
 
@@ -842,7 +842,7 @@ custom_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
             find_empty_slot, build_indices)) != -1) {
 #else
     if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update", custom_lookup2,
-            custom_find_empty_slot, build_indices)) != -1) {
+            custom_find_empty_slot, custom_build_indices)) != -1) {
 #endif
 #ifdef EBUG
         printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
