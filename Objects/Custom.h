@@ -241,6 +241,8 @@ PyDoc_STRVAR(sizeof__doc__,
 
 #define DICT_GET_METHODDEF    \
     {"get", (PyCFunction)(void(*)(void))dict_get, METH_FASTCALL, dict_get__doc__},
+#define CUSTOM_DICT_GET_METHODDEF    \
+    {"get", (PyCFunction)(void(*)(void))custom_dict_get, METH_FASTCALL, dict_get__doc__},
 
 PyDoc_STRVAR(dict_get__doc__,
 "get($self, key, default=None, /)\n"

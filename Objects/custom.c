@@ -823,6 +823,38 @@ my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
     return NULL;
 }
 
+/* Note: dict.update() uses the METH_VARARGS|METH_KEYWORDS calling convention.
+   Using METH_FASTCALL|METH_KEYWORDS would make dict.update(**dict2) calls
+   slower, see the issue #29312. */
+static PyObject *
+custom_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
+{
+#ifdef EBUG
+    printf("\ncalled my_dict_update\n");
+#endif
+
+    int dict_update_common_rv;
+#ifdef ORIG_LOOKUP
+    if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update", _Py_dict_lookup,
+            find_empty_slot, build_indices)) != -1) {
+#else
+    if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update", custom_lookup2,
+            find_empty_slot, build_indices)) != -1) {
+#endif
+#ifdef EBUG
+        printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
+#endif
+
+        Py_RETURN_NONE;
+    }
+
+#ifdef EBUG
+    printf("dict_update_common_rv: %d\n", dict_update_common_rv);
+#endif
+
+    return NULL;
+}
+
 /* Internal version of dict.from_keys().  It is subclass-friendly. */
 PyObject *
 _Custom_PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
@@ -1088,6 +1120,34 @@ static PyMethodDef mapp_methods[] = {
     {"values",          dictvalues_new,                 METH_NOARGS,
     values__doc__},
     {"update",          (PyCFunction)(void(*)(void))my_dict_update, METH_VARARGS | METH_KEYWORDS,
+     update__doc__},
+    DICT_FROMKEYS_METHODDEF
+    {"clear",           (PyCFunction)dict_clear,        METH_NOARGS,
+     clear__doc__},
+    {"copy",            (PyCFunction)dict_copy,         METH_NOARGS,
+     copy__doc__},
+    DICT___REVERSED___METHODDEF
+    {"__class_getitem__", (PyCFunction)Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
+    {NULL,              NULL}   /* sentinel */
+};
+
+static PyMethodDef custom_mapp_methods[] = {
+    DICT___CONTAINS___METHODDEF
+    {"__getitem__", (PyCFunction)(void(*)(void))dict_subscript,        METH_O | METH_COEXIST,
+     getitem__doc__},
+    {"__sizeof__",      (PyCFunction)(void(*)(void))dict_sizeof,       METH_NOARGS,
+     sizeof__doc__},
+    CUSTOM_DICT_GET_METHODDEF
+    DICT_SETDEFAULT_METHODDEF
+    DICT_POP_METHODDEF
+    DICT_POPITEM_METHODDEF
+    {"keys",            dictkeys_new,                   METH_NOARGS,
+    keys__doc__},
+    {"items",           dictitems_new,                  METH_NOARGS,
+    items__doc__},
+    {"values",          dictvalues_new,                 METH_NOARGS,
+    values__doc__},
+    {"update",          (PyCFunction)(void(*)(void))custom_dict_update, METH_VARARGS | METH_KEYWORDS,
      update__doc__},
     DICT_FROMKEYS_METHODDEF
     {"clear",           (PyCFunction)dict_clear,        METH_NOARGS,
@@ -1517,7 +1577,7 @@ PyTypeObject MyPyDict_Type2 = {
         Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DICT_SUBCLASS |
         _Py_TPFLAGS_MATCH_SELF | Py_TPFLAGS_MAPPING,
     .tp_new = custom_dict_new,
-    .tp_init = dict_init,
+    .tp_init = custom_dict_init,
     .tp_dealloc = (destructor)dict_dealloc,
     .tp_methods = mapp_methods,
     .tp_traverse = dict_traverse
