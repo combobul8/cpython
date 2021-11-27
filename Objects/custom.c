@@ -293,7 +293,6 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
     Py_ssize_t ix;
 
     hash = custom_PyObject_Hash(key);
-    printf("custom_dict_get_impl hash: %lld.\n", hash);
 
     if (!PyUnicode_CheckExact(key) ||
         (hash = ((PyASCIIObject *) key)->hash) == -1) {
@@ -543,9 +542,9 @@ exit:
 static PyObject *
 custom_dict_get(CustomPyDictObject *self, PyObject *const *args, Py_ssize_t nargs)
 {
+#ifdef EBUG
     printf("\ncalled custom_dict_get\n");
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     PyObject *return_value = NULL;
