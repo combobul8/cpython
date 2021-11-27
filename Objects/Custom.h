@@ -2110,9 +2110,9 @@ found:
 Py_ssize_t _Py_HOT_FUNCTION
 custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
 {
+#ifdef EBUG
     printf("custom_lookup2 hash: %lld.\n", hash);
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     PyDictKeysObject *dk;
@@ -2178,8 +2178,6 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
     }
     Py_UNREACHABLE();
 found:
-    printf("custom_lookup found.\n");
-
     if (dk->dk_kind == DICT_KEYS_SPLIT) {
         *value_addr = mp->ma_values[ix];
     }
@@ -2381,7 +2379,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
 
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash);
-        printf("custominsertdict hashpos: %lld.\n", hashpos);
 
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);

@@ -153,8 +153,9 @@ dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 static int
 custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
-    printf("called custom_dict_init\n");
 #ifdef EBUG
+    printf("called custom_dict_init\n");
+    fflush(stdout);
 #endif
 
 #ifdef ORIG_LOOKUP
