@@ -1495,8 +1495,6 @@ new_keys_object(uint8_t log2_size)
 static inline Py_ssize_t
 dictkeys_get_index(const PyDictKeysObject *keys, Py_ssize_t i)
 {
-    printf("dictkeys_get_index i: %lld\n", i);
-
     Py_ssize_t s = DK_SIZE(keys);
     Py_ssize_t ix;
 
@@ -1537,9 +1535,9 @@ dictkeys_set_index(PyDictKeysObject *keys, Py_ssize_t i, Py_ssize_t ix)
         assert(ix <= 0x7f);
         indices[i] = (char)ix;
 
+#ifdef EBUG
         printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
         fflush(stdout);
-#ifdef EBUG
 #endif
     }
     else if (s <= 0xffff) {
@@ -2149,7 +2147,6 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 }
             }
             else if (ix == DKIX_EMPTY) {
-                printf("0custom_lookup ix == DKIX_EMPTY.\n");
                 *value_addr = NULL;
                 return DKIX_EMPTY;
             }
@@ -2172,7 +2169,6 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 }
             }
             else if (ix == DKIX_EMPTY) {
-                printf("1custom_lookup ix == DKIX_EMPTY.\n");
                 *value_addr = NULL;
                 return DKIX_EMPTY;
             }
@@ -2305,6 +2301,27 @@ find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash)
     for (size_t perturb = hash; ix >= 0;) {
         perturb >>= PERTURB_SHIFT;
         i = (i*5 + perturb + 1) & mask;
+        ix = dictkeys_get_index(keys, i);
+    }
+    return i;
+}
+
+/* Internal function to find slot for an item from its hash
+   when it is known that the key is not present in the dict.
+
+   The dict must be combined. */
+static Py_ssize_t
+custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash)
+{
+    assert(keys != NULL);
+
+    const size_t mask = DK_MASK(keys);
+    size_t i = hash & mask;
+
+    Py_ssize_t ix = dictkeys_get_index(keys, i);
+    for (size_t perturb = hash; ix >= 0;) {
+        perturb >>= PERTURB_SHIFT;
+        i = (i + 1) & mask;
         ix = dictkeys_get_index(keys, i);
     }
     return i;
@@ -2553,8 +2570,9 @@ static int
 custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash,
                     PyObject *value)
 {
-    printf("called insert_to_emptydict; hash: %lld\n", hash);
 #ifdef EBUG
+    printf("called insert_to_emptydict; hash: %lld\n", hash);
+    fflush(stdout);
 #endif
 
     assert(mp->ma_keys == Py_EMPTY_KEYS);
@@ -2575,7 +2593,6 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     MAINTAIN_TRACKING(mp, key, value);
 
     size_t hashpos = (size_t)hash & (PyDict_MINSIZE-1);
-    printf("insert_to_emptydict hashpos: %lld.\n", hashpos);
 
     PyDictKeyEntry *ep = DK_ENTRIES(mp->ma_keys);
     dictkeys_set_index(mp->ma_keys, hashpos, 0);
@@ -2826,8 +2843,9 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
 
     hash = custom_PyObject_Hash(key);
 
-    printf("custom_PyDict_SetItem2 hash: %lld\n", hash);
 #ifdef EBUG
+    printf("custom_PyDict_SetItem2 hash: %lld\n", hash);
+    fflush(stdout);
 #endif
 
     if (!PyUnicode_CheckExact(key) ||
@@ -2896,9 +2914,9 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
+#ifdef EBUG
     printf("\ncustom_dict_merge override: %d\n", override);
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     CustomPyDictObject *mp, *other;
@@ -3286,8 +3304,9 @@ custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    printf("called custom_PyDict_Merge\n");
 #ifdef EBUG
+    printf("called custom_PyDict_Merge\n");
+    fflush(stdout);
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
@@ -3315,8 +3334,9 @@ custom_dict_update_arg(PyObject *self, PyObject *arg,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    printf("called custom_dict_update_arg\n");
 #ifdef EBUG
+    printf("called custom_dict_update_arg\n");
+    fflush(stdout);
 #endif
 
     if (PyDict_CheckExact(arg)) {
