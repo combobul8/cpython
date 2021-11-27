@@ -76,8 +76,8 @@ custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
                    void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
+    printf("called custom_dict_update_common\n");
 #ifdef EBUG
-    printf("called dict_update_common\n");
 #endif
 
     PyObject *arg = NULL;
@@ -97,6 +97,7 @@ custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
         else
             result = -1;
     }
+    printf("custom_dict_update_common returning.\n");
     return result;
 }
 
@@ -152,8 +153,8 @@ dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 static int
 custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
-#ifdef EBUG
     printf("called dict_init\n");
+#ifdef EBUG
 #endif
 
 #ifdef ORIG_LOOKUP
@@ -540,9 +541,9 @@ exit:
 static PyObject *
 custom_dict_get(CustomPyDictObject *self, PyObject *const *args, Py_ssize_t nargs)
 {
-#ifdef EBUG
-    printf("\ncalled dict_get\n");
+    printf("\ncalled custom_dict_get\n");
     fflush(stdout);
+#ifdef EBUG
 #endif
 
     PyObject *return_value = NULL;
@@ -829,8 +830,8 @@ my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 static PyObject *
 custom_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 {
+    printf("\ncalled custom_dict_update\n");
 #ifdef EBUG
-    printf("\ncalled my_dict_update\n");
 #endif
 
     int dict_update_common_rv;
@@ -1579,7 +1580,7 @@ PyTypeObject MyPyDict_Type2 = {
     .tp_new = custom_dict_new,
     .tp_init = custom_dict_init,
     .tp_dealloc = (destructor)dict_dealloc,
-    .tp_methods = mapp_methods,
+    .tp_methods = custom_mapp_methods,
     .tp_traverse = dict_traverse
 };
 

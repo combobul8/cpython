@@ -2819,8 +2819,8 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
 
     hash = custom_PyObject_Hash(key);
 
+    printf("custom_PyDict_SetItem2 hash: %lld\n", hash);
 #ifdef EBUG
-    printf("custom_PyDict_SetItem hash: %lld\n", hash);
 #endif
 
     if (!PyUnicode_CheckExact(key) ||
@@ -2889,9 +2889,9 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-#ifdef EBUG
-    printf("\ndict_merge override: %d\n", override);
+    printf("\ncustom_dict_merge override: %d\n", override);
     fflush(stdout);
+#ifdef EBUG
 #endif
 
     CustomPyDictObject *mp, *other;
@@ -3279,8 +3279,8 @@ custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-#ifdef EBUG
     printf("called custom_PyDict_Merge\n");
+#ifdef EBUG
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
@@ -3308,8 +3308,8 @@ custom_dict_update_arg(PyObject *self, PyObject *arg,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
+    printf("called custom_dict_update_arg\n");
 #ifdef EBUG
-    printf("called dict_update_arg\n");
 #endif
 
     if (PyDict_CheckExact(arg)) {

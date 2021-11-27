@@ -14,12 +14,12 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
         # print("\n" + word, flush = True)
         # print("dictionary size: " + str(len(mycustom.keys())), flush = True)
 
-        if i >= 2:
+        if i >= 1:
             break
-        elif mycustom.get(word) != None:
+            '''elif mycustom.get(word) != None:
             # print("already seen " + word, flush = True)
             i += 1
-            None
+            None'''
         else:
             mycustom.update({word: i})
             # words.update({word: i})
@@ -40,6 +40,6 @@ for key in list(mycustom.keys()):
         # print("j: " + str(j))
     # j += 1
 
-    print(mycustom.get(key))
+    # print(mycustom.get(key))
     # mycustom.get(key)
     None
