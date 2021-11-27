@@ -292,6 +292,7 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
     Py_ssize_t ix;
 
     hash = custom_PyObject_Hash(key);
+    printf("custom_dict_get_impl hash: %lld.\n", hash);
 
     if (!PyUnicode_CheckExact(key) ||
         (hash = ((PyASCIIObject *) key)->hash) == -1) {

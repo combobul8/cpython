@@ -1495,7 +1495,7 @@ new_keys_object(uint8_t log2_size)
 static inline Py_ssize_t
 dictkeys_get_index(const PyDictKeysObject *keys, Py_ssize_t i)
 {
-    // printf("dictkeys_get_index i: %lld\n", i);
+    printf("dictkeys_get_index i: %lld\n", i);
 
     Py_ssize_t s = DK_SIZE(keys);
     Py_ssize_t ix;
@@ -1537,9 +1537,9 @@ dictkeys_set_index(PyDictKeysObject *keys, Py_ssize_t i, Py_ssize_t ix)
         assert(ix <= 0x7f);
         indices[i] = (char)ix;
 
-#ifdef EBUG
         printf("dictkeys_set_index indices[%lld]: %d\n", i, indices[i]);
         fflush(stdout);
+#ifdef EBUG
 #endif
     }
     else if (s <= 0xffff) {
@@ -2112,9 +2112,9 @@ found:
 Py_ssize_t _Py_HOT_FUNCTION
 custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
 {
-#ifdef EBUG
-    printf("custom_lookup hash: %lld.\n", hash);
+    printf("custom_lookup2 hash: %lld.\n", hash);
     fflush(stdout);
+#ifdef EBUG
 #endif
 
     PyDictKeysObject *dk;
@@ -2149,6 +2149,7 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 }
             }
             else if (ix == DKIX_EMPTY) {
+                printf("0custom_lookup ix == DKIX_EMPTY.\n");
                 *value_addr = NULL;
                 return DKIX_EMPTY;
             }
@@ -2171,6 +2172,7 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 }
             }
             else if (ix == DKIX_EMPTY) {
+                printf("1custom_lookup ix == DKIX_EMPTY.\n");
                 *value_addr = NULL;
                 return DKIX_EMPTY;
             }
@@ -2180,6 +2182,8 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
     }
     Py_UNREACHABLE();
 found:
+    printf("custom_lookup found.\n");
+
     if (dk->dk_kind == DICT_KEYS_SPLIT) {
         *value_addr = mp->ma_values[ix];
     }
@@ -2360,6 +2364,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
 
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash);
+        printf("custominsertdict hashpos: %lld.\n", hashpos);
+
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
         ep->me_key = key;
@@ -2547,8 +2553,8 @@ static int
 custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash,
                     PyObject *value)
 {
-#ifdef EBUG
     printf("called insert_to_emptydict; hash: %lld\n", hash);
+#ifdef EBUG
 #endif
 
     assert(mp->ma_keys == Py_EMPTY_KEYS);
@@ -2569,6 +2575,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     MAINTAIN_TRACKING(mp, key, value);
 
     size_t hashpos = (size_t)hash & (PyDict_MINSIZE-1);
+    printf("insert_to_emptydict hashpos: %lld.\n", hashpos);
 
     PyDictKeyEntry *ep = DK_ENTRIES(mp->ma_keys);
     dictkeys_set_index(mp->ma_keys, hashpos, 0);
