@@ -67,6 +67,8 @@ typedef struct {
        If ma_values is not NULL, the table is splitted:
        keys are stored in ma_keys and values are stored in ma_values */
     PyObject **ma_values;
+
+    Layer* ma_layers;
 } CustomPyDictObject;
 
 struct _dictkeysobject {
@@ -2871,6 +2873,7 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
     }
 
     if (mp->ma_keys == Py_EMPTY_KEYS) {
+        // TODO: set mp->layers to all NULL
         return custom_insert_to_emptydict(mp, key, hash, value);
     }
     /* insertdict() handles any resizing that might be necessary */
