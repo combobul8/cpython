@@ -1618,7 +1618,8 @@ static int
 customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    // printf("dictresize log2_newsize: %ld.\n", log2_newsize);
+    printf("dictresize log2_newsize: %ld.\n", log2_newsize);
+    fflush(stdout);
 
     Py_ssize_t numentries;
     PyDictKeysObject *oldkeys;
@@ -1633,10 +1634,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
 
     oldkeys = mp->ma_keys;
 
-#ifdef EBUG
-    printf("old capacity: %lld.\n", DK_SIZE(mp->ma_keys));
-#endif
-
     /* NOTE: Current odict checks mp->ma_keys to detect resize happen.
      * So we can't reuse oldkeys even if oldkeys->dk_size == newsize.
      * TODO: Try reusing oldkeys when reimplement odict.
@@ -1649,9 +1646,20 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         return -1;
     }
 
-#ifdef EBUG
-    printf("capacity: %lld.\n", DK_SIZE(mp->ma_keys));
-#endif
+    assert(mp->ma_layers);
+    free(mp->ma_layers);
+    mp->ma_layers = NULL;
+
+    printf("mallocing %lld.\n", DK_SIZE(mp->ma_keys));
+    fflush(stdout);
+    mp->ma_layers = (Layer *) malloc(DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
+    if (mp->ma_layers == NULL) {
+        return -1;
+    }
+
+    for (int64_t i = 0; i < DK_SIZE(mp->ma_keys); i++) {
+        mp->ma_layers[i].keys = NULL; // (int *) malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_layers[i].keys));
+    }
 
     // New table must be large enough.
     assert(mp->ma_keys->dk_usable >= mp->ma_used);
@@ -1663,6 +1671,9 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
     newentries = DK_ENTRIES(mp->ma_keys);
     oldvalues = mp->ma_values;
     if (oldvalues != NULL) {
+        printf("oldvalues copying to newentries...\n");
+        fflush(stdout);
+
         /* Convert split table into new combined table.
          * We must incref keys; we can transfer values.
          * Note that values of split table is always dense.
@@ -1685,9 +1696,20 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
     }
     else {  // combined table.
         if (oldkeys->dk_nentries == numentries) {
+            printf("== copying to newentries...\n");
+            fflush(stdout);
+
+        // PyDictKeyEntry *ep0 = DK_ENTRIES(keys);
+        // Py_ssize_t n = keys->dk_nentries;
+        // for (Py_ssize_t i = 0; i < n; i++) {
+        //    PyDictKeyEntry *entry = &ep0[i];
+        //    TODO: use custominsertdict(mp, entry->me_key, entry->me_hash, entry->mevalue, lookup, empty_slot, build_idxs)
             memcpy(newentries, oldentries, numentries * sizeof(PyDictKeyEntry));
         }
         else {
+            printf("copying to newentries...\n");
+            fflush(stdout);
+
             PyDictKeyEntry *ep = oldentries;
             for (Py_ssize_t i = 0; i < numentries; i++) {
                 while (ep->me_value == NULL)
@@ -2598,11 +2620,8 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     assert(mp->ma_keys == Py_EMPTY_KEYS);
 
     PyDictKeysObject *newkeys = new_keys_object(PyDict_LOG_MINSIZE);
-    printf("mallocing %d.\n", (1 << PyDict_LOG_MINSIZE));
-    fflush(stdout);
-    mp->ma_layers = (Layer *) malloc((1 << PyDict_LOG_MINSIZE) * sizeof *(mp->ma_layers));
 
-    if (newkeys == NULL || mp->ma_layers == NULL) {
+    if (newkeys == NULL) {
         return -1;
     }
     if (!PyUnicode_CheckExact(key)) {
@@ -2611,6 +2630,17 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     dictkeys_decref(Py_EMPTY_KEYS);
     mp->ma_keys = newkeys;
     mp->ma_values = NULL;
+
+    printf("mallocing %lld.\n", DK_SIZE(newkeys));
+    fflush(stdout);
+    mp->ma_layers = (Layer *) malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_layers));
+    if (mp->ma_layers == NULL) {
+        return -1;
+    }
+
+    for (int64_t i = 0; i < DK_SIZE(newkeys); i++) {
+        mp->ma_layers[i].keys = NULL; // (int *) malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_layers[i].keys));
+    }
 
     Py_INCREF(key);
     Py_INCREF(value);
@@ -2882,7 +2912,7 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
     if (mp->ma_keys == Py_EMPTY_KEYS) {
         return custom_insert_to_emptydict(mp, key, hash, value);
     }
-    /* insertdict() handles any resizing that might be necessary */
+    /* custominsertdict() handles any resizing that might be necessary */
     return custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
 }
 
