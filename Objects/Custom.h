@@ -43,7 +43,8 @@
 #define Py_TPFLAGS_MAPPING (1 << 6)
 
 typedef struct {
-    PyDictObject *mp;
+    // PyDictObject *mp;
+    int *keys;
 } Layer;
 
 /* The ma_values pointer is NULL for a combined table
@@ -1454,6 +1455,7 @@ new_keys_object(uint8_t log2_size)
 
 #ifdef EBUG
     printf("es: %zd\n", es);
+    fflush(stdout);
 #endif
 
     struct _Py_dict_state *state = get_dict_state();
@@ -1469,6 +1471,7 @@ new_keys_object(uint8_t log2_size)
     {
 #ifdef EBUG
         printf("es<<log2_size: %lld.\n", (es<<log2_size));
+        fflush(stdout);
 #endif
 
         dk = PyObject_Malloc(sizeof(PyDictKeysObject)
@@ -2595,7 +2598,11 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     assert(mp->ma_keys == Py_EMPTY_KEYS);
 
     PyDictKeysObject *newkeys = new_keys_object(PyDict_LOG_MINSIZE);
-    if (newkeys == NULL) {
+    printf("mallocing %d.\n", (1 << PyDict_LOG_MINSIZE));
+    fflush(stdout);
+    mp->ma_layers = (Layer *) malloc((1 << PyDict_LOG_MINSIZE) * sizeof *(mp->ma_layers));
+
+    if (newkeys == NULL || mp->ma_layers == NULL) {
         return -1;
     }
     if (!PyUnicode_CheckExact(key)) {
@@ -2873,7 +2880,6 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
     }
 
     if (mp->ma_keys == Py_EMPTY_KEYS) {
-        // TODO: set mp->layers to all NULL
         return custom_insert_to_emptydict(mp, key, hash, value);
     }
     /* insertdict() handles any resizing that might be necessary */

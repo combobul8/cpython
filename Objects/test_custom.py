@@ -14,7 +14,7 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
         # print("\n" + word, flush = True)
         # print("dictionary size: " + str(len(mycustom.keys())), flush = True)
 
-        if i >= 50:
+        if i >= 6:
             break
             '''elif mycustom.get(word) != None:
             # print("already seen " + word, flush = True)
