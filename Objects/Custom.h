@@ -1703,8 +1703,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         // Py_ssize_t n = keys->dk_nentries;
         // for (Py_ssize_t i = 0; i < n; i++) {
         //    PyDictKeyEntry *entry = &ep0[i];
-        //    TODO: use custominsertdict(mp, entry->me_key, entry->me_hash, entry->mevalue, lookup, empty_slot, build_idxs)
-            memcpy(newentries, oldentries, numentries * sizeof(PyDictKeyEntry));
+        //    TODO: use custom_PyDict_SetItem2(mp, entry->me_key, entry->mevalue, lookup, empty_slot, build_idxs)
         }
         else {
             printf("copying to newentries...\n");
@@ -3089,6 +3088,9 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
         }
     }
     else {
+        /* printf("custom_dict_merge else.\n");
+        fflush(stdout); */
+
         /* Do it the generic, slower way */
         PyObject *keys = PyMapping_Keys(b);
         PyObject *iter;
@@ -3109,8 +3111,8 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
             return -1;
 
         for (key = PyIter_Next(iter); key; key = PyIter_Next(iter)) {
-#ifdef EBUG
             printf("dict_merge for loop iteration.\n");
+#ifdef EBUG
 #endif
 
             if (override != 1) {
@@ -3152,6 +3154,8 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
         if (PyErr_Occurred())
             /* Iterator completed, via error */
             return -1;
+        printf("custom_dict_merge post-for loop.\n");
+        fflush(stdout);
     }
     ASSERT_CONSISTENT(a);
     return 0;
