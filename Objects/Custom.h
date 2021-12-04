@@ -1617,6 +1617,7 @@ but can be resplit by make_keys_shared().
 static int
 customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     printf("dictresize log2_newsize: %ld.\n", log2_newsize);
@@ -1708,7 +1709,31 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 PyObject *old_value;
                 int num_cmps;
                 Py_ssize_t ix = lookup(mp, entry->me_key, entry->me_hash, &old_value, &num_cmps);
-                printf("customdictresize ix: %lld.\n", ix);
+                assert(ix == DKIX_EMPTY);
+
+                /* Insert into new slot. */
+                mp->ma_keys->dk_version = 0;
+                assert(old_value == NULL);
+                assert(mp->ma_keys->dk_usable > 0);
+                if (!PyUnicode_CheckExact(entry->me_key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
+                    mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
+                }
+
+                Py_ssize_t hashpos = empty_slot(mp->ma_keys, entry->me_hash);
+
+                PyDictKeyEntry *ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
+                dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
+                ep->me_key = entry->me_key;
+                ep->me_hash = entry->me_hash;
+                ep->me_value = entry->me_value;
+
+                //ep->me_layer = NULL;
+                // mp->ma_used++;
+                mp->ma_version_tag = DICT_NEXT_VERSION();
+                mp->ma_keys->dk_usable--;
+                mp->ma_keys->dk_nentries++;
+                assert(mp->ma_keys->dk_usable >= 0);
+                ASSERT_CONSISTENT(mp);
             }
         }
         else {
@@ -1916,9 +1941,10 @@ estimate_log2_keysize(Py_ssize_t n)
 static int
 custom_insertion_resize(CustomPyDictObject *mp,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    return customdictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)), lookup, build_idxs);
+    return customdictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
 }
 
 static int
@@ -2394,7 +2420,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     Py_INCREF(key);
     Py_INCREF(value);
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
-        if (custom_insertion_resize(mp, lookup, build_idxs) < 0)
+        if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
             goto Fail;
     }
 
@@ -2412,7 +2438,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     if (_PyDict_HasSplitTable(mp) &&
         ((ix >= 0 && old_value == NULL && mp->ma_used != ix) ||
          (ix == DKIX_EMPTY && mp->ma_used != mp->ma_keys->dk_nentries))) {
-        if (custom_insertion_resize(mp, lookup, build_idxs) < 0)
+        if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
             goto Fail;
         ix = DKIX_EMPTY;
     }
@@ -2423,7 +2449,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         assert(old_value == NULL);
         if (mp->ma_keys->dk_usable <= 0) {
             /* Need to resize. */
-            if (custom_insertion_resize(mp, lookup, build_idxs) < 0)
+            if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
                 goto Fail;
         }
         if (!PyUnicode_CheckExact(key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
@@ -3045,7 +3071,7 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
          * that there will be no (or few) overlapping keys.
          */
         if (USABLE_FRACTION(DK_SIZE(mp->ma_keys)) < other->ma_used) {
-            if (customdictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used), lookup, build_idxs)) {
+            if (customdictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used), lookup, empty_slot, build_idxs)) {
                return -1;
             }
         }
