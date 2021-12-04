@@ -1616,6 +1616,7 @@ but can be resplit by make_keys_shared().
 */
 static int
 customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     printf("dictresize log2_newsize: %ld.\n", log2_newsize);
@@ -1699,11 +1700,16 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
             printf("== copying to newentries...\n");
             fflush(stdout);
 
-        // PyDictKeyEntry *ep0 = DK_ENTRIES(keys);
-        // Py_ssize_t n = keys->dk_nentries;
-        // for (Py_ssize_t i = 0; i < n; i++) {
-        //    PyDictKeyEntry *entry = &ep0[i];
-        //    TODO: use custom_PyDict_SetItem2(mp, entry->me_key, entry->mevalue, lookup, empty_slot, build_idxs)
+            // PyDictKeyEntry *ep0 = DK_ENTRIES(keys);
+            // Py_ssize_t n = keys->dk_nentries;
+            for (Py_ssize_t i = 0; i < numentries; i++) {
+                PyDictKeyEntry *entry = &oldentries[i];
+
+                PyObject *old_value;
+                int num_cmps;
+                Py_ssize_t ix = lookup(mp, entry->me_key, entry->me_hash, &old_value, &num_cmps);
+                printf("customdictresize ix: %lld.\n", ix);
+            }
         }
         else {
             printf("copying to newentries...\n");
@@ -1908,9 +1914,11 @@ estimate_log2_keysize(Py_ssize_t n)
 #define GROWTH_RATE(d) ((d)->ma_used*3)
 
 static int
-custom_insertion_resize(CustomPyDictObject *mp, void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+custom_insertion_resize(CustomPyDictObject *mp,
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    return customdictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)), build_idxs);
+    return customdictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)), lookup, build_idxs);
 }
 
 static int
@@ -2386,7 +2394,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     Py_INCREF(key);
     Py_INCREF(value);
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
-        if (custom_insertion_resize(mp, build_idxs) < 0)
+        if (custom_insertion_resize(mp, lookup, build_idxs) < 0)
             goto Fail;
     }
 
@@ -2404,7 +2412,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     if (_PyDict_HasSplitTable(mp) &&
         ((ix >= 0 && old_value == NULL && mp->ma_used != ix) ||
          (ix == DKIX_EMPTY && mp->ma_used != mp->ma_keys->dk_nentries))) {
-        if (custom_insertion_resize(mp, build_idxs) < 0)
+        if (custom_insertion_resize(mp, lookup, build_idxs) < 0)
             goto Fail;
         ix = DKIX_EMPTY;
     }
@@ -2415,7 +2423,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         assert(old_value == NULL);
         if (mp->ma_keys->dk_usable <= 0) {
             /* Need to resize. */
-            if (custom_insertion_resize(mp, build_idxs) < 0)
+            if (custom_insertion_resize(mp, lookup, build_idxs) < 0)
                 goto Fail;
         }
         if (!PyUnicode_CheckExact(key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
@@ -3037,7 +3045,7 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
          * that there will be no (or few) overlapping keys.
          */
         if (USABLE_FRACTION(DK_SIZE(mp->ma_keys)) < other->ma_used) {
-            if (customdictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used), build_idxs)) {
+            if (customdictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used), lookup, build_idxs)) {
                return -1;
             }
         }

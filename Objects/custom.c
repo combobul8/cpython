@@ -661,7 +661,7 @@ custom_dict_popitem_impl(CustomPyDictObject *self)
     }
     /* Convert split table to combined table */
     if (self->ma_keys->dk_kind == DICT_KEYS_SPLIT) {
-        if (customdictresize(self, DK_LOG_SIZE(self->ma_keys), NULL)) {
+        if (customdictresize(self, DK_LOG_SIZE(self->ma_keys), NULL, NULL)) {
             Py_DECREF(res);
             return NULL;
         }
@@ -879,7 +879,7 @@ _Custom_PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
             PyObject *key;
             Py_hash_t hash;
 
-            if (customdictresize(mp, estimate_log2_keysize(PyDict_GET_SIZE(iterable)), NULL)) {
+            if (customdictresize(mp, estimate_log2_keysize(PyDict_GET_SIZE(iterable)), NULL, NULL)) {
                 Py_DECREF(d);
                 return NULL;
             }
@@ -898,7 +898,7 @@ _Custom_PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
             PyObject *key;
             Py_hash_t hash;
 
-            if (customdictresize(mp, estimate_log2_keysize(PySet_GET_SIZE(iterable)), NULL)) {
+            if (customdictresize(mp, estimate_log2_keysize(PySet_GET_SIZE(iterable)), NULL, NULL)) {
                 Py_DECREF(d);
                 return NULL;
             }
