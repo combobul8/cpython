@@ -1620,7 +1620,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    printf("dictresize log2_newsize: %ld.\n", log2_newsize);
+    printf("customdictresize log2_newsize: %ld.\n", log2_newsize);
     fflush(stdout);
 
     Py_ssize_t numentries;
@@ -1651,9 +1651,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
     assert(mp->ma_layers);
     free(mp->ma_layers);
     mp->ma_layers = NULL;
-
-    printf("mallocing %lld.\n", DK_SIZE(mp->ma_keys));
-    fflush(stdout);
     mp->ma_layers = (Layer *) malloc(DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
     if (mp->ma_layers == NULL) {
         return -1;
@@ -3145,8 +3142,8 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
             return -1;
 
         for (key = PyIter_Next(iter); key; key = PyIter_Next(iter)) {
-            printf("dict_merge for loop iteration.\n");
 #ifdef EBUG
+            printf("dict_merge for loop iteration.\n");
 #endif
 
             if (override != 1) {
@@ -3188,8 +3185,11 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
         if (PyErr_Occurred())
             /* Iterator completed, via error */
             return -1;
+
+#ifdef EBUG
         printf("custom_dict_merge post-for loop.\n");
         fflush(stdout);
+#endif
     }
     ASSERT_CONSISTENT(a);
     return 0;
