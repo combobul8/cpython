@@ -1494,9 +1494,6 @@ new_keys_object(uint8_t log2_size)
     memset(&dk->dk_indices[0], 0xff, es<<log2_size);
     memset(DK_ENTRIES(dk), 0, sizeof(PyDictKeyEntry) * usable);
 
-    printf("new_keys_object dk->dk_usable: %lld.\n", dk->dk_usable);
-    fflush(stdout);
-
     return dk;
 }
 
@@ -1699,9 +1696,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
     }
     else {  // combined table.
         if (oldkeys->dk_nentries == numentries) {
-            printf("== copying to newentries...\n");
-            fflush(stdout);
-
             mp->ma_used = 0;
 
             for (Py_ssize_t i = 0; i < numentries; i++) {
@@ -1735,15 +1729,9 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 mp->ma_keys->dk_nentries++;
                 assert(mp->ma_keys->dk_usable >= 0);
                 ASSERT_CONSISTENT(mp);
-
-                printf("customdictresize %p mp->ma_keys->dk_usable: %lld.\n", mp->ma_keys, mp->ma_keys->dk_usable);
-                fflush(stdout);
             }
         }
         else {
-            printf("copying to newentries...\n");
-            fflush(stdout);
-
             PyDictKeyEntry *ep = oldentries;
             for (Py_ssize_t i = 0; i < numentries; i++) {
                 while (ep->me_value == NULL)
@@ -2418,10 +2406,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    printf("custominsertdict %p.\n", mp->ma_keys);
-    printf("custominsertdict mp->ma_keys->dk_usable: %lld.\n", mp->ma_keys->dk_usable);
-    fflush(stdout);
-
     PyObject *old_value;
     PyDictKeyEntry *ep;
 
