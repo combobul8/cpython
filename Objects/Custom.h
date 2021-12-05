@@ -1649,6 +1649,9 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         return -1;
     }
 
+    printf("customdictresize mp->ma_keys->dk_log2_size: %d.\n", mp->ma_keys->dk_log2_size);
+    fflush(stdout);
+
     assert(mp->ma_layers);
     free(mp->ma_layers);
     mp->ma_layers = NULL;
@@ -1705,6 +1708,13 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 int num_cmps;
                 Py_ssize_t ix = lookup(mp, entry->me_key, entry->me_hash, &old_value, &num_cmps);
                 assert(ix == DKIX_EMPTY);
+
+                printf("customdictresize i: %lld; num_cmps: %d.\n", i, num_cmps);
+
+                if (num_cmps > mp->ma_keys->dk_log2_size) {
+                    printf("need to use layers!");
+                    fflush(stdout);
+                }
 
                 /* Insert into new slot. */
                 mp->ma_keys->dk_version = 0;
@@ -2441,7 +2451,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         assert(old_value == NULL);
         if (mp->ma_keys->dk_usable <= 0) {
             /* Need to resize. */
-            printf("custominsertdict %p; calling custom_insertion_resize.\n", mp->ma_keys);
             if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
                 goto Fail;
         }

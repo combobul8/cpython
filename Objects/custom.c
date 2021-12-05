@@ -304,8 +304,13 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
     int num_cmps;
     ix = lookup(self, key, hash, &val, &num_cmps);
 
-    printf("num_cmps: %d.\n", num_cmps);
-    fflush(stdout);
+    assert(PyInt_Check(val) == 1);
+
+    if (ix != DKIX_EMPTY) {
+        printf("%d; num_cmps: %d.\n", PyLong_AsLong(val), num_cmps);
+        fflush(stdout);
+    }
+
 #ifdef EBUG
 #endif
 

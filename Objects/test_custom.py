@@ -11,35 +11,21 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
 
     for line in f:
         word = line.strip()
-        # print("\n" + word, flush = True)
-        # print("dictionary size: " + str(len(mycustom.keys())), flush = True)
 
-        if i >= 7:
+        if i >= 17:
             break
-            '''elif mycustom.get(word) != None:
-            # print("already seen " + word, flush = True)
-            i += 1
-            None'''
-        else:
+        elif mycustom.get(word) == None:
             mycustom.update({word: i})
-            # words.update({word: i})
-
             i += 1
-
-        # print("i: " + str(i))
-        # print("")
+        else:
+            print("already seen " + word, flush = True)
+            None
 
 toc = time.perf_counter()
 # print(str((toc - tic) * 1000) + " milliseconds")
 
 print("# keys: " + str(len(mycustom.keys())), flush = True)
 
-# j = 0
 for key in list(mycustom.keys()):
-    # if j == 100:
-        # print("j: " + str(j))
-    # j += 1
-
-    print(mycustom.get(key))
-    # mycustom.get(key)
+    mycustom.get(key)
     None
