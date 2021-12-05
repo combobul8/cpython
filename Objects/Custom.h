@@ -1493,6 +1493,10 @@ new_keys_object(uint8_t log2_size)
     dk->dk_version = 0;
     memset(&dk->dk_indices[0], 0xff, es<<log2_size);
     memset(DK_ENTRIES(dk), 0, sizeof(PyDictKeyEntry) * usable);
+
+    printf("new_keys_object dk->dk_usable: %lld.\n", dk->dk_usable);
+    fflush(stdout);
+
     return dk;
 }
 
@@ -1769,7 +1773,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
     }
 
     build_idxs(mp->ma_keys, newentries, numentries);
-    mp->ma_keys->dk_usable -= numentries;
+    // mp->ma_keys->dk_usable -= numentries;
     mp->ma_keys->dk_nentries = numentries;
     return 0;
 }
