@@ -1648,6 +1648,10 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         return -1;
     }
 
+    printf("customdictresize mp->ma_keys->dk_usable: %lld.\n", mp->ma_keys->dk_usable);
+    // printf("customdictresize mp->ma_used: %d.\n", mp->ma_used);
+    fflush(stdout);
+
     assert(mp->ma_layers);
     free(mp->ma_layers);
     mp->ma_layers = NULL;
@@ -1698,8 +1702,8 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
             printf("== copying to newentries...\n");
             fflush(stdout);
 
-            // PyDictKeyEntry *ep0 = DK_ENTRIES(keys);
-            // Py_ssize_t n = keys->dk_nentries;
+            mp->ma_used = 0;
+
             for (Py_ssize_t i = 0; i < numentries; i++) {
                 PyDictKeyEntry *entry = &oldentries[i];
 
@@ -1725,7 +1729,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 ep->me_value = entry->me_value;
 
                 //ep->me_layer = NULL;
-                // mp->ma_used++;
+                mp->ma_used++;
                 mp->ma_version_tag = DICT_NEXT_VERSION();
                 mp->ma_keys->dk_usable--;
                 mp->ma_keys->dk_nentries++;
@@ -2446,6 +2450,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         assert(old_value == NULL);
         if (mp->ma_keys->dk_usable <= 0) {
             /* Need to resize. */
+            printf("custominsertdict calling custom_insertion_resize.\n");
             if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
                 goto Fail;
         }
