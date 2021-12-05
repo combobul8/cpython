@@ -2414,6 +2414,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
+    printf("custominsertdict %p.\n", mp->ma_keys);
+    printf("custominsertdict mp->ma_keys->dk_usable: %lld.\n", mp->ma_keys->dk_usable);
+    fflush(stdout);
+
     PyObject *old_value;
     PyDictKeyEntry *ep;
 
