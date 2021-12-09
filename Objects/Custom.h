@@ -1649,9 +1649,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         return -1;
     }
 
-    printf("customdictresize mp->ma_keys->dk_log2_size: %d.\n", mp->ma_keys->dk_log2_size);
-    fflush(stdout);
-
     assert(mp->ma_layers);
     free(mp->ma_layers);
     mp->ma_layers = NULL;
@@ -1709,10 +1706,8 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 Py_ssize_t ix = lookup(mp, entry->me_key, entry->me_hash, &old_value, &num_cmps);
                 assert(ix == DKIX_EMPTY);
 
-                printf("customdictresize i: %lld; num_cmps: %d.\n", i, num_cmps);
-
                 if (num_cmps > mp->ma_keys->dk_log2_size) {
-                    printf("need to use layers!");
+                    printf("customdictresize i: %lld; num_cmps: %d; need to use layers!\n", i, num_cmps);
                     fflush(stdout);
                 }
 
@@ -2428,6 +2423,11 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
     int num_cmps;   /* currently not measuring the efficiency of insert */
     Py_ssize_t ix = lookup(mp, key, hash, &old_value, &num_cmps);
+
+    if (num_cmps > mp->ma_keys->dk_log2_size) {
+        printf("custominsertdict num_cmps: %d; need to use layers!\n", num_cmps);
+        fflush(stdout);
+    }
 
     if (ix == DKIX_ERROR)
         goto Fail;
