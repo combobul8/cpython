@@ -2203,9 +2203,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-#ifdef EBUG
             printf("0(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
+#ifdef EBUG
 #endif
 
             (*num_cmps)++;
@@ -2228,9 +2228,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
             i = mask & (i + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-#ifdef EBUG
             printf("1(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
+#ifdef EBUG
 #endif
 
             (*num_cmps)++;
@@ -2427,6 +2427,12 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     if (num_cmps > mp->ma_keys->dk_log2_size) {
         printf("custominsertdict num_cmps: %d; need to use layers!\n", num_cmps);
         fflush(stdout);
+
+        PyDictKeysObject *dk = mp->ma_keys;
+        size_t mask = DK_MASK(dk);
+        size_t i = (size_t)hash & mask;
+
+        printf("custominsertdict need to move data from indices %lld to %lld inclusive to a layer.\n", i, (i + num_cmps - 1));
     }
 
     if (ix == DKIX_ERROR)
