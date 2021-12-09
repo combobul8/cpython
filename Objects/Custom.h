@@ -1651,7 +1651,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
 
     assert(mp->ma_layers);
     free(mp->ma_layers);
-    mp->ma_layers = NULL;
     mp->ma_layers = (Layer *) malloc(DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
     if (mp->ma_layers == NULL) {
         return -1;
@@ -2431,8 +2430,21 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         PyDictKeysObject *dk = mp->ma_keys;
         size_t mask = DK_MASK(dk);
         size_t i = (size_t)hash & mask;
+        size_t layer_size = num_cmps - 1;
 
-        printf("custominsertdict need to move data from indices %lld to %lld inclusive to a layer.\n", i, (i + num_cmps - 1));
+        printf("custominsertdict need to move data from indices %lld to %lld inclusive to a layer.\n", i, (i + layer_size - 1));
+        assert(!mp->ma_layers[i].keys);
+        mp->ma_layers[i].keys = (int *) malloc(layer_size * sizeof *(mp->ma_layers[i].keys));
+
+        // copy data
+        for (int j = 0; j < layer_size; j++) {
+            ep = &DK_ENTRIES(mp->ma_keys)[i + j];
+            // copy key
+            // copy hash
+            mp->ma_layers[i].keys[j] = PyLong_AsLong(ep->me_value);
+
+            printf("mp->ma_layers[%lld].keys[%d]: %d\n", i, j, mp->ma_layers[i].keys[j]);
+        }
     }
 
     if (ix == DKIX_ERROR)
