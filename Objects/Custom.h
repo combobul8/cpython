@@ -2434,17 +2434,22 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         printf("custominsertdict find entries whose i == %lld and move them to a layer.\n", i);
         assert(!mp->ma_layers[i].keys);
-        /* mp->ma_layers[i].keys = (int *) malloc(layer_size * sizeof *(mp->ma_layers[i].keys));
+        // mp->ma_layers[i].keys = (int *) malloc(layer_size * sizeof *(mp->ma_layers[i].keys));
 
         // copy data
         for (int j = 0; j < layer_size; j++) {
             ep = &DK_ENTRIES(mp->ma_keys)[i + j];
+
+            if (ep->i == i) {
+                printf("custominsertdict %ld.\n", PyLong_AsLong(ep->me_value));
+            }
+
             // copy key
             // copy hash
-            mp->ma_layers[i].keys[j] = PyLong_AsLong(ep->me_value);
+            /* mp->ma_layers[i].keys[j] = PyLong_AsLong(ep->me_value);
 
-            printf("mp->ma_layers[%lld].keys[%d]: %d\n", i, j, mp->ma_layers[i].keys[j]);
-        } */
+            printf("mp->ma_layers[%lld].keys[%d]: %d\n", i, j, mp->ma_layers[i].keys[j]); */
+        }
     }
 
     if (ix == DKIX_ERROR)
