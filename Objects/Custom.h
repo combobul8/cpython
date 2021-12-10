@@ -361,6 +361,7 @@ typedef struct {
     Py_hash_t me_hash;
     PyObject *me_key;
     PyObject *me_value; /* This field is only meaningful for combined tables */
+    int i; /* This entry's collision-free index in the hash table */
 } PyDictKeyEntry;
 
 typedef struct _Py_atomic_address {
@@ -1617,7 +1618,7 @@ but can be resplit by make_keys_shared().
 */
 static int
 customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -1701,8 +1702,9 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 PyDictKeyEntry *entry = &oldentries[i];
 
                 PyObject *old_value;
+                size_t i;
                 int num_cmps;
-                Py_ssize_t ix = lookup(mp, entry->me_key, entry->me_hash, &old_value, &num_cmps);
+                Py_ssize_t ix = lookup(mp, entry->me_key, entry->me_hash, &old_value, &i, &num_cmps);
                 assert(ix == DKIX_EMPTY);
 
                 if (num_cmps > mp->ma_keys->dk_log2_size) {
@@ -1936,7 +1938,7 @@ estimate_log2_keysize(Py_ssize_t n)
 
 static int
 custom_insertion_resize(CustomPyDictObject *mp,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -2182,7 +2184,7 @@ found:
 }
 
 Py_ssize_t _Py_HOT_FUNCTION
-custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
+custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, size_t* i0, int *num_cmps)
 {
 #ifdef EBUG
     printf("custom_lookup2 hash: %lld.\n", hash);
@@ -2194,7 +2196,7 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
     DictKeysKind kind = dk->dk_kind;
     PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
     size_t mask = DK_MASK(dk);
-    size_t i = (size_t)hash & mask;
+    size_t i = *i0 = (size_t)hash & mask;
     Py_ssize_t ix;
     *num_cmps = 0;
     if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
@@ -2202,9 +2204,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("0(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
             (*num_cmps)++;
@@ -2214,9 +2216,6 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 assert(PyUnicode_CheckExact(ep->me_key));
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                    //printf("here.\n");
-                    //fflush(stdout);
-                    //assert(ep->me_layer != NULL);
                     goto found;
                 }
             }
@@ -2227,9 +2226,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
             i = mask & (i + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("1(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
             (*num_cmps)++;
@@ -2406,7 +2405,7 @@ Returns -1 if an error occurred, or 0 on success.
 */
 static int
 custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -2420,8 +2419,9 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             goto Fail;
     }
 
+    size_t i;
     int num_cmps;   /* currently not measuring the efficiency of insert */
-    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &num_cmps);
+    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
 
     if (num_cmps > mp->ma_keys->dk_log2_size) {
         printf("custominsertdict num_cmps: %d; need to use layers!\n", num_cmps);
@@ -2432,9 +2432,9 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         size_t i = (size_t)hash & mask;
         size_t layer_size = num_cmps - 1;
 
-        printf("custominsertdict need to move data from indices %lld to %lld inclusive to a layer.\n", i, (i + layer_size - 1));
+        printf("custominsertdict find entries whose i == %lld and move them to a layer.\n", i);
         assert(!mp->ma_layers[i].keys);
-        mp->ma_layers[i].keys = (int *) malloc(layer_size * sizeof *(mp->ma_layers[i].keys));
+        /* mp->ma_layers[i].keys = (int *) malloc(layer_size * sizeof *(mp->ma_layers[i].keys));
 
         // copy data
         for (int j = 0; j < layer_size; j++) {
@@ -2444,7 +2444,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             mp->ma_layers[i].keys[j] = PyLong_AsLong(ep->me_value);
 
             printf("mp->ma_layers[%lld].keys[%d]: %d\n", i, j, mp->ma_layers[i].keys[j]);
-        }
+        } */
     }
 
     if (ix == DKIX_ERROR)
@@ -2930,7 +2930,7 @@ custom_PyObject_Hash(PyObject *v)
  */
 int
 custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -3017,7 +3017,7 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
 
 static int
 custom_dict_merge(PyObject *a, PyObject *b, int override,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -3415,7 +3415,7 @@ dict_merge(PyObject *a, PyObject *b, int override,
 
 int
 custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -3445,7 +3445,7 @@ custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
 /* Single-arg dict update; used by dict_update_common and operators. */
 static int
 custom_dict_update_arg(PyObject *self, PyObject *arg,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {

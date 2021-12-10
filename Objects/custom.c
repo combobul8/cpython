@@ -72,7 +72,7 @@ static PyModuleDef custommodule2 = {
 static int
 custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname,
-                   Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+                   Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
                    Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash),
                    void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -285,7 +285,7 @@ Return the value for key if key is in the dictionary, else default.
 
 static PyObject *
 custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *))
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *))
 /*[clinic end generated code: output=bba707729dee05bf input=279ddb5790b6b107]*/
 {
     PyObject *val = NULL;
@@ -301,8 +301,9 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
             return NULL;
     }
 
+    size_t i;
     int num_cmps;
-    ix = lookup(self, key, hash, &val, &num_cmps);
+    ix = lookup(self, key, hash, &val, &i, &num_cmps);
 
     assert(PyInt_Check(val) == 1);
 
