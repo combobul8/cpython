@@ -361,7 +361,7 @@ typedef struct {
     Py_hash_t me_hash;
     PyObject *me_key;
     PyObject *me_value; /* This field is only meaningful for combined tables */
-    int i; /* This entry's collision-free index in the hash table */
+    size_t i; /* This entry's collision-free index in the hash table */
 } PyDictKeyEntry;
 
 typedef struct _Py_atomic_address {
@@ -1603,6 +1603,9 @@ custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
             i = mask & (i + 1);
         }
         dictkeys_set_index(keys, i, ix);
+        ep->i = i;
+        printf("custom_build_indices i: %lld.\n", i);
+        fflush(stdout);
     }
 }
 
@@ -2409,6 +2412,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
+    printf("custominsertdict %ld.\n", PyLong_AsLong(value));
+
     PyObject *old_value;
     PyDictKeyEntry *ep;
 
@@ -2441,7 +2446,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             ep = &DK_ENTRIES(mp->ma_keys)[i + j];
 
             if (ep->i == i) {
-                printf("custominsertdict %ld.\n", PyLong_AsLong(ep->me_value));
+                printf("\tcustominsertdict %ld.\n", PyLong_AsLong(ep->me_value));
             }
 
             // copy key
@@ -2494,6 +2499,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         else {
             ep->me_value = value;
         }
+        ep->i = hashpos;
+        printf("custominsertdict hashpos: %lld.\n", hashpos);
+        fflush(stdout);
+
         //ep->me_layer = NULL;
         mp->ma_used++;
         mp->ma_version_tag = DICT_NEXT_VERSION();
@@ -2711,6 +2720,10 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     ep->me_key = key;
     ep->me_hash = hash;
     ep->me_value = value;
+    ep->i = hashpos;
+    printf("custom_insert_to_emptydict %lld %lld.\n", PyLong_AsLong(value), hashpos);
+    fflush(stdout);
+
     mp->ma_used++;
     mp->ma_version_tag = DICT_NEXT_VERSION();
     mp->ma_keys->dk_usable--;
