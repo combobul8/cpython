@@ -2437,7 +2437,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         PyDictKeysObject *dk = mp->ma_keys;
         size_t mask = DK_MASK(dk);
-        size_t layer_size = num_cmps - 1;
 
         printf("custominsertdict find entries whose i == %lld and move them to a layer.\n", i);
         assert(!mp->ma_layers[i].keys);
@@ -2446,13 +2445,13 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         PyDictKeyEntry *ep0 = DK_ENTRIES(mp->ma_keys);
 
         // copy data
-        for (int j = 0; j < layer_size; j++) {
+        for (int j = 0; j < num_cmps; j++) {
             Py_ssize_t ix = dictkeys_get_index(mp->ma_keys, i + j);
             PyDictKeyEntry *ep = &ep0[ix];
+
+            if (ep->i == i) {
                 printf("\tcustominsertdict %ld %lld.\n", PyLong_AsLong(ep->me_value), ep->i);
                 fflush(stdout);
-            if (ep->i == i) {
-
             }
 
             // copy key
