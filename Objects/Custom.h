@@ -2445,9 +2445,12 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         // copy data
         // for (int j = 0; j < layer_size; j++) {
-        for (int j = 0; j < DK_SIZE(mp->ma_keys); j++)
+        for (int j = 0; j < DK_SIZE(mp->ma_keys); j++) {
             // ep = &DK_ENTRIES(mp->ma_keys)[i + j];
-            ep = &DK_ENTRIES(mp->ma_keys)[j];
+            PyDictKeyEntry *ep = &DK_ENTRIES(mp->ma_keys)[j];
+            if (!ep) {
+                continue;
+            }
 
             printf("\tcustominsertdict %ld %lld.\n", PyLong_AsLong(ep->me_value), ep->i);
             fflush(stdout);
@@ -2463,6 +2466,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             printf("mp->ma_layers[%lld].keys[%d]: %d\n", i, j, mp->ma_layers[i].keys[j]); */
         }
     }
+#if 0
+#endif
 
     if (ix == DKIX_ERROR)
         goto Fail;
@@ -2493,11 +2498,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
 
+        ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i));
         printf("custominsertdict %ld %lld.\n", PyLong_AsLong(value), ep->i);
         fflush(stdout);
-
-        ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
         ep->me_key = key;
         ep->me_hash = hash;
