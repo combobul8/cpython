@@ -2412,8 +2412,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    printf("custominsertdict %ld.\n", PyLong_AsLong(value));
-
     PyObject *old_value;
     PyDictKeyEntry *ep;
 
@@ -2500,7 +2498,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             ep->me_value = value;
         }
         ep->i = hashpos;
-        printf("custominsertdict hashpos: %lld.\n", hashpos);
+        printf("custominsertdict %lld %lld.\n", PyLong_AsValue(value), hashpos);
         fflush(stdout);
 
         //ep->me_layer = NULL;
