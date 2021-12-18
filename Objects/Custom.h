@@ -2443,9 +2443,12 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         assert(!mp->ma_layers[i].keys);
         // mp->ma_layers[i].keys = (int *) malloc(layer_size * sizeof *(mp->ma_layers[i].keys));
 
+        PyDictKeyEntry *ep0 = DK_ENTRIES(mp->ma_keys);
+
         // copy data
         for (int j = 0; j < layer_size; j++) {
-            PyDictKeyEntry *ep = &DK_ENTRIES(mp->ma_keys)[i + j];
+            Py_ssize_t ix = dictkeys_get_index(mp->ma_keys, i + j);
+            PyDictKeyEntry *ep = &ep0[ix];
                 printf("\tcustominsertdict %ld %lld.\n", PyLong_AsLong(ep->me_value), ep->i);
                 fflush(stdout);
             if (ep->i == i) {
