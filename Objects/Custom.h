@@ -2444,19 +2444,12 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         // mp->ma_layers[i].keys = (int *) malloc(layer_size * sizeof *(mp->ma_layers[i].keys));
 
         // copy data
-        // for (int j = 0; j < layer_size; j++) {
-        for (int j = 0; j < DK_SIZE(mp->ma_keys); j++) {
-            // ep = &DK_ENTRIES(mp->ma_keys)[i + j];
-            PyDictKeyEntry *ep = &DK_ENTRIES(mp->ma_keys)[j];
-            if (!ep) {
-                continue;
-            }
-
-            printf("\tcustominsertdict %ld %lld.\n", PyLong_AsLong(ep->me_value), ep->i);
-            fflush(stdout);
-
+        for (int j = 0; j < layer_size; j++) {
+            PyDictKeyEntry *ep = &DK_ENTRIES(mp->ma_keys)[i + j];
+                printf("\tcustominsertdict %ld %lld.\n", PyLong_AsLong(ep->me_value), ep->i);
+                fflush(stdout);
             if (ep->i == i) {
-                // printf("\tcustominsertdict %ld.\n", PyLong_AsLong(ep->me_value));
+
             }
 
             // copy key
@@ -2466,8 +2459,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             printf("mp->ma_layers[%lld].keys[%d]: %d\n", i, j, mp->ma_layers[i].keys[j]); */
         }
     }
-#if 0
-#endif
 
     if (ix == DKIX_ERROR)
         goto Fail;
