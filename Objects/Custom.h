@@ -2437,7 +2437,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         PyDictKeysObject *dk = mp->ma_keys;
         size_t mask = DK_MASK(dk);
-        size_t i = (size_t)hash & mask;
         size_t layer_size = num_cmps - 1;
 
         printf("custominsertdict find entries whose i == %lld and move them to a layer.\n", i);
@@ -2445,11 +2444,16 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         // mp->ma_layers[i].keys = (int *) malloc(layer_size * sizeof *(mp->ma_layers[i].keys));
 
         // copy data
-        for (int j = 0; j < layer_size; j++) {
-            ep = &DK_ENTRIES(mp->ma_keys)[i + j];
+        // for (int j = 0; j < layer_size; j++) {
+        for (int j = 0; j < DK_SIZE(mp->ma_keys); j++)
+            // ep = &DK_ENTRIES(mp->ma_keys)[i + j];
+            ep = &DK_ENTRIES(mp->ma_keys)[j];
+
+            printf("\tcustominsertdict %ld %lld.\n", PyLong_AsLong(ep->me_value), ep->i);
+            fflush(stdout);
 
             if (ep->i == i) {
-                printf("\tcustominsertdict %ld.\n", PyLong_AsLong(ep->me_value));
+                // printf("\tcustominsertdict %ld.\n", PyLong_AsLong(ep->me_value));
             }
 
             // copy key
@@ -2596,8 +2600,8 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
 
-        size_t *i;
-        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, i);
+        size_t i;
+        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &i);
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
         ep->me_key = key;
