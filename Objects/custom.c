@@ -288,6 +288,7 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *))
 /*[clinic end generated code: output=bba707729dee05bf input=279ddb5790b6b107]*/
 {
+    printf("custom_dict_get_impl\n");
     PyObject *val = NULL;
     Py_hash_t hash;
     Py_ssize_t ix;
