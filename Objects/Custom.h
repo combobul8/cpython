@@ -1660,7 +1660,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         return -1;
     }
 
-    assert(mp->ma_layers);
+    /* assert(mp->ma_layers);
     free(mp->ma_layers);
     mp->ma_layers = malloc(DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
     if (mp->ma_layers == NULL) {
@@ -1669,7 +1669,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
 
     for (int64_t i = 0; i < DK_SIZE(mp->ma_keys); i++) {
         mp->ma_layers[i].keys = NULL; // (int *) malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_layers[i].keys));
-    }
+    } */
 
     // New table must be large enough.
     assert(mp->ma_keys->dk_usable >= mp->ma_used);
@@ -1709,16 +1709,17 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
             mp->ma_used = 0;
 
             for (Py_ssize_t i = 0; i < numentries; i++) {
+                printf("customdictresize i: %lld\n", i);
                 PyDictKeyEntry *entry = &oldentries[i];
 
                 PyObject *old_value;
-                size_t i;
+                size_t j;
                 int num_cmps;
-                Py_ssize_t ix = lookup(mp, entry->me_key, entry->me_hash, &old_value, &i, &num_cmps);
+                Py_ssize_t ix = lookup(mp, entry->me_key, entry->me_hash, &old_value, &j, &num_cmps);
                 assert(ix == DKIX_EMPTY);
 
                 if (num_cmps > mp->ma_keys->dk_log2_size) {
-                    printf("customdictresize i: %lld; num_cmps: %d; need to use layers!\n", i, num_cmps);
+                    printf("customdictresize j: %lld; num_cmps: %d; need to use layers!\n", j, num_cmps);
                     fflush(stdout);
                 }
 
