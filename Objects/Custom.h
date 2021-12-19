@@ -2461,24 +2461,34 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             // hashpos = i + j
             dictkeys_set_index(mp->ma_keys, i + j, DKIX_DUMMY);
 
-            if (!mp->ma_layers[i].keys) {
+            Layer layer = mp->ma_layers[i];
+            if (!layer.keys) {
                 printf("ma_layers[%lld] NULL.\n", i);
 
-                mp->ma_layers[i].keys = malloc(PyDict_MINSIZE * sizeof *(mp->ma_layers[i].keys));
-                if (!mp->ma_layers[i].keys) {
+                layer.keys = malloc(PyDict_MINSIZE * sizeof *(layer.keys));
+                if (!layer.keys) {
                     return -1;
                 }
 
-                mp->ma_layers[i].n = PyDict_MINSIZE;
-                mp->ma_layers[i].used = 0;
+                layer.n = PyDict_MINSIZE;
+                layer.used = 0;
             }
 
-            if ()
-            // copy key
-            // copy hash
-            /* mp->ma_layers[i].keys[j] = PyLong_AsLong(ep->me_value);
+            if (layer.used < layer.n) {
+                layer.keys[layer.used] = malloc(sizeof *layer.keys[layer.used]);
+                if (!layer.keys[layer.used]) {
+                    return -1;
+                }
 
-            printf("mp->ma_layers[%lld].keys[%d]: %d\n", i, j, mp->ma_layers[i].keys[j]); */
+                layer.keys[layer.used]->me_hash = ep->me_hash;
+                layer.keys[layer.used]->me_key = ep->me_key;
+                layer.keys[layer.used]->me_value = ep->me_value;
+                layer.used++;
+            }
+            else {
+                printf("layer %lld is full.\n", i);
+            }
+
             ep->me_key = NULL;
             ep->me_value = NULL;
         }
