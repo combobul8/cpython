@@ -2492,6 +2492,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
             ep->me_key = NULL;
             ep->me_value = NULL;
+            mp->ma_used--;
         }
     }
 
