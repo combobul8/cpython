@@ -43,8 +43,18 @@
 #define Py_TPFLAGS_MAPPING (1 << 6)
 
 typedef struct {
+    /* Cached hash code of me_key. */
+    Py_hash_t me_hash;
+    PyObject *me_key;
+    PyObject *me_value; /* This field is only meaningful for combined tables */
+    size_t i; /* This entry's collision-free index in the hash table */
+} PyDictKeyEntry;
+
+typedef struct {
     // PyDictObject *mp;
-    int *keys;
+    PyDictKeyEntry **keys;
+    int used;
+    int n;
 } Layer;
 
 /* The ma_values pointer is NULL for a combined table
@@ -355,14 +365,6 @@ typedef struct {
 } dictiterobject;
 
 typedef struct _dictkeysobject PyDictKeysObject;
-
-typedef struct {
-    /* Cached hash code of me_key. */
-    Py_hash_t me_hash;
-    PyObject *me_key;
-    PyObject *me_value; /* This field is only meaningful for combined tables */
-    size_t i; /* This entry's collision-free index in the hash table */
-} PyDictKeyEntry;
 
 typedef struct _Py_atomic_address {
     uintptr_t _value;
@@ -1660,7 +1662,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
 
     assert(mp->ma_layers);
     free(mp->ma_layers);
-    mp->ma_layers = (Layer *) malloc(DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
+    mp->ma_layers = malloc(DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
     if (mp->ma_layers == NULL) {
         return -1;
     }
@@ -2449,16 +2451,36 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             Py_ssize_t ix = dictkeys_get_index(mp->ma_keys, i + j);
             PyDictKeyEntry *ep = &ep0[ix];
 
-            if (ep->i == i) {
-                printf("\tcustominsertdict %ld %lld.\n", PyLong_AsLong(ep->me_value), ep->i);
-                fflush(stdout);
+            if (ep->i != i) {
+                continue;
             }
 
+            printf("\tcustominsertdict %ld %lld.\n", PyLong_AsLong(ep->me_value), ep->i);
+            fflush(stdout);
+
+            // hashpos = i + j
+            dictkeys_set_index(mp->ma_keys, i + j, DKIX_DUMMY);
+
+            if (!mp->ma_layers[i].keys) {
+                printf("ma_layers[%lld] NULL.\n", i);
+
+                mp->ma_layers[i].keys = malloc(PyDict_MINSIZE * sizeof *(mp->ma_layers[i].keys));
+                if (!mp->ma_layers[i].keys) {
+                    return -1;
+                }
+
+                mp->ma_layers[i].n = PyDict_MINSIZE;
+                mp->ma_layers[i].used = 0;
+            }
+
+            
             // copy key
             // copy hash
             /* mp->ma_layers[i].keys[j] = PyLong_AsLong(ep->me_value);
 
             printf("mp->ma_layers[%lld].keys[%d]: %d\n", i, j, mp->ma_layers[i].keys[j]); */
+            ep->me_key = NULL;
+            ep->me_value = NULL;
         }
     }
 
@@ -2703,7 +2725,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
 
     printf("mallocing %lld.\n", DK_SIZE(newkeys));
     fflush(stdout);
-    mp->ma_layers = (Layer *) malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_layers));
+    mp->ma_layers = malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_layers));
     if (mp->ma_layers == NULL) {
         return -1;
     }
