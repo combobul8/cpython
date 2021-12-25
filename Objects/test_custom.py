@@ -16,6 +16,7 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
             break
         elif mycustom.get(word) == None:
             mycustom.update({word: i})
+            words[word] = i
             i += 1
         else:
             print("already seen " + word, flush = True)
@@ -26,6 +27,8 @@ toc = time.perf_counter()
 
 print("# keys: " + str(len(mycustom.keys())), flush = True)
 
-for key in list(mycustom.keys()):
-    mycustom.get(key)
+for key in list(words.keys()):
+    # print(key)
+    if mycustom.get(key):
+        print(key)
     None

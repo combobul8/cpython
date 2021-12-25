@@ -2229,6 +2229,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
                     goto found;
                 }
+                else if (mp->ma_layers[i].keys) {
+                    printf("custom_lookup2 mp->ma_layers[%lld].keys.\n", i);
+                }
             }
             else if (ix == DKIX_EMPTY) {
                 *value_addr = NULL;
