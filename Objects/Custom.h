@@ -1677,6 +1677,9 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
 
     numentries = mp->ma_used;
+    printf("customdictresize numentries: %lld.\n", numentries);
+    fflush(stdout);
+
     oldentries = DK_ENTRIES(oldkeys);
     newentries = DK_ENTRIES(mp->ma_keys);
     oldvalues = mp->ma_values;
@@ -1749,10 +1752,15 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
             }
         }
         else {
+            printf("customdictresize else else.\n");
+            fflush(stdout);
+
             PyDictKeyEntry *ep = oldentries;
             for (Py_ssize_t i = 0; i < numentries; i++) {
                 while (ep->me_value == NULL)
                     ep++;
+                printf("customdictresize %ld.\n", PyLong_AsLong(ep->me_value));
+                fflush(stdout);
                 newentries[i] = *ep++;
             }
         }
@@ -2230,8 +2238,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                     goto found;
                 }
                 else if (mp->ma_layers[i].keys) {
-                    // printf("custom_lookup2 mp->ma_layers[%lld].keys.\n", i);
-                    for (int j = 0; j < mp->ma_layers[j].n; j++) {
+                    printf("custom_lookup2 mp->ma_layers[%lld].keys.\n", i);
+                    for (int j = 0; j < mp->ma_layers[i].n; j++) {
+                        printf("custom_lookup2 j: %d.\n", j);
                         if (ep->me_key == mp->ma_layers[i].keys[j]->me_key) {
                             printf("custom_lookup2 found.\n");
                         }
@@ -2500,8 +2509,13 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             ep->me_key = NULL;
             ep->me_value = NULL;
             mp->ma_used--;
+            mp->ma_keys->dk_usable++;
+            /* printf("\tcustominsertdict ma_used: %lld.\n", mp->ma_used);
+            fflush(stdout); */
         }
     }
+    printf("custominsertdict after if cmp.\n");
+    fflush(stdout);
 
     if (ix == DKIX_ERROR)
         goto Fail;
@@ -2520,10 +2534,16 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     }
 
     if (ix == DKIX_EMPTY) {
+        printf("custominsertdict insert into new slot.\n");
+        fflush(stdout);
+
         /* Insert into new slot. */
         mp->ma_keys->dk_version = 0;
         assert(old_value == NULL);
         if (mp->ma_keys->dk_usable <= 0) {
+            printf("custominsertdict need to resize.\n");
+            fflush(stdout);
+
             /* Need to resize. */
             if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
                 goto Fail;
