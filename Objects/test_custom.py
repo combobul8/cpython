@@ -29,10 +29,6 @@ print("# keys: " + str(len(mycustom.keys())), flush = True)
 
 for key in list(words.keys()):
     # print(key)
-    get_rv = mycustom.get(key)
-    if get_rv:
+    if mycustom.get(key) != None:
         print(key)
-    else:
-        print("get returned None: " + str(get_rv))
-    break
     None
