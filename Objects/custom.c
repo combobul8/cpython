@@ -322,15 +322,7 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
         val = default_value;
     Py_INCREF(val);
 
-    if (ix != DKIX_EMPTY) {
-        printf("custom_dict_get_impl returning %d.\n", PyLong_AsLong(val));
-        fflush(stdout);
-        *success = 1;
-    }
-    else {
-        *success = 0;
-    }
-
+    *success = ix != DKIX_EMPTY;
     return val;
 }
 
@@ -582,10 +574,10 @@ skip_optional:
 #else
     int success;
     return_value = custom_dict_get_impl(self, key, default_value, custom_lookup2, &success);
-    if (success) {
+    /* if (success) {
         printf("custom_dict_get returning %ld.\n", PyLong_AsLong(return_value));
         fflush(stdout);
-    }
+    } */
 #endif
 
 exit:
