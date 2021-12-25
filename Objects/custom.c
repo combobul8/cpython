@@ -285,7 +285,8 @@ Return the value for key if key is in the dictionary, else default.
 
 static PyObject *
 custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *))
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
+        int *success)
 /*[clinic end generated code: output=bba707729dee05bf input=279ddb5790b6b107]*/
 {
     PyObject *val = NULL;
@@ -308,7 +309,7 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
     assert(PyInt_Check(val) == 1);
 
     if (ix != DKIX_EMPTY) {
-        printf("ix: %lld; %d; num_cmps: %d.\n", ix, (val == NULL), num_cmps);
+        printf("ix: %lld; %d; num_cmps: %d.\n", ix, PyLong_AsLong(val), num_cmps);
         fflush(stdout);
     }
 
@@ -317,19 +318,17 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
 
     if (ix == DKIX_ERROR)
         return NULL;
-    printf("ix: %lld; %d; num_cmps: %d.\n", ix, (val == NULL), num_cmps);
-    fflush(stdout);
-
     if (ix == DKIX_EMPTY || val == NULL)
         val = default_value;
-    printf("ix: %lld; %d; num_cmps: %d.\n", ix, (val == NULL), num_cmps);
-    fflush(stdout);
-
     Py_INCREF(val);
 
     if (ix != DKIX_EMPTY) {
         printf("custom_dict_get_impl returning %d.\n", PyLong_AsLong(val));
         fflush(stdout);
+        *success = 1;
+    }
+    else {
+        *success = 0;
     }
 
     return val;
@@ -581,7 +580,12 @@ skip_optional:
 #ifdef ORIG_LOOKUP
     return_value = custom_dict_get_impl(self, key, default_value, _Custom_Py_dict_lookup);
 #else
-    return_value = custom_dict_get_impl(self, key, default_value, custom_lookup2);
+    int success;
+    return_value = custom_dict_get_impl(self, key, default_value, custom_lookup2, &success);
+    if (success) {
+        printf("custom_dict_get returning %ld.\n", PyLong_AsLong(return_value));
+        fflush(stdout);
+    }
 #endif
 
 exit:
