@@ -2446,6 +2446,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         // mp->ma_layers[i].keys = (int *) malloc(layer_size * sizeof *(mp->ma_layers[i].keys));
 
         PyDictKeyEntry *ep0 = DK_ENTRIES(mp->ma_keys);
+        Layer *layer = &(mp->ma_layers[i]);
 
         // copy data
         for (int j = 0; j < num_cmps; j++) {
@@ -2455,37 +2456,34 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
                 continue;
             }
 
-            printf("ep: %p.\n", ep);
             printf("\tcustominsertdict %ld %lld.\n", PyLong_AsLong(ep->me_value), ep->i);
             fflush(stdout);
 
             // hashpos = i + j
             dictkeys_set_index(mp->ma_keys, i + j, DKIX_DUMMY);
 
-            Layer layer = mp->ma_layers[i];
-            if (!layer.keys) {
+            if (!layer->keys) {
                 printf("ma_layers[%lld] NULL.\n", i);
 
-                layer.keys = malloc(PyDict_MINSIZE * sizeof *(layer.keys));
-                if (!layer.keys) {
-                    printf("custominsertdict malloc fail.\n");
+                layer->keys = malloc(PyDict_MINSIZE * sizeof *(layer->keys));
+                if (!layer->keys) {
                     return -1;
                 }
 
-                layer.n = PyDict_MINSIZE;
-                layer.used = 0;
+                layer->n = PyDict_MINSIZE;
+                layer->used = 0;
             }
 
-            if (layer.used < layer.n) {
-                layer.keys[layer.used] = malloc(sizeof *layer.keys[layer.used]);
-                if (!layer.keys[layer.used]) {
+            if (layer->used < layer->n) {
+                layer->keys[layer->used] = malloc(sizeof *layer->keys[layer->used]);
+                if (!layer->keys[layer->used]) {
                     return -1;
                 }
 
-                layer.keys[layer.used]->me_hash = ep->me_hash;
-                layer.keys[layer.used]->me_key = ep->me_key;
-                layer.keys[layer.used]->me_value = ep->me_value;
-                layer.used++;
+                layer->keys[layer->used]->me_hash = ep->me_hash;
+                layer->keys[layer->used]->me_key = ep->me_key;
+                layer->keys[layer->used]->me_value = ep->me_value;
+                layer->used++;
             }
             else {
                 printf("layer %lld is full.\n", i);
