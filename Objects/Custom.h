@@ -2521,8 +2521,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             fflush(stdout); */
         }
     }
-    printf("custominsertdict after if cmp.\n");
-    fflush(stdout);
 
     if (ix == DKIX_ERROR)
         goto Fail;
@@ -2541,16 +2539,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     }
 
     if (ix == DKIX_EMPTY) {
-        printf("custominsertdict insert into new slot.\n");
-        fflush(stdout);
-
         /* Insert into new slot. */
         mp->ma_keys->dk_version = 0;
         assert(old_value == NULL);
         if (mp->ma_keys->dk_usable <= 0) {
-            printf("custominsertdict need to resize.\n");
-            fflush(stdout);
-
             /* Need to resize. */
             if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
                 goto Fail;
