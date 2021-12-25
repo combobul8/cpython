@@ -318,12 +318,20 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
     if (ix == DKIX_ERROR)
         return NULL;
     printf("ix: %lld; %d; num_cmps: %d.\n", ix, (val == NULL), num_cmps);
+    fflush(stdout);
+
     if (ix == DKIX_EMPTY || val == NULL)
         val = default_value;
     printf("ix: %lld; %d; num_cmps: %d.\n", ix, (val == NULL), num_cmps);
+    fflush(stdout);
+
     Py_INCREF(val);
 
-    printf("custom_dict_get_impl returning %d.\n", PyLong_AsLong(val));
+    if (ix != DKIX_EMPTY) {
+        printf("custom_dict_get_impl returning %d.\n", PyLong_AsLong(val));
+        fflush(stdout);
+    }
+
     return val;
 }
 
