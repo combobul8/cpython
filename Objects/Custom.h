@@ -2239,10 +2239,15 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 }
                 else if (mp->ma_layers[i].keys) {
                     printf("custom_lookup2 mp->ma_layers[%lld].keys.\n", i);
+                    fflush(stdout);
+
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         printf("custom_lookup2 j: %d.\n", j);
-                        if (ep->me_key == mp->ma_layers[i].keys[j]->me_key) {
+                        fflush(stdout);
+
+                        if (mp->ma_layers[i].keys[j]->me_key == key) {
                             printf("custom_lookup2 found.\n");
+                            fflush(stdout);
                         }
                     }
                 }
