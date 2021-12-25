@@ -2230,7 +2230,12 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                     goto found;
                 }
                 else if (mp->ma_layers[i].keys) {
-                    printf("custom_lookup2 mp->ma_layers[%lld].keys.\n", i);
+                    // printf("custom_lookup2 mp->ma_layers[%lld].keys.\n", i);
+                    for (int j = 0; j < mp->ma_layers[j].n; j++) {
+                        if (ep->me_key == mp->ma_layers[i].keys[j]->me_key) {
+                            printf("custom_lookup2 found.\n");
+                        }
+                    }
                 }
             }
             else if (ix == DKIX_EMPTY) {
