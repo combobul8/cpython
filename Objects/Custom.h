@@ -2463,7 +2463,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             dictkeys_set_index(mp->ma_keys, i + j, DKIX_DUMMY);
 
             if (!layer->keys) {
-                printf("ma_layers[%lld] NULL.\n", i);
+                printf("\tcustominsertdict ma_layers[%lld] NULL.\n", i);
 
                 layer->keys = malloc(PyDict_MINSIZE * sizeof *(layer->keys));
                 if (!layer->keys) {
