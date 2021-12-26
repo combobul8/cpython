@@ -2523,6 +2523,14 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
 
         printf("custominsertdict moved data (ep0[ix0].key == NULL): %d.\n", (ep0[ix0].me_key == NULL));
+        if (ep0[ix0].key) {
+            // insert ep into layer->keys
+            continue;
+        }
+        else {
+            ix = dictkeys_get_index(mp->ma_keys, i);
+            assert(ix = DKIX_EMPTY);
+        }
     }
 
     if (ix == DKIX_ERROR)
