@@ -2464,27 +2464,23 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
     if (num_cmps > mp->ma_keys->dk_log2_size) {
         printf("custominsertdict num_cmps: %d; need to use layers!\n", num_cmps);
+        printf("custominsertdict find entries whose i == %lld and move them to a layer.\n", i);
         fflush(stdout);
 
         PyDictKeysObject *dk = mp->ma_keys;
         size_t mask = DK_MASK(dk);
-
-        printf("custominsertdict find entries whose i == %lld and move them to a layer.\n", i);
-        assert(!mp->ma_layers[i].keys);
-        // mp->ma_layers[i].keys = (int *) malloc(layer_size * sizeof *(mp->ma_layers[i].keys));
-
-        PyDictKeyEntry *ep0 = DK_ENTRIES(mp->ma_keys);
+        PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
         Layer *layer = &(mp->ma_layers[i]);
 
-        // copy data
+        // move data
         for (int j = 0; j < num_cmps; j++) {
-            Py_ssize_t ix = dictkeys_get_index(mp->ma_keys, i + j);
+            Py_ssize_t ix = dictkeys_get_index(dk, i + j);
             PyDictKeyEntry *ep = &ep0[ix];
             if (ep->i != i) {
                 continue;
             }
 
-            printf("\tcustominsertdict %ld %lld.\n", PyLong_AsLong(ep->me_value), ep->i);
+            printf("\tcustominsertdict move (%ld %lld).\n", PyUnicode_AsUTF8(ep->me_key, ep->i);
             fflush(stdout);
 
             // hashpos = i + j
@@ -2521,7 +2517,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             ep->me_value = NULL;
             mp->ma_used--;
             mp->ma_keys->dk_usable++;
-            /* printf("\tcustominsertdict ma_used: %lld.\n", mp->ma_used);
+            /* Update nentries???
+            printf("\tcustominsertdict ma_used: %lld.\n", mp->ma_used);
             fflush(stdout); */
         }
     }
