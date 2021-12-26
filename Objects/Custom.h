@@ -2522,7 +2522,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             fflush(stdout); */
         }
 
-        printf("custominsertdict moved data (ep0->key == NULL): %d.\n", (ep0->key == NULL));
+        printf("custominsertdict moved data (ep0[ix0]->key == NULL): %d.\n", (ep0[ix0]->me_key == NULL));
     }
 
     if (ix == DKIX_ERROR)
