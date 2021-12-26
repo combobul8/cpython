@@ -2435,7 +2435,7 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0)
 }
 
 int
-insertlayer(PyDictKeyEntry **keys, PyDictKeyEntry *ep)
+insertlayer(Layer *layer, PyDictKeyEntry *ep)
 {
     if (layer->used < layer->n) {
         layer->keys[layer->used] = malloc(sizeof *layer->keys[layer->used]);
@@ -2448,6 +2448,8 @@ insertlayer(PyDictKeyEntry **keys, PyDictKeyEntry *ep)
         layer->keys[layer->used]->me_value = ep->me_value;
         layer->used++;
 
+        printf("insertlayer returning 0.\n");
+        fflush(stdout);
         return 0;
     }
 
@@ -2518,7 +2520,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
                 layer->used = 0;
             }
 
-            if (!insertlayer(layer->keys, ep)) {
+            if (!insertlayer(layer, ep)) {
                 printf("layer %lld is full.\n", i);
             }
 
