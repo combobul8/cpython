@@ -2788,7 +2788,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     ep->me_hash = hash;
     ep->me_value = value;
     ep->i = hashpos;
-    printf("custom_insert_to_emptydict (key, hashpos): (%s %lld).\n", PyUnicode_AsUTF8(key), hashpos);
+    printf("custom_insert_to_emptydict (key, hashpos): (%s, %lld).\n", PyUnicode_AsUTF8(key), hashpos);
     fflush(stdout);
 
     mp->ma_used++;
