@@ -2529,7 +2529,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
         else {
             ix = dictkeys_get_index(mp->ma_keys, i);
-            assert(ix = DKIX_EMPTY);
+            assert(ix == DKIX_EMPTY);
         }
     }
 
