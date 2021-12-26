@@ -2245,6 +2245,7 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                         /* printf("custom_lookup2 j: %d.\n", j);
                         fflush(stdout); */
 
+                        (*num_cmps)++;
                         if (mp->ma_layers[i].keys[j]->me_key == key) {
                             /* printf("custom_lookup2 found.\n");
                             fflush(stdout); */
