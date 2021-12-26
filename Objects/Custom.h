@@ -2458,6 +2458,12 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     size_t i;
     int num_cmps;   /* currently not measuring the efficiency of insert */
     Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
+    printf("custominsertdict lookup returned ix: %lld.\n", ix);
+    fflush(stdout);
+
+    Py_ssize_t ix0 = dictkeys_get_index(mp->ma_keys, i);
+    printf("custominsertdict (ix0, i): (%lld, %lld).\n", ix0, i);
+    fflush(stdout);
 
     if (num_cmps > mp->ma_keys->dk_log2_size) {
         printf("custominsertdict num_cmps: %d; need to use layers!\n", num_cmps);
