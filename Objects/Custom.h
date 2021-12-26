@@ -2484,7 +2484,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             fflush(stdout);
 
             // hashpos = i + j
-            dictkeys_set_index(mp->ma_keys, i + j, DKIX_DUMMY);
+            dictkeys_set_index(mp->ma_keys, i + j, DKIX_EMPTY);
 
             if (!layer->keys) {
                 printf("\tcustominsertdict ma_layers[%lld] NULL.\n", i);
@@ -2523,13 +2523,18 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
 
         printf("custominsertdict moved data (ep0[ix0].me_key == NULL): %d.\n", (ep0[ix0].me_key == NULL));
+        fflush(stdout);
+
         if (ep0[ix0].me_key) {
             // insert ep into layer->keys
             return 0;
         }
         else {
             ix = dictkeys_get_index(mp->ma_keys, i);
-            assert(ix == DKIX_EMPTY);
+            if (ix != DKIX_EMPTY) {
+                printf("custominsertdict moved data else/if ix: %lld.\n", ix);
+                fflush(stdout);
+            }
         }
     }
 
