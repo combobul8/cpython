@@ -2434,6 +2434,26 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0)
     return i;
 }
 
+int
+insertlayer(PyDictKeyEntry **keys, PyDictKeyEntry *ep)
+{
+    if (layer->used < layer->n) {
+        layer->keys[layer->used] = malloc(sizeof *layer->keys[layer->used]);
+        if (!layer->keys[layer->used]) {
+            return -1;
+        }
+
+        layer->keys[layer->used]->me_hash = ep->me_hash;
+        layer->keys[layer->used]->me_key = ep->me_key;
+        layer->keys[layer->used]->me_value = ep->me_value;
+        layer->used++;
+
+        return 0;
+    }
+
+    return -1;
+}
+
 /*
 Internal routine to insert a new item into the table.
 Used both by the internal resize routine and by the public insert routine.
@@ -2498,18 +2518,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
                 layer->used = 0;
             }
 
-            if (layer->used < layer->n) {
-                layer->keys[layer->used] = malloc(sizeof *layer->keys[layer->used]);
-                if (!layer->keys[layer->used]) {
-                    return -1;
-                }
-
-                layer->keys[layer->used]->me_hash = ep->me_hash;
-                layer->keys[layer->used]->me_key = ep->me_key;
-                layer->keys[layer->used]->me_value = ep->me_value;
-                layer->used++;
-            }
-            else {
+            if (!insertlayer(layer->keys, ep)) {
                 printf("layer %lld is full.\n", i);
             }
 
