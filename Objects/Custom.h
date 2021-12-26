@@ -2474,8 +2474,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         // move data
         for (int j = 0; j < num_cmps; j++) {
-            Py_ssize_t ix = dictkeys_get_index(dk, i + j);
-            PyDictKeyEntry *ep = &ep0[ix];
+            Py_ssize_t jx = dictkeys_get_index(dk, i + j);
+            PyDictKeyEntry *ep = &ep0[jx];
             if (ep->i != i) {
                 continue;
             }
