@@ -2480,7 +2480,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
                 continue;
             }
 
-            printf("\tcustominsertdict move (%s %lld).\n", PyUnicode_AsUTF8(ep->me_key, ep->i);
+            printf("\tcustominsertdict move (%s, %lld).\n", PyUnicode_AsUTF8(ep->me_key), ep->i);
             fflush(stdout);
 
             // hashpos = i + j
@@ -2521,6 +2521,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             printf("\tcustominsertdict ma_used: %lld.\n", mp->ma_used);
             fflush(stdout); */
         }
+
+        printf("custominsertdict moved data (ep0->key == NULL): %d.\n", (ep0->key == NULL));
     }
 
     if (ix == DKIX_ERROR)
