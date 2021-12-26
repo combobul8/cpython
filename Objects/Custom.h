@@ -2458,11 +2458,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     size_t i;
     int num_cmps;   /* currently not measuring the efficiency of insert */
     Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
-    printf("custominsertdict lookup returned ix: %lld.\n", ix);
-    fflush(stdout);
-
     Py_ssize_t ix0 = dictkeys_get_index(mp->ma_keys, i);
-    printf("custominsertdict (ix0, i): (%lld, %lld).\n", ix0, i);
+    printf("custominsertdict (key, ix0, i): (%s, %lld, %lld).\n", PyUnicode_AsUTF8(key), ix0, i);
     fflush(stdout);
 
     if (num_cmps > mp->ma_keys->dk_log2_size) {
@@ -2560,8 +2557,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i));
-        printf("custominsertdict %ld %lld.\n", PyLong_AsLong(value), ep->i);
-        fflush(stdout);
+        /* printf("custominsertdict %ld %lld.\n", PyLong_AsLong(value), ep->i);
+        fflush(stdout); */
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
         ep->me_key = key;
         ep->me_hash = hash;
@@ -2768,7 +2765,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     mp->ma_keys = newkeys;
     mp->ma_values = NULL;
 
-    printf("mallocing %lld.\n", DK_SIZE(newkeys));
+    printf("custom_insert_to_emptydict mallocing %lld.\n", DK_SIZE(newkeys));
     fflush(stdout);
     mp->ma_layers = malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_layers));
     if (mp->ma_layers == NULL) {
@@ -2791,7 +2788,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     ep->me_hash = hash;
     ep->me_value = value;
     ep->i = hashpos;
-    printf("custom_insert_to_emptydict %ld %lld.\n", PyLong_AsLong(value), hashpos);
+    printf("custom_insert_to_emptydict (key, hashpos): (%s %lld).\n", PyUnicode_AsUTF8(key), hashpos);
     fflush(stdout);
 
     mp->ma_used++;
