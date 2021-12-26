@@ -2480,7 +2480,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
                 continue;
             }
 
-            printf("\tcustominsertdict move (%ld %lld).\n", PyUnicode_AsUTF8(ep->me_key, ep->i);
+            printf("\tcustominsertdict move (%s %lld).\n", PyUnicode_AsUTF8(ep->me_key, ep->i);
             fflush(stdout);
 
             // hashpos = i + j
