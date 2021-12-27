@@ -2461,9 +2461,6 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     return insertlayer_ep(layer, &e);
 }
 
-#define insertlayer(_1, ...) _Generic((_1),                     \
-                              PyDictKeyEntry *: insertlayer_ep, \
-                              PyObject *: insertlayer_keyhashvalue)(__VA_ARGS__)
 /*
 Internal routine to insert a new item into the table.
 Used both by the internal resize routine and by the public insert routine.
@@ -2528,8 +2525,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
                 layer->used = 0;
             }
 
-            if (insertlayer(layer, ep)) {
+            if (insertlayer_ep(layer, ep)) {
                 printf("layer %lld is full.\n", i);
+                fflush(stdout);
+                return -1;
             }
 
             ep->me_key = NULL;
@@ -2541,14 +2540,15 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             fflush(stdout); */
         }
 
-        printf("custominsertdict moved data (ep0[ix0].me_key == NULL): %d.\n", (ep0[ix0].me_key == NULL));
-        fflush(stdout);
-
         if (ep0[ix0].me_key) {
-            if (insertlayer(layer, key, hash, value)) {
+            if (insertlayer_keyhashvalue(layer, key, hash, value)) {
                 printf("layer %lld is full.\n", i);
+                fflush(stdout);
+                return -1;
             }
 
+            printf("custominsertdict layer->used: %d.\n", layer->used);
+            fflush(stdout);
             return 0;
         }
         else {
