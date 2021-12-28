@@ -1753,7 +1753,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
             fflush(stdout);
 
             PyDictKeyEntry *ep = oldentries;
-            Py_ssize_t i = 0;
+            Py_ssize_t keys_i, entries_i = 0;
             while (i < DK_SIZE(oldkeys)) {
                 printf("customdictresize i: %lld.\n", i);
                 fflush(stdout);
