@@ -2585,12 +2585,11 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             fflush(stdout);
             return 0;
         }
-        else {
-            ix = dictkeys_get_index(mp->ma_keys, i);
-            if (ix != DKIX_EMPTY) {
-                printf("custominsertdict moved data, free cell but (ix = %lld) != DKIX_EMPTY???\n", ix);
-                fflush(stdout);
-            }
+
+        ix = dictkeys_get_index(mp->ma_keys, i);
+        if (ix != DKIX_EMPTY) {
+            printf("custominsertdict moved data, free cell but (ix = %lld) != DKIX_EMPTY???\n", ix);
+            fflush(stdout);
         }
     }
 
