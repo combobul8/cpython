@@ -1768,6 +1768,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                     entries_i++;
                 }
 
+                printf("customdictresize here.\n");
                 if (ep->me_value) {
                     printf("customdictresize copy to newentries %s.\n", PyUnicode_AsUTF8(ep->me_key));
                     fflush(stdout);
