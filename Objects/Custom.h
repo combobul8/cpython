@@ -1601,14 +1601,17 @@ custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
         Py_hash_t hash = ep->me_hash;
         size_t i = hash & mask;
 
-        printf("custom_build_indices (hash & mask): %lld.\n", i);
-        fflush(stdout);
-
         while (dictkeys_get_index(keys, i) != DKIX_EMPTY) {
             i = mask & (i + 1);
         }
 
-        printf("custom_build_indices (key, i, ix): (%s, %lld, %lld).\n", PyUnicode_AsUTF8(ep->me_key), i, ix);
+        printf("\t\tbuild_indices (key, &, ix, i): (%s, %lld, %lld, %lld).\n",
+                PyUnicode_AsUTF8(ep->me_key),
+                (hash & mask),
+                ix,
+                i);
+        fflush(stdout);
+
         dictkeys_set_index(keys, i, ix);
     }
 }
@@ -1629,8 +1632,10 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
+#ifdef EBUG
     printf("customdictresize log2_newsize: %ld.\n", log2_newsize);
     fflush(stdout);
+#endif
 
     Py_ssize_t numentries;
     PyDictKeysObject *oldkeys;
@@ -1747,34 +1752,28 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
             }
         }
         else {
-            printf("customdictresize numentries: %lld.\n", numentries);
-            fflush(stdout);
-            printf("customdictresize DK_SIZE(oldkeys): %lld.\n", DK_SIZE(oldkeys));
-            fflush(stdout);
-
+            numentries = 0;
             PyDictKeyEntry *ep = oldentries;
-            Py_ssize_t keys_i = 0, entries_i = 0;
-            while (keys_i < DK_SIZE(oldkeys)) {
-                printf("customdictresize keys_i: %lld.\n", keys_i);
-                fflush(stdout);
+            Py_ssize_t keys_i = 0;
 
+            while (keys_i < DK_SIZE(oldkeys)) {
                 if (ep->me_value) {
-                    printf("customdictresize copy to newentries %s.\n", PyUnicode_AsUTF8(ep->me_key));
+                    printf("\tcustomdictresize copy to newentries %s.\n", PyUnicode_AsUTF8(ep->me_key));
                     fflush(stdout);
 
-                    newentries[entries_i] = *ep;
-                    entries_i++;
+                    newentries[numentries] = *ep;
+                    numentries++;
                 }
 
                 if (mp->ma_layers[keys_i].keys) {
                     for (int j = 0; j < mp->ma_layers[keys_i].used; j++) {
                         PyDictKeyEntry *layer_ep = mp->ma_layers[keys_i].keys[j];
 
-                        printf("customdictresize layer copy to newentries %s.\n", PyUnicode_AsUTF8(layer_ep->me_key));
+                        printf("\tcustomdictresize layer copy to newentries %s.\n", PyUnicode_AsUTF8(layer_ep->me_key));
                         fflush(stdout);
 
-                        newentries[entries_i] = *layer_ep;
-                        entries_i++;
+                        newentries[numentries] = *layer_ep;
+                        numentries++;
                     }
                 }
 
@@ -2508,8 +2507,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     fflush(stdout);
 
     if (num_cmps > mp->ma_keys->dk_log2_size) {
-        printf("custominsertdict num_cmps: %d; need to use layers!\n", num_cmps);
-        printf("custominsertdict find entries whose i == %lld and move them to a layer.\n", i);
+        printf("\tcustominsertdict num_cmps: %d; need to use layers!\n", num_cmps);
+        printf("\tcustominsertdict find entries whose i == %lld and move them to a layer.\n", i);
         fflush(stdout);
 
         PyDictKeysObject *dk = mp->ma_keys;
@@ -2599,7 +2598,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         mp->ma_keys->dk_version = 0;
         assert(old_value == NULL);
 
-        printf("custominsertdict DKIX_EMPTY dk_usable: %lld.\n", mp->ma_keys->dk_usable);
         if (mp->ma_keys->dk_usable <= 0) {
             /* Need to resize. */
             if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
