@@ -2563,7 +2563,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     int num_cmps;   /* currently not measuring the efficiency of insert */
     Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
     Py_ssize_t ix0 = dictkeys_get_index(mp->ma_keys, i);
-    printf("custominsertdict (key, ix0, i): (%s, %lld, %lld).\n", PyUnicode_AsUTF8(key), ix0, i);
+    printf("custominsertdict (key, ix0, i, num_cmps): (%s, %lld, %lld, %d).\n", PyUnicode_AsUTF8(key), ix0, i, num_cmps);
     fflush(stdout);
 
     if (num_cmps > mp->ma_keys->dk_log2_size) {
@@ -2573,8 +2573,22 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         filter(mp, i, num_cmps, ix0);
 
-        if (DK_ENTRIES(mp->ma_keys)[ix0].me_key) {
-            Layer *layer = &(mp->ma_layers[i]);
+        ix = dictkeys_get_index(mp->ma_keys, i);
+        if (ix != DKIX_EMPTY) {
+            printf("custominsertdict moved data, free cell but (ix = %lld) != DKIX_EMPTY???\n", ix);
+            fflush(stdout);
+        }
+    }
+
+    Layer *layer = &(mp->ma_layers[i]);
+    if (layer->keys) {
+        if (ix == DKIX_EMPTY) {
+            printf("going to dkix_empty.\n");
+            fflush(stdout);
+
+            goto dkix_empty;
+        }
+        else {
             if (insertlayer_keyhashvalue(layer, key, hash, value)) {
                 printf("layer %lld is full.\n", i);
                 fflush(stdout);
@@ -2584,12 +2598,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             printf("custominsertdict layer->used: %d.\n", layer->used);
             fflush(stdout);
             return 0;
-        }
-
-        ix = dictkeys_get_index(mp->ma_keys, i);
-        if (ix != DKIX_EMPTY) {
-            printf("custominsertdict moved data, free cell but (ix = %lld) != DKIX_EMPTY???\n", ix);
-            fflush(stdout);
         }
     }
 
@@ -2610,6 +2618,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     }
 
     if (ix == DKIX_EMPTY) {
+dkix_empty:
         /* Insert into new slot. */
         mp->ma_keys->dk_version = 0;
         assert(old_value == NULL);
