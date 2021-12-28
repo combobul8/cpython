@@ -2252,9 +2252,9 @@ found:
 Py_ssize_t _Py_HOT_FUNCTION
 custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, size_t* i0, int *num_cmps)
 {
+#ifdef EBUG
     printf("custom_lookup2 %s.\n", PyUnicode_AsUTF8(key));
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     PyDictKeysObject *dk;
@@ -2264,9 +2264,6 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
     size_t mask = DK_MASK(dk);
     size_t i = *i0 = (size_t)hash & mask;
 
-    printf("custom_lookup2 i: %lld.\n", i);
-    fflush(stdout);
-
     Py_ssize_t ix;
     *num_cmps = 0;
     if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
@@ -2274,9 +2271,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("custom_lookup2 0(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2286,14 +2283,13 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 assert(PyUnicode_CheckExact(ep->me_key));
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                    printf("custom_lookup2 0going to found.\n");
-                    fflush(stdout);
-
                     goto found;
                 }
                 else if (mp->ma_layers[i].keys) {
+#ifdef EBUG
                     printf("custom_lookup2 0mp->ma_layers[%lld].keys (%d, %d).\n", i, mp->ma_layers[i].used, mp->ma_layers[i].n);
-                    fflush(stdout); /* */
+                    fflush(stdout);
+#endif
 
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         /* printf("custom_lookup2 j: %d.\n", j);
@@ -2316,9 +2312,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
             i = mask & (i + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("custom_lookup2 1(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2670,7 +2666,7 @@ dkix_empty:
         if (num_cmps > mp->ma_keys->dk_log2_size) {
 
         }
-        printf("%s hashpos: %lld.\n", PyUnicode_AsUTF8(key), hashpos);
+        printf("%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
         fflush(stdout); /* */
 
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
