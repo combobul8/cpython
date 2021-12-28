@@ -1605,10 +1605,10 @@ custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
             i = mask & (i + 1);
         }
 
-        printf("\t\tbuild_indices (key, &, ix, i): (%s, %lld, %lld, %lld).\n",
+        printf("\t\tbuild_indices (key, ix, &, i): (%s, %lld, %lld, %lld).\n",
                 PyUnicode_AsUTF8(ep->me_key),
-                (hash & mask),
                 ix,
+                (hash & mask),
                 i);
         fflush(stdout);
 
