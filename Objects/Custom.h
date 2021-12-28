@@ -1737,7 +1737,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 int num_cmps2;
                 Py_ssize_t hashpos = empty_slot(mp->ma_keys, entry->me_hash, &i, &num_cmps2);
                 if (num_cmps2 != num_cmps) {
-                    printf("num_cmps2 != num_cmps: %d != %d.\n", num_cmps2, num_cmps);
+                    printf("customdictresize num_cmps2 != num_cmps: %d != %d.\n", num_cmps2, num_cmps);
                     fflush(stdout);
                 }
 
@@ -2449,6 +2449,8 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
     size_t i = *i0 = hash & mask;
 
     Py_ssize_t ix = dictkeys_get_index(keys, i);
+    *num_cmps = 0;
+
     while (ix >= 0) {
         (*num_cmps)++;
         i = (i + 1) & mask;
@@ -2484,6 +2486,58 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     return insertlayer_ep(layer, &e);
 }
 
+int
+filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps, Py_ssize_t ix0)
+{
+    PyDictKeysObject *dk = mp->ma_keys;
+    size_t mask = DK_MASK(dk);
+    PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
+    Layer *layer = &(mp->ma_layers[hashpos0]);
+
+    // move data
+    for (int j = 0; j < num_cmps; j++) {
+        Py_ssize_t jx = dictkeys_get_index(dk, hashpos0 + j);
+        PyDictKeyEntry *ep = &ep0[jx];
+        if (ep->i != hashpos0) {
+            continue;
+        }
+
+        printf("\tfilter move (%s, %lld).\n", PyUnicode_AsUTF8(ep->me_key), ep->i);
+        fflush(stdout);
+
+        // hashpos = i + j
+        dictkeys_set_index(mp->ma_keys, hashpos0 + j, DKIX_EMPTY);
+
+        if (!layer->keys) {
+            printf("\tfilter ma_layers[%lld] NULL.\n", hashpos0);
+
+            layer->keys = malloc(PyDict_MINSIZE * sizeof *(layer->keys));
+            if (!layer->keys) {
+                return -1;
+            }
+
+            layer->n = PyDict_MINSIZE;
+            layer->used = 0;
+        }
+
+        if (insertlayer_ep(layer, ep)) {
+            printf("\tfilter layer %lld is full.\n", hashpos0);
+            fflush(stdout);
+            return -1;
+        }
+
+        ep->me_key = NULL;
+        ep->me_value = NULL;
+        mp->ma_used--;
+        mp->ma_keys->dk_usable++;
+        /* Update nentries???
+        printf("\tcustominsertdict ma_used: %lld.\n", mp->ma_used);
+        fflush(stdout); */
+    }
+
+    return 0;
+}
+
 /*
 Internal routine to insert a new item into the table.
 Used both by the internal resize routine and by the public insert routine.
@@ -2505,7 +2559,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             goto Fail;
     }
 
-    size_t i;
+    Py_ssize_t i;
     int num_cmps;   /* currently not measuring the efficiency of insert */
     Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
     Py_ssize_t ix0 = dictkeys_get_index(mp->ma_keys, i);
@@ -2517,53 +2571,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         printf("\tcustominsertdict find entries whose i == %lld and move them to a layer.\n", i);
         fflush(stdout);
 
-        PyDictKeysObject *dk = mp->ma_keys;
-        size_t mask = DK_MASK(dk);
-        PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
-        Layer *layer = &(mp->ma_layers[i]);
+        filter(mp, i, num_cmps, ix0);
 
-        // move data
-        for (int j = 0; j < num_cmps; j++) {
-            Py_ssize_t jx = dictkeys_get_index(dk, i + j);
-            PyDictKeyEntry *ep = &ep0[jx];
-            if (ep->i != i) {
-                continue;
-            }
-
-            printf("\tcustominsertdict move (%s, %lld).\n", PyUnicode_AsUTF8(ep->me_key), ep->i);
-            fflush(stdout);
-
-            // hashpos = i + j
-            dictkeys_set_index(mp->ma_keys, i + j, DKIX_EMPTY);
-
-            if (!layer->keys) {
-                printf("\tcustominsertdict ma_layers[%lld] NULL.\n", i);
-
-                layer->keys = malloc(PyDict_MINSIZE * sizeof *(layer->keys));
-                if (!layer->keys) {
-                    return -1;
-                }
-
-                layer->n = PyDict_MINSIZE;
-                layer->used = 0;
-            }
-
-            if (insertlayer_ep(layer, ep)) {
-                printf("layer %lld is full.\n", i);
-                fflush(stdout);
-                return -1;
-            }
-
-            ep->me_key = NULL;
-            ep->me_value = NULL;
-            mp->ma_used--;
-            mp->ma_keys->dk_usable++;
-            /* Update nentries???
-            printf("\tcustominsertdict ma_used: %lld.\n", mp->ma_used);
-            fflush(stdout); */
-        }
-
-        if (ep0[ix0].me_key) {
+        if (DK_ENTRIES(mp->ma_keys)[ix0].me_key) {
+            Layer *layer = &(mp->ma_layers[i]);
             if (insertlayer_keyhashvalue(layer, key, hash, value)) {
                 printf("layer %lld is full.\n", i);
                 fflush(stdout);
@@ -2614,13 +2625,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
 
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
-        int num_cmps2;
-        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps2);
-        if (num_cmps2 != num_cmps) {
-            printf("num_cmps2 != num_cmps: %d != %d.\n", num_cmps2, num_cmps);
-            fflush(stdout);
-        }
-
+        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps);
         printf("custominsertdict (key, ep->i, hashpos): (%s, %lld, %lld).\n", PyUnicode_AsUTF8(key), ep->i, hashpos);
         fflush(stdout); /* */
 
