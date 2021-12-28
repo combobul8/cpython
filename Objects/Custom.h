@@ -1815,6 +1815,26 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
     build_idxs(mp->ma_keys, newentries, numentries);
     // mp->ma_keys->dk_usable -= numentries;
     mp->ma_keys->dk_nentries = numentries;
+
+    if (!mp->ma_layers) {
+        printf("customdictresize mp->ma_layers NULL???\n");
+        fflush(stdout);
+        return -1;
+    }
+
+    free(mp->ma_layers);
+
+    mp->ma_layers = malloc(DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
+    if (mp->ma_layers == NULL) {
+        return -1;
+    }
+
+    for (int64_t i = 0; i < DK_SIZE(mp->ma_keys); i++) {
+        mp->ma_layers[i].keys = NULL;
+        mp->ma_layers[i].used = 0;
+        mp->ma_layers[i].n = 0;
+    }
+
     return 0;
 }
 
@@ -2873,7 +2893,9 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     }
 
     for (int64_t i = 0; i < DK_SIZE(newkeys); i++) {
-        mp->ma_layers[i].keys = NULL; // (int *) malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_layers[i].keys));
+        mp->ma_layers[i].keys = NULL;
+        mp->ma_layers[i].used = 0;
+        mp->ma_layers[i].n = 0;
     }
 
     Py_INCREF(key);
