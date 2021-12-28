@@ -1749,24 +1749,32 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         else {
             printf("customdictresize numentries: %lld.\n", numentries);
             fflush(stdout);
+            printf("customdictresize DK_SIZE(oldkeys): %lld.\n", DK_SIZE(oldkeys));
+            fflush(stdout);
 
             PyDictKeyEntry *ep = oldentries;
             Py_ssize_t i = 0;
             while (i < DK_SIZE(oldkeys)) {
+                Py_ssize_t i0 = i;
+
                 if (ep->me_value) {
+                    printf("customdictresize copy to newentries %s.\n", PyUnicode_AsUTF8(ep->me_key));
+                    fflush(stdout);
                     newentries[i] = *ep;
                     ep++;
                     i++;
                 }
 
-                while (ep->me_value == NULL && mp->ma_layers[i].keys == NULL)
-                    ep++;
                 for (int j = 0; j < mp->ma_layers[i].used; j++) {
-
+                    printf("customdictresize layer copy to newentries %s.\n", PyUnicode_AsUTF8(ep->me_key));
+                    fflush(stdout);
+                    newentries[i] = *ep;
+                    ep++;
+                    i++;
                 }
-                printf("customdictresize %s.\n", PyUnicode_AsUTF8(ep->me_key));
-                fflush(stdout);
-                i++;
+
+                if (i == i0)
+                    i++;
             }
         }
 
