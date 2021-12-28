@@ -73,7 +73,7 @@ static int
 custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname,
                    Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-                   Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *),
+                   Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
                    void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
@@ -105,7 +105,7 @@ static int
 dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
                    const char *methname,
                    Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-                   Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *),
+                   Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
                    void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG

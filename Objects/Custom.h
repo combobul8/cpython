@@ -1629,7 +1629,7 @@ but can be resplit by make_keys_shared().
 static int
 customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
@@ -1734,7 +1734,12 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                     mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
                 }
 
-                Py_ssize_t hashpos = empty_slot(mp->ma_keys, entry->me_hash, &i);
+                int num_cmps2;
+                Py_ssize_t hashpos = empty_slot(mp->ma_keys, entry->me_hash, &i, &num_cmps2);
+                if (num_cmps2 != num_cmps) {
+                    printf("num_cmps2 != num_cmps: %d != %d.\n", num_cmps2, num_cmps);
+                    fflush(stdout);
+                }
 
                 PyDictKeyEntry *ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
                 dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
@@ -1975,7 +1980,7 @@ estimate_log2_keysize(Py_ssize_t n)
 static int
 custom_insertion_resize(CustomPyDictObject *mp,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     return customdictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
@@ -2435,16 +2440,17 @@ find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash)
 
    The dict must be combined. */
 static Py_ssize_t
-custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0)
+custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *num_cmps)
 {
+    // If layer.keys, then look up in layer; DO NOT probe!
     assert(keys != NULL);
 
     const size_t mask = DK_MASK(keys);
     size_t i = *i0 = hash & mask;
 
     Py_ssize_t ix = dictkeys_get_index(keys, i);
-    for (size_t perturb = hash; ix >= 0;) {
-        perturb >>= PERTURB_SHIFT;
+    while (ix >= 0) {
+        (*num_cmps)++;
         i = (i + 1) & mask;
         ix = dictkeys_get_index(keys, i);
     }
@@ -2486,7 +2492,7 @@ Returns -1 if an error occurred, or 0 on success.
 static int
 custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     PyObject *old_value;
@@ -2608,7 +2614,12 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
 
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
-        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i));
+        int num_cmps2;
+        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps2);
+        if (num_cmps2 != num_cmps) {
+            printf("num_cmps2 != num_cmps: %d != %d.\n", num_cmps2, num_cmps);
+            fflush(stdout);
+        }
 
         printf("custominsertdict (key, ep->i, hashpos): (%s, %lld, %lld).\n", PyUnicode_AsUTF8(key), ep->i, hashpos);
         fflush(stdout); /* */
@@ -2670,7 +2681,7 @@ Returns -1 if an error occurred, or 0 on success.
 static int
 insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     PyObject *old_value;
@@ -2716,7 +2727,13 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
         }
 
         size_t i;
-        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &i);
+        int num_cmps2;
+        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &i, &num_cmps2);
+        if (num_cmps2 != num_cmps) {
+            printf("num_cmps2 != num_cmps: %d != %d.\n", num_cmps2, num_cmps);
+            fflush(stdout);
+        }
+
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
         ep->me_key = key;
@@ -3070,7 +3087,7 @@ custom_PyObject_Hash(PyObject *v)
 int
 custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
@@ -3117,7 +3134,7 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
 int
 custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
@@ -3157,7 +3174,7 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
 static int
 custom_dict_merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
@@ -3360,7 +3377,7 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
 static int
 dict_merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
@@ -3555,7 +3572,7 @@ dict_merge(PyObject *a, PyObject *b, int override,
 int
 custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
@@ -3570,7 +3587,7 @@ custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
 int
 custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
@@ -3585,7 +3602,7 @@ custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
 static int
 custom_dict_update_arg(PyObject *self, PyObject *arg,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
@@ -3612,7 +3629,7 @@ custom_dict_update_arg(PyObject *self, PyObject *arg,
 static int
 dict_update_arg(PyObject *self, PyObject *arg,
         Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
