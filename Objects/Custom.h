@@ -2610,7 +2610,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i));
 
-        printf("custominsertdict (key, hashpos): (%s %lld).\n", PyUnicode_AsUTF8(key), hashpos);
+        printf("custominsertdict (key, ep->i, hashpos): (%s, %lld, %lld).\n", PyUnicode_AsUTF8(key), ep->i, hashpos);
         fflush(stdout); /* */
 
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
