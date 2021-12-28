@@ -6,11 +6,3 @@ PyDictKeysObject
 struct _dictkeysobject
 /* Number of used entries in dk_entries. */
 dk_nentries
-
-Find:
-    Compare to key at cell
-    If success:
-        return value
-    If layer exists:
-        return search result
-    return failure to find
