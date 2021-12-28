@@ -1780,6 +1780,11 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                         newentries[numentries] = *layer_ep;
                         numentries++;
                     }
+
+                    free(mp->ma_layers[keys_i].keys);
+                    mp->ma_layers[keys_i].keys = NULL;
+                    mp->ma_layers[keys_i].used = 0;
+                    mp->ma_layers[keys_i].n = 0;
                 }
 
                 keys_i++;
