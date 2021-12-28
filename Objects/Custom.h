@@ -2272,7 +2272,7 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                     goto found;
                 }
                 else if (mp->ma_layers[i].keys) {
-                    printf("custom_lookup2 0mp->ma_layers[%lld].keys.\n", i);
+                    printf("custom_lookup2 0mp->ma_layers[%lld].keys (%d, %d).\n", i, mp->ma_layers[i].used, mp->ma_layers[i].n);
                     fflush(stdout); /* */
 
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
