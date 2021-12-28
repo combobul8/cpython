@@ -2588,7 +2588,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         else {
             ix = dictkeys_get_index(mp->ma_keys, i);
             if (ix != DKIX_EMPTY) {
-                printf("custominsertdict moved data else/if ix: %lld.\n", ix);
+                printf("custominsertdict moved data, free cell but (ix = %lld) != DKIX_EMPTY???\n", ix);
                 fflush(stdout);
             }
         }
@@ -2626,6 +2626,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps);
+
+        if (num_cmps > mp->ma_keys->dk_log2_size) {
+
+        }
         printf("custominsertdict (key, ep->i, hashpos): (%s, %lld, %lld).\n", PyUnicode_AsUTF8(key), ep->i, hashpos);
         fflush(stdout); /* */
 
