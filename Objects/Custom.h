@@ -1776,6 +1776,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                     entries_i++;
                 }
 
+                keys_i++;
                 ep++;
             }
         }
