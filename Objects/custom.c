@@ -289,6 +289,7 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
         int *success)
 /*[clinic end generated code: output=bba707729dee05bf input=279ddb5790b6b107]*/
 {
+    printf("get %s.\n", PyUnicode_AsUTF8(key));
     PyObject *val = NULL;
     Py_hash_t hash;
     Py_ssize_t ix;
