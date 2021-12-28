@@ -12,7 +12,7 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
     for line in f:
         word = line.strip()
 
-        if i >= 6:
+        if i >= 8:
             break
         elif mycustom.get(word) == None:
             mycustom.update({word: i})
@@ -24,8 +24,6 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
 
 toc = time.perf_counter()
 # print(str((toc - tic) * 1000) + " milliseconds")
-
-print("# keys: " + str(len(mycustom.keys())), flush = True)
 
 for key in list(words.keys()):
     # print(key)

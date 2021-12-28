@@ -1601,17 +1601,14 @@ custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
         Py_hash_t hash = ep->me_hash;
         size_t i = hash & mask;
 
-        if (ix == 0) {
-            ep->i = i;
-        }
-
-        printf("custom_build_indices i: %lld.\n", i);
+        printf("custom_build_indices (hash & mask): %lld.\n", i);
         fflush(stdout);
 
-        for (size_t perturb = hash; dictkeys_get_index(keys, i) != DKIX_EMPTY;) {
-            perturb >>= PERTURB_SHIFT;
+        while (dictkeys_get_index(keys, i) != DKIX_EMPTY) {
             i = mask & (i + 1);
         }
+
+        printf("custom_build_indices (key, i, ix): (%s, %lld, %lld).\n", PyUnicode_AsUTF8(ep->me_key), i, ix);
         dictkeys_set_index(keys, i, ix);
     }
 }
@@ -1677,8 +1674,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
 
     numentries = mp->ma_used;
-    printf("customdictresize numentries: %lld.\n", numentries);
-    fflush(stdout);
 
     oldentries = DK_ENTRIES(oldkeys);
     newentries = DK_ENTRIES(mp->ma_keys);
@@ -1752,16 +1747,26 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
             }
         }
         else {
-            printf("customdictresize else else.\n");
+            printf("customdictresize numentries: %lld.\n", numentries);
             fflush(stdout);
 
             PyDictKeyEntry *ep = oldentries;
-            for (Py_ssize_t i = 0; i < numentries; i++) {
-                while (ep->me_value == NULL)
+            Py_ssize_t i = 0;
+            while (i < DK_SIZE(oldkeys)) {
+                if (ep->me_value) {
+                    newentries[i] = *ep;
                     ep++;
-                printf("customdictresize %ld.\n", PyLong_AsLong(ep->me_value));
+                    i++;
+                }
+
+                while (ep->me_value == NULL && mp->ma_layers[i].keys == NULL)
+                    ep++;
+                for (int j = 0; j < mp->ma_layers[i].used; j++) {
+
+                }
+                printf("customdictresize %s.\n", PyUnicode_AsUTF8(ep->me_key));
                 fflush(stdout);
-                newentries[i] = *ep++;
+                i++;
             }
         }
 
@@ -2580,6 +2585,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         /* Insert into new slot. */
         mp->ma_keys->dk_version = 0;
         assert(old_value == NULL);
+
+        printf("custominsertdict DKIX_EMPTY dk_usable: %lld.\n", mp->ma_keys->dk_usable);
         if (mp->ma_keys->dk_usable <= 0) {
             /* Need to resize. */
             if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
