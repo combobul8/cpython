@@ -2555,14 +2555,18 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps, Py_ssize_t ix0
             return -1;
         }
 
-        free(ep);
+        printf("freeing");
+        fflush(stdout);
+        Py_CLEAR(ep); // free(ep);
+        printf("freed");
+        fflush(stdout);
         /* ep->me_key = NULL;
         ep->me_value = NULL; */
         mp->ma_used--;
         mp->ma_keys->dk_usable++;
-        /* Update nentries???
+        // Update nentries???
         printf("\tcustominsertdict ma_used: %lld.\n", mp->ma_used);
-        fflush(stdout); */
+        fflush(stdout); /* */
     }
 
     return 0;
