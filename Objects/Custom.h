@@ -2520,6 +2520,7 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     return 0;
 }
 
+#define EBUG_FILTER
 int
 filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps, Py_ssize_t ix0)
 {
@@ -2564,8 +2565,8 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps, Py_ssize_t ix0
             return -1;
         }
 
-        Py_CLEAR(ep);
-        ep = NULL;
+        ep->me_key = NULL;
+        ep->me_value = NULL;
 
         mp->ma_used--;
         mp->ma_keys->dk_usable++;
