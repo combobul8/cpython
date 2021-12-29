@@ -1119,6 +1119,20 @@ exit:
     return return_value;
 }
 
+int
+ix_to_i(int ix0, PyDictKeysObject *keys)
+{
+    int i = 0;
+    while (i < DK_SIZE(keys)) {
+        Py_ssize_t ix = dictkeys_get_index(keys, i);
+        if (ix == ix0)
+            return i;
+        i++;
+    }
+
+    return i;
+}
+
 PyObject *
 dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
 {
@@ -1130,17 +1144,21 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
 
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
     for (int i = 0; i < DK_SIZE(keys); i++) {
-        printf("%lld: ", dictkeys_get_index(keys, i));
+        Py_ssize_t ix = dictkeys_get_index(keys, i);
+        if (i < 0)
+            continue;
+
+        printf("%d -> %lld: ", i, ix);
         fflush(stdout);
 
-        if (!ep[i].me_key && !dict->ma_layers[i].keys) {
+        if (!ep[ix].me_key && !dict->ma_layers[i].keys) {
             printf("\n");
             fflush(stdout);
             continue;
         }
 
-        if (ep[i].me_key) {
-            printf("%s.\n", PyUnicode_AsUTF8(ep[i].me_key));
+        if (ep[ix].me_key) {
+            printf("%s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
             fflush(stdout);
         }
 
