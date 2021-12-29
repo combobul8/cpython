@@ -1145,7 +1145,7 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
     for (int i = 0; i < DK_SIZE(keys); i++) {
         Py_ssize_t ix = dictkeys_get_index(keys, i);
-        if (i < 0)
+        if (ix < 0)
             continue;
 
         printf("%d -> %lld: ", i, ix);
