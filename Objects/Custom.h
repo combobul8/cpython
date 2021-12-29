@@ -2488,30 +2488,31 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
 }
 
 int
-insertlayer_ep(Layer *layer, PyDictKeyEntry *ep)
+insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *value)
 {
-    if (layer->used < layer->n) {
-        layer->keys[layer->used] = malloc(sizeof *layer->keys[layer->used]);
-        if (!layer->keys[layer->used]) {
+    if (layer->used >= layer->n) {
+        int n = layer->n + layer->n;
+        printf("doubling size of layer to %d.\n", n);
+
+        layer->keys = realloc(layer->keys, n * sizeof *(layer->keys));
+        if (!layer->keys) {
             return -1;
         }
 
-        layer->keys[layer->used]->me_hash = ep->me_hash;
-        layer->keys[layer->used]->me_key = ep->me_key;
-        layer->keys[layer->used]->me_value = ep->me_value;
-        layer->used++;
-
-        return 0;
+        layer->n = n;
     }
 
-    return -1;
-}
+    layer->keys[layer->used] = malloc(sizeof *layer->keys[layer->used]);
+    if (!layer->keys[layer->used]) {
+        return -1;
+    }
 
-int
-insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *value)
-{
-    PyDictKeyEntry e = { hash, key, value, -1 };
-    return insertlayer_ep(layer, &e);
+    layer->keys[layer->used]->me_hash = hash;
+    layer->keys[layer->used]->me_key = key;
+    layer->keys[layer->used]->me_value = value;
+    layer->used++;
+
+    return 0;
 }
 
 int
@@ -2548,14 +2549,15 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps, Py_ssize_t ix0
             layer->used = 0;
         }
 
-        if (insertlayer_ep(layer, ep)) {
-            printf("\tfilter layer %lld is full.\n", hashpos0);
+        if (insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value)) {
+            printf("\tfilter error inserting %s into layer.\n", PyUnicode_AsUTF8(ep->me_key));
             fflush(stdout);
             return -1;
         }
 
-        ep->me_key = NULL;
-        ep->me_value = NULL;
+        free(ep);
+        /* ep->me_key = NULL;
+        ep->me_value = NULL; */
         mp->ma_used--;
         mp->ma_keys->dk_usable++;
         /* Update nentries???
