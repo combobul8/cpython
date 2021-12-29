@@ -1130,8 +1130,17 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
 
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
     for (int i = 0; i < DK_SIZE(keys); i++) {
+        printf("%d: ", i);
+        fflush(stdout);
+
+        if (!ep[i].me_key && !dict->ma_layers[i].keys) {
+            printf("\n");
+            fflush(stdout);
+            continue;
+        }
+
         if (ep[i].me_key) {
-            printf("(i, key): (%d, %s).\n", i, PyUnicode_AsUTF8(ep[i].me_key));
+            printf("%s.\n", PyUnicode_AsUTF8(ep[i].me_key));
             fflush(stdout);
         }
 
@@ -1150,7 +1159,7 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
                 }
             }
 
-            printf("\n");
+            printf(".\n");
             fflush(stdout);
         }
     }
