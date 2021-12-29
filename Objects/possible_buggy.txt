@@ -7,6 +7,9 @@ struct _dictkeysobject
 /* Number of used entries in dk_entries. */
 dk_nentries
 
+Next: resize secondary layers as necessary.
+Next: refactor insertion :)
+
 Start with a dynamic array.
 If # elements < log(N)
     push_back
