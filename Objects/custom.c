@@ -1125,7 +1125,7 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
     // printf("hello, world\n");
     CustomPyDictObject *dict = (CustomPyDictObject *) mp;
     PyDictKeysObject *keys = dict->ma_keys;
-    printf("# keys in primary layer: %lld.\n", DK_SIZE(keys));
+    printf("size of primary layer: %lld.\n", DK_SIZE(keys));
     fflush(stdout);
 
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
