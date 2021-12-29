@@ -309,7 +309,7 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
     assert(PyInt_Check(val) == 1);
 
     if (ix != DKIX_EMPTY) {
-        printf("ix: %lld; %d; num_cmps: %d.\n", ix, PyLong_AsLong(val), num_cmps);
+        printf("%s i: %lld; num_cmps: %d.\n", PyUnicode_AsUTF8(key), i, num_cmps);
         fflush(stdout);
     }
 
@@ -1130,7 +1130,7 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
 
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
     for (int i = 0; i < DK_SIZE(keys); i++) {
-        printf("%d: ", i);
+        printf("%lld: ", dictkeys_get_index(keys, i));
         fflush(stdout);
 
         if (!ep[i].me_key && !dict->ma_layers[i].keys) {

@@ -28,6 +28,7 @@ toc = time.perf_counter()
 for key in list(words.keys()):
     # print(key)
     if mycustom.get(key) != None:
-        print(key)
+        # print(key)
+        None
     None
 mycustom.print()
