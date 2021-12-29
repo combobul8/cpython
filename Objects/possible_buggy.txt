@@ -14,3 +14,11 @@ Find:
     If layer exists:
         return search result
     return failure to find
+
+Start with a dynamic array.
+If # elements < log(N)
+    push_back
+Else if enough money to create hash table
+    create hash table
+Else
+    resize the array
