@@ -2286,19 +2286,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                     goto found;
                 }
                 else if (mp->ma_layers[i].keys) {
-#ifdef EBUG
-                    printf("custom_lookup2 0mp->ma_layers[%lld].keys (%d, %d).\n", i, mp->ma_layers[i].used, mp->ma_layers[i].n);
-                    fflush(stdout);
-#endif
-
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
-                        /* printf("custom_lookup2 j: %d.\n", j);
-                        fflush(stdout); */
-
                         (*num_cmps)++;
                         if (mp->ma_layers[i].keys[j]->me_key == key) {
-                            /* printf("custom_lookup2 found.\n");
-                            fflush(stdout); */
                             *value_addr = mp->ma_layers[i].keys[j]->me_value;
                             return ix;
                         }
@@ -2325,6 +2315,15 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
                     goto found;
+                }
+                else if (mp->ma_layers[i].keys) {
+                    for (int j = 0; j < mp->ma_layers[i].used; j++) {
+                        (*num_cmps)++;
+                        if (mp->ma_layers[i].keys[j]->me_key == key) {
+                            *value_addr = mp->ma_layers[i].keys[j]->me_value;
+                            return ix;
+                        }
+                    }
                 }
             }
             else if (ix == DKIX_EMPTY) {
@@ -2610,23 +2609,18 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
     Layer *layer = &(mp->ma_layers[i]);
     if (layer->keys) {
-        if (ix == DKIX_EMPTY) {
-            printf("going to dkix_empty.\n");
-            fflush(stdout);
-
+        if (ix == DKIX_EMPTY)
             goto dkix_empty;
-        }
-        else {
-            if (insertlayer_keyhashvalue(layer, key, hash, value)) {
-                printf("layer %lld is full.\n", i);
-                fflush(stdout);
-                return -1;
-            }
 
-            printf("custominsertdict layer->used: %d.\n", layer->used);
+        if (insertlayer_keyhashvalue(layer, key, hash, value)) {
+            printf("layer %lld is full.\n", i);
             fflush(stdout);
-            return 0;
+            return -1;
         }
+
+        printf("custominsertdict layer->used: %d.\n", layer->used);
+        fflush(stdout);
+        return 0;
     }
 
     if (ix == DKIX_ERROR)
