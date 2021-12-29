@@ -1635,9 +1635,9 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-#ifdef EBUG
     printf("customdictresize log2_newsize: %ld.\n", log2_newsize);
     fflush(stdout);
+#ifdef EBUG
 #endif
 
     Py_ssize_t numentries;

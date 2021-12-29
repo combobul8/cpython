@@ -1119,6 +1119,13 @@ exit:
     return return_value;
 }
 
+PyObject *
+dict_print(PyObject *dict, PyObject *Py_UNUSED(ignored))
+{
+    printf("hello, world\n");
+    return dict;
+}
+
 static PyMethodDef mapp_methods[] = {
     DICT___CONTAINS___METHODDEF
     {"__getitem__", (PyCFunction)(void(*)(void))dict_subscript,        METH_O | METH_COEXIST,
@@ -1172,6 +1179,8 @@ static PyMethodDef custom_mapp_methods[] = {
      copy__doc__},
     DICT___REVERSED___METHODDEF
     {"__class_getitem__", (PyCFunction)Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
+    {"print",           dict_print,                     METH_NOARGS,
+    keys__doc__},
     {NULL,              NULL}   /* sentinel */
 };
 
