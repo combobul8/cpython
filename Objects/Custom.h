@@ -1613,6 +1613,7 @@ custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
         fflush(stdout);
 
         dictkeys_set_index(keys, i, ix);
+        ep->i = i;
     }
 }
 
@@ -2474,6 +2475,8 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
 
     const size_t mask = DK_MASK(keys);
     size_t i = *i0 = hash & mask;
+    printf("custom_find_empty_slot i: %lld.\n", i);
+    fflush(stdout);
 
     Py_ssize_t ix = dictkeys_get_index(keys, i);
     *num_cmps = 0;
@@ -2659,19 +2662,22 @@ dkix_empty:
 
         if (num_cmps > mp->ma_keys->dk_log2_size) {
             printf("\tcustominsertdict num_cmps: %d; need to use layers!\n", num_cmps);
-            printf("\tcustominsertdict find entries whose i == %lld and move them to a layer.\n", i);
+            printf("\tcustominsertdict find entries whose i == %lld and move them to a layer.\n", ep->i);
             fflush(stdout);
 
-            filter(mp, i, num_cmps, ix0);
+            filter(mp, ep->i, num_cmps, ix0);
 
-            ix = dictkeys_get_index(mp->ma_keys, i);
+            ix = dictkeys_get_index(mp->ma_keys, ep->i);
+            printf("\tcustominsertdict ix: %lld.\n", ix);
+            fflush(stdout);
+
             if (ix != DKIX_EMPTY) {
                 printf("custominsertdict moved data, free cell but (ix = %lld) != DKIX_EMPTY???\n", ix);
                 fflush(stdout);
             }
         }
 
-        Layer *layer = &(mp->ma_layers[i]);
+        Layer *layer = &(mp->ma_layers[ep->i]);
         if (layer->keys) {
             if (ix != DKIX_EMPTY) {
                 if (insertlayer_keyhashvalue(layer, key, hash, value)) {
