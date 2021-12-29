@@ -1120,10 +1120,42 @@ exit:
 }
 
 PyObject *
-dict_print(PyObject *dict, PyObject *Py_UNUSED(ignored))
+dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
 {
-    printf("hello, world\n");
-    return dict;
+    // printf("hello, world\n");
+    CustomPyDictObject *dict = (CustomPyDictObject *) mp;
+    PyDictKeysObject *keys = dict->ma_keys;
+    printf("# keys in primary layer: %lld.\n", DK_SIZE(keys));
+    fflush(stdout);
+
+    PyDictKeyEntry *ep = DK_ENTRIES(keys);
+    for (int i = 0; i < DK_SIZE(keys); i++) {
+        if (ep[i].me_key) {
+            printf("(i, key): (%d, %s).\n", i, PyUnicode_AsUTF8(ep[i].me_key));
+            fflush(stdout);
+        }
+
+        if (dict->ma_layers[i].keys) {
+            printf("\t");
+            fflush(stdout);
+
+            Layer *layer = &dict->ma_layers[i];
+            for (int j = 0; j < layer->used; j++) {
+                printf("%s", PyUnicode_AsUTF8(layer->keys[j]->me_key));
+                fflush(stdout);
+
+                if (j < (layer->used - 1)) {
+                    printf(", ");
+                    fflush(stdout);
+                }
+            }
+
+            printf("\n");
+            fflush(stdout);
+        }
+    }
+
+    return mp;
 }
 
 static PyMethodDef mapp_methods[] = {
