@@ -1600,6 +1600,7 @@ custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
     for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
         Py_hash_t hash = ep->me_hash;
         size_t i = hash & mask;
+        ep->i = i;
 
         while (dictkeys_get_index(keys, i) != DKIX_EMPTY) {
             i = mask & (i + 1);
@@ -1613,7 +1614,6 @@ custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
         fflush(stdout);
 
         dictkeys_set_index(keys, i, ix);
-        ep->i = i;
     }
 }
 
@@ -2475,8 +2475,6 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
 
     const size_t mask = DK_MASK(keys);
     size_t i = *i0 = hash & mask;
-    printf("custom_find_empty_slot i: %lld.\n", i);
-    fflush(stdout);
 
     Py_ssize_t ix = dictkeys_get_index(keys, i);
     *num_cmps = 0;
@@ -2668,9 +2666,6 @@ dkix_empty:
             filter(mp, ep->i, num_cmps, ix0);
 
             ix = dictkeys_get_index(mp->ma_keys, ep->i);
-            printf("\tcustominsertdict ix: %lld.\n", ix);
-            fflush(stdout);
-
             if (ix != DKIX_EMPTY) {
                 printf("custominsertdict moved data, free cell but (ix = %lld) != DKIX_EMPTY???\n", ix);
                 fflush(stdout);
