@@ -2618,7 +2618,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             return -1;
         }
 
-        printf("custominsertdict layer->used: %d.\n", layer->used);
+        printf("\tcustominsertdict lookuplayer->used: %d.\n", layer->used);
         fflush(stdout);
         return 0;
     }
@@ -2658,8 +2658,35 @@ dkix_empty:
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps);
 
         if (num_cmps > mp->ma_keys->dk_log2_size) {
+            printf("\tcustominsertdict num_cmps: %d; need to use layers!\n", num_cmps);
+            printf("\tcustominsertdict find entries whose i == %lld and move them to a layer.\n", i);
+            fflush(stdout);
 
+            filter(mp, i, num_cmps, ix0);
+
+            ix = dictkeys_get_index(mp->ma_keys, i);
+            if (ix != DKIX_EMPTY) {
+                printf("custominsertdict moved data, free cell but (ix = %lld) != DKIX_EMPTY???\n", ix);
+                fflush(stdout);
+            }
         }
+
+        Layer *layer = &(mp->ma_layers[i]);
+        if (layer->keys) {
+            if (ix != DKIX_EMPTY) {
+                if (insertlayer_keyhashvalue(layer, key, hash, value)) {
+                    printf("layer %lld is full.\n", i);
+                    fflush(stdout);
+                    return -1;
+                }
+
+                printf("\tcustominsertdict layer->used: %d.\n", layer->used);
+                fflush(stdout);
+                return 0;
+            }
+        }
+
+        hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps);
         printf("%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
         fflush(stdout); /* */
 
