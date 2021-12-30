@@ -1710,7 +1710,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             filter(mp, i, num_cmps);
 
             // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
-            Py_ssize_t jx = dictkeys_get_index(keys, i);
+            if (dictkeys_get_index(keys, i) == DKIX_EMPTY) {
             }
         }
 
