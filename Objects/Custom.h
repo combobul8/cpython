@@ -1697,7 +1697,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
         // If there's no layer at the hash value, then check if linear probing is good enough.
         if (!layer->keys) {
-            printf("no layer.\n");
+            printf("%lld no layer.\n", i);
             fflush(stdout);
 
             int num_cmps = 0;
@@ -1723,12 +1723,12 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
         // If there's a layer at the hash value, then insert into the layer unless the cell is free.
         else if (dictkeys_get_index(keys, i) == DKIX_EMPTY) {
-            printf("layer but free cell.\n");
+            printf("%lld layer but free cell.\n", i);
             fflush(stdout);
             dictkeys_set_index(keys, i, ix);
         }
         else {
-            printf("insert into layer.\n");
+            printf("%lld insert into layer.\n", i);
             fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
         }
@@ -1949,19 +1949,13 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         }
     }
 
-    build_idxs(mp, newentries, numentries);
-    // mp->ma_keys->dk_usable -= numentries;
-    mp->ma_keys->dk_nentries = numentries;
-
     if (!mp->ma_layers) {
         printf("customdictresize mp->ma_layers NULL???\n");
         fflush(stdout);
         return -1;
     }
 
-    free(mp->ma_layers);
-
-    mp->ma_layers = malloc(DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
+    mp->ma_layers = realloc(mp->ma_layers, DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
     if (mp->ma_layers == NULL) {
         return -1;
     }
@@ -1971,6 +1965,10 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         mp->ma_layers[i].used = 0;
         mp->ma_layers[i].n = 0;
     }
+
+    build_idxs(mp, newentries, numentries);
+    // mp->ma_keys->dk_usable -= numentries;
+    mp->ma_keys->dk_nentries = numentries;
 
     return 0;
 }
