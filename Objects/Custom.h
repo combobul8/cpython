@@ -1733,6 +1733,10 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
         }
 
+        mp->ma_used++;
+        mp->ma_keys->dk_usable--;
+        mp->ma_keys->dk_nentries++;
+
 #ifdef EBUG_BUILD_INDICES
         printf("\t\tbuild_indices (key, ix, &, i): (%s, %lld, %lld, %lld).\n",
                 PyUnicode_AsUTF8(ep->me_key),
@@ -2777,6 +2781,10 @@ dkix_empty:
         mp->ma_keys->dk_nentries++;
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
+
+        printf("custominsertdict dk_usable: %lld.\n", mp->ma_keys->dk_usable);
+        fflush(stdout);
+
         return 0;
     }
 
