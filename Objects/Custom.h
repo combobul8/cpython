@@ -1686,6 +1686,9 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
     size_t mask = (size_t)DK_SIZE(keys) - 1;
 
     for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
+        printf("ix: %lld.\n", ix);
+        fflush(stdout);
+
         Py_hash_t hash = ep->me_hash;
 
         size_t i = hash & mask;
@@ -1694,6 +1697,9 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
         // If there's no layer at the hash value, then check if linear probing is good enough.
         if (!layer->keys) {
+            printf("no layer.\n");
+            fflush(stdout);
+
             int num_cmps = 0;
             while (dictkeys_get_index(keys, i) != DKIX_EMPTY) {
                 num_cmps++;
@@ -1701,58 +1707,30 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             }
 
             // Linear probing is good enough.
-            if (num_cmps <= mp->ma_keys->dk_log2_size) {
+            if (num_cmps <= mp->ma_keys->dk_log2_size)
                 dictkeys_set_index(keys, i, ix);
-                continue;
-            }
+            else {
+                // Create a layer and avoid linear probing that starts at this hash value.
+                filter(mp, i, num_cmps);
 
-            // Create a layer and avoid linear probing that starts at this hash value.
-            filter(mp, i, num_cmps);
-
-            // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
-            if (dictkeys_get_index(keys, i) == DKIX_EMPTY) {
+                // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
+                if (dictkeys_get_index(keys, i) == DKIX_EMPTY)
+                    dictkeys_set_index(keys, i, ix);
+                else
+                    insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
             }
         }
 
         // If there's a layer at the hash value, then insert into the layer unless the cell is free.
         else if (dictkeys_get_index(keys, i) == DKIX_EMPTY) {
+            printf("layer but free cell.\n");
+            fflush(stdout);
             dictkeys_set_index(keys, i, ix);
-            continue;
         }
         else {
+            printf("insert into layer.\n");
+            fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
-            continue;
-        }
-
-        int num_cmps = 0;
-        while (dictkeys_get_index(keys, i) != DKIX_EMPTY) {
-            num_cmps++;
-            i = mask & (i + 1);
-        }
-
-        Py_ssize_t jx = ix;
-        if (num_cmps > mp->ma_keys->dk_log2_size) {
-            filter(mp, i, num_cmps);
-
-            // if filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
-            jx = dictkeys_get_index(keys, i);
-        }
-
-        Layer *layer = &(mp->ma_layers[i]);
-        if (!layer->keys) ;
-        else if (jx )
-        if (layer->keys) {
-            if (jx == DKIX_EMPTY)
-                goto dkix_empty;
-
-            insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
-            return;
-        }
-
-        if (jx == DKIX_EMPTY) {
-dkix_empty:
-            dictkeys_set_index(keys, i, ix);
-            return;
         }
 
 #ifdef EBUG_BUILD_INDICES
@@ -1763,8 +1741,6 @@ dkix_empty:
                 i);
         fflush(stdout);
 #endif
-
-        dictkeys_set_index(keys, i, ix);
     }
 }
 
