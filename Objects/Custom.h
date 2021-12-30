@@ -1690,9 +1690,41 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
         size_t i = hash & mask;
         ep->i = i;
+        Layer *layer = &(mp->ma_layers[i]);
+
+        // If there's no layer at the hash value, then check if linear probing is good enough.
+        if (!layer->keys) {
+            int num_cmps = 0;
+            while (dictkeys_get_index(keys, i) != DKIX_EMPTY) {
+                num_cmps++;
+                i = mask & (i + 1);
+            }
+
+            // Linear probing is good enough.
+            if (num_cmps <= mp->ma_keys->dk_log2_size) {
+                dictkeys_set_index(keys, i, ix);
+                continue;
+            }
+
+            // Create a layer and avoid linear probing that starts at this hash value.
+            filter(mp, i, num_cmps);
+
+            // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
+            Py_ssize_t jx = dictkeys_get_index(keys, i);
+            }
+        }
+
+        // If there's a layer at the hash value, then insert into the layer unless the cell is free.
+        else if (dictkeys_get_index(keys, i) == DKIX_EMPTY) {
+            dictkeys_set_index(keys, i, ix);
+            continue;
+        }
+        else {
+            insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
+            continue;
+        }
 
         int num_cmps = 0;
-
         while (dictkeys_get_index(keys, i) != DKIX_EMPTY) {
             num_cmps++;
             i = mask & (i + 1);
