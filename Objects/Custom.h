@@ -2532,6 +2532,20 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps, Py_ssize_t ix0
     PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
     Layer *layer = &(mp->ma_layers[hashpos0]);
 
+    if (!layer->keys) {
+#ifdef EBUG_FILTER
+        printf("\tfilter ma_layers[%lld] NULL.\n", hashpos0);
+#endif
+
+        layer->keys = malloc(PyDict_MINSIZE * sizeof *(layer->keys));
+        if (!layer->keys) {
+            return -1;
+        }
+
+        layer->n = PyDict_MINSIZE;
+        layer->used = 0;
+    }
+
     // move data
     for (int j = 0; j < num_cmps; j++) {
         Py_ssize_t jx = dictkeys_get_index(dk, hashpos0 + j);
@@ -2545,22 +2559,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps, Py_ssize_t ix0
         fflush(stdout);
 #endif
 
-        // hashpos = i + j
         dictkeys_set_index(mp->ma_keys, hashpos0 + j, DKIX_EMPTY);
-
-        if (!layer->keys) {
-#ifdef EBUG_FILTER
-            printf("\tfilter ma_layers[%lld] NULL.\n", hashpos0);
-#endif
-
-            layer->keys = malloc(PyDict_MINSIZE * sizeof *(layer->keys));
-            if (!layer->keys) {
-                return -1;
-            }
-
-            layer->n = PyDict_MINSIZE;
-            layer->used = 0;
-        }
 
         if (insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value)) {
             printf("\tfilter error inserting %s into layer.\n", PyUnicode_AsUTF8(ep->me_key));
