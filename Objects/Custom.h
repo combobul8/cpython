@@ -1763,22 +1763,26 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         else {
             numentries = 0;
             PyDictKeyEntry *ep = oldentries;
-            Py_ssize_t keys_i = 0;
+            Py_ssize_t i = 0;
 
-            while (keys_i < DK_SIZE(oldkeys)) {
-                if (ep->me_value) {
+            while (i < DK_SIZE(oldkeys)) {
+                Py_ssize_t ix = dictkeys_get_index(oldkeys, i);
+                if (ix < 0)
+                    continue;
+
+                if (ep[ix].me_value) {
 #ifdef EBUG_RESIZE
-                    printf("\tcustomdictresize copy to newentries %s.\n", PyUnicode_AsUTF8(ep->me_key));
+                    printf("\tcustomdictresize copy to newentries %s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
                     fflush(stdout);
 #endif
 
-                    newentries[numentries] = *ep;
+                    newentries[numentries] = ep[ix];
                     numentries++;
                 }
 
-                if (mp->ma_layers[keys_i].keys) {
-                    for (int j = 0; j < mp->ma_layers[keys_i].used; j++) {
-                        PyDictKeyEntry *layer_ep = mp->ma_layers[keys_i].keys[j];
+                if (mp->ma_layers[i].keys) {
+                    for (int j = 0; j < mp->ma_layers[i].used; j++) {
+                        PyDictKeyEntry *layer_ep = mp->ma_layers[i].keys[j];
 
 #ifdef EBUG_RESIZE
                         printf("\tcustomdictresize layer copy to newentries %s.\n", PyUnicode_AsUTF8(layer_ep->me_key));
@@ -1789,14 +1793,13 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                         numentries++;
                     }
 
-                    free(mp->ma_layers[keys_i].keys);
-                    mp->ma_layers[keys_i].keys = NULL;
-                    mp->ma_layers[keys_i].used = 0;
-                    mp->ma_layers[keys_i].n = 0;
+                    free(mp->ma_layers[i].keys);
+                    mp->ma_layers[i].keys = NULL;
+                    mp->ma_layers[i].used = 0;
+                    mp->ma_layers[i].n = 0;
                 }
 
-                keys_i++;
-                ep++;
+                i++;
             }
         }
 
