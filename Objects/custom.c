@@ -1143,6 +1143,8 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
     fflush(stdout);
 
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
+    int num_keys = 0;
+
     for (int i = 0; i < DK_SIZE(keys); i++) {
         Py_ssize_t ix = dictkeys_get_index(keys, i);
         if (ix < 0)
@@ -1158,6 +1160,7 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
         }
 
         if (ep[ix].me_key) {
+            num_keys++;
             printf("%s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
             fflush(stdout);
         }
@@ -1168,6 +1171,7 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
 
             Layer *layer = &dict->ma_layers[i];
             for (int j = 0; j < layer->used; j++) {
+                num_keys++;
                 printf("%s", PyUnicode_AsUTF8(layer->keys[j]->me_key));
                 fflush(stdout);
 
@@ -1181,6 +1185,9 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
             fflush(stdout);
         }
     }
+
+    printf("num_keys: %d.\n", num_keys);
+    fflush(stdout);
 
     return mp;
 }

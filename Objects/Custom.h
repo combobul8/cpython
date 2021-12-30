@@ -1590,6 +1590,7 @@ build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
     }
 }
 
+#define EBUG_BUILD_INDICES
 /*
 Internal routine used by dictresize() to build a hashtable of entries.
 */
@@ -1619,6 +1620,7 @@ custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
     }
 }
 
+#define EBUG_RESIZE
 /*
 Restructure the table by allocating a new table and reinserting all
 items again.  When entries have been deleted, the new table may
@@ -2507,9 +2509,6 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
         layer->n = n;
     }
 
-    printf("insertlayer_keyhashvalue %s; layer->used: %d.\n", PyUnicode_AsUTF8(key), layer->used);
-    fflush(stdout);
-
     layer->keys[layer->used] = malloc(sizeof *layer->keys[layer->used]);
     if (!layer->keys[layer->used]) {
         return -1;
@@ -2621,11 +2620,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         filter(mp, i, num_cmps, ix0);
 
+        // if filter moved they item at i to a layer, then ix will have changed to DKIX_EMPTY.
         ix = dictkeys_get_index(mp->ma_keys, i);
-        if (ix != DKIX_EMPTY) {
-            printf("custominsertdict moved data, free cell but (ix = %lld) != DKIX_EMPTY???\n", ix);
-            fflush(stdout);
-        }
     }
 
     Layer *layer = &(mp->ma_layers[i]);
@@ -2634,7 +2630,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             goto dkix_empty;
 
         if (insertlayer_keyhashvalue(layer, key, hash, value)) {
-            printf("layer %lld is full.\n", i);
+            printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
             fflush(stdout);
             return -1;
         }
@@ -2680,6 +2676,11 @@ dkix_empty:
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps);
 
+#ifdef EBUG_INSERT
+        printf("emptyslot %s (i, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), ep->i, num_cmps);
+        fflush(stdout);
+#endif
+
         if (num_cmps > mp->ma_keys->dk_log2_size) {
 #ifdef EBUG_INSERT
             printf("\tcustominsertdict ix EMPTY num_cmps: %d; need to use layers!\n", num_cmps);
@@ -2689,18 +2690,15 @@ dkix_empty:
 
             filter(mp, ep->i, num_cmps, ix0);
 
+            // if filter moved they item at i to a layer, then ix will have changed to DKIX_EMPTY.
             ix = dictkeys_get_index(mp->ma_keys, ep->i);
-            if (ix != DKIX_EMPTY) {
-                printf("custominsertdict moved data, free cell but (ix = %lld) != DKIX_EMPTY???\n", ix);
-                fflush(stdout);
-            }
         }
 
         Layer *layer = &(mp->ma_layers[ep->i]);
         if (layer->keys) {
             if (ix != DKIX_EMPTY) {
                 if (insertlayer_keyhashvalue(layer, key, hash, value)) {
-                    printf("layer %lld is full.\n", i);
+                    printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
                     fflush(stdout);
                     return -1;
                 }
@@ -2753,6 +2751,7 @@ dkix_empty:
             assert(old_value != NULL);
 
             printf("updating me_value.\n");
+            fflush(stdout);
 
             DK_ENTRIES(mp->ma_keys)[ix].me_value = value;
         }
