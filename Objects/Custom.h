@@ -1767,11 +1767,10 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
 
             while (i < DK_SIZE(oldkeys)) {
                 Py_ssize_t ix = dictkeys_get_index(oldkeys, i);
-                printf("i: %lld; ix: %lld.\n", i, ix);
-                fflush(stdout);
-
-                if (ix < 0)
+                if (ix < 0) {
+                    i++;
                     continue;
+                }
 
                 if (ep[ix].me_value) {
 #ifdef EBUG_RESIZE
