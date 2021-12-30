@@ -1590,21 +1590,117 @@ build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
     }
 }
 
+int
+insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *value)
+{
+    if (layer->used >= layer->n) {
+        int n = layer->n + layer->n;
+        printf("doubling size of layer to %d.\n", n);
+
+        layer->keys = realloc(layer->keys, n * sizeof *(layer->keys));
+        if (!layer->keys) {
+            return -1;
+        }
+
+        layer->n = n;
+    }
+
+    layer->keys[layer->used] = malloc(sizeof *layer->keys[layer->used]);
+    if (!layer->keys[layer->used]) {
+        return -1;
+    }
+
+    layer->keys[layer->used]->me_hash = hash;
+    layer->keys[layer->used]->me_key = key;
+    layer->keys[layer->used]->me_value = value;
+    layer->used++;
+
+    return 0;
+}
+
+#define EBUG_FILTER
+int
+filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
+{
+    PyDictKeysObject *dk = mp->ma_keys;
+    size_t mask = DK_MASK(dk);
+    PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
+    Layer *layer = &(mp->ma_layers[hashpos0]);
+
+    if (!layer->keys) {
+#ifdef EBUG_FILTER
+        printf("\tfilter ma_layers[%lld] NULL.\n", hashpos0);
+#endif
+
+        layer->keys = malloc(PyDict_MINSIZE * sizeof *(layer->keys));
+        if (!layer->keys) {
+            return -1;
+        }
+
+        layer->n = PyDict_MINSIZE;
+        layer->used = 0;
+    }
+
+    // move data
+    for (int j = 0; j < num_cmps; j++) {
+        Py_ssize_t jx = dictkeys_get_index(dk, hashpos0 + j);
+        PyDictKeyEntry *ep = &ep0[jx];
+        if (ep->i != hashpos0) {
+            continue;
+        }
+
+#ifdef EBUG_FILTER
+        printf("\tfilter move (%s, %lld).\n", PyUnicode_AsUTF8(ep->me_key), ep->i);
+        fflush(stdout);
+#endif
+
+        dictkeys_set_index(mp->ma_keys, hashpos0 + j, DKIX_EMPTY);
+
+        if (insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value)) {
+            printf("\tfilter error inserting %s into layer.\n", PyUnicode_AsUTF8(ep->me_key));
+            fflush(stdout);
+            return -1;
+        }
+
+        ep->me_key = NULL;
+        ep->me_value = NULL;
+
+        mp->ma_used--;
+        mp->ma_keys->dk_usable++;
+        /* // Update nentries???
+        printf("\tcustominsertdict ma_used: %lld.\n", mp->ma_used);
+        fflush(stdout); */
+    }
+
+    return 0;
+}
+
 #define EBUG_BUILD_INDICES
 /*
 Internal routine used by dictresize() to build a hashtable of entries.
 */
 static void
-custom_build_indices(PyDictKeysObject *keys, PyDictKeyEntry *ep, Py_ssize_t n)
+custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 {
+    PyDictKeysObject *keys = mp->ma_keys;
     size_t mask = (size_t)DK_SIZE(keys) - 1;
+
     for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
         Py_hash_t hash = ep->me_hash;
+
         size_t i = hash & mask;
         ep->i = i;
 
+        int num_cmps = 0;
+
         while (dictkeys_get_index(keys, i) != DKIX_EMPTY) {
+            num_cmps++;
             i = mask & (i + 1);
+        }
+
+        if (num_cmps > mp->ma_keys->dk_log2_size) {
+            filter(mp, i, num_cmps);
+            //
         }
 
 #ifdef EBUG_BUILD_INDICES
@@ -1635,7 +1731,7 @@ static int
 customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
-        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     printf("customdictresize log2_newsize: %ld.\n", log2_newsize);
     fflush(stdout);
@@ -1825,7 +1921,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         }
     }
 
-    build_idxs(mp->ma_keys, newentries, numentries);
+    build_idxs(mp, newentries, numentries);
     // mp->ma_keys->dk_usable -= numentries;
     mp->ma_keys->dk_nentries = numentries;
 
@@ -2019,7 +2115,7 @@ static int
 custom_insertion_resize(CustomPyDictObject *mp,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
-        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     return customdictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
 }
@@ -2499,91 +2595,6 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
     return i;
 }
 
-int
-insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *value)
-{
-    if (layer->used >= layer->n) {
-        int n = layer->n + layer->n;
-        printf("doubling size of layer to %d.\n", n);
-
-        layer->keys = realloc(layer->keys, n * sizeof *(layer->keys));
-        if (!layer->keys) {
-            return -1;
-        }
-
-        layer->n = n;
-    }
-
-    layer->keys[layer->used] = malloc(sizeof *layer->keys[layer->used]);
-    if (!layer->keys[layer->used]) {
-        return -1;
-    }
-
-    layer->keys[layer->used]->me_hash = hash;
-    layer->keys[layer->used]->me_key = key;
-    layer->keys[layer->used]->me_value = value;
-    layer->used++;
-
-    return 0;
-}
-
-#define EBUG_FILTER
-int
-filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps, Py_ssize_t ix0)
-{
-    PyDictKeysObject *dk = mp->ma_keys;
-    size_t mask = DK_MASK(dk);
-    PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
-    Layer *layer = &(mp->ma_layers[hashpos0]);
-
-    if (!layer->keys) {
-#ifdef EBUG_FILTER
-        printf("\tfilter ma_layers[%lld] NULL.\n", hashpos0);
-#endif
-
-        layer->keys = malloc(PyDict_MINSIZE * sizeof *(layer->keys));
-        if (!layer->keys) {
-            return -1;
-        }
-
-        layer->n = PyDict_MINSIZE;
-        layer->used = 0;
-    }
-
-    // move data
-    for (int j = 0; j < num_cmps; j++) {
-        Py_ssize_t jx = dictkeys_get_index(dk, hashpos0 + j);
-        PyDictKeyEntry *ep = &ep0[jx];
-        if (ep->i != hashpos0) {
-            continue;
-        }
-
-#ifdef EBUG_FILTER
-        printf("\tfilter move (%s, %lld).\n", PyUnicode_AsUTF8(ep->me_key), ep->i);
-        fflush(stdout);
-#endif
-
-        dictkeys_set_index(mp->ma_keys, hashpos0 + j, DKIX_EMPTY);
-
-        if (insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value)) {
-            printf("\tfilter error inserting %s into layer.\n", PyUnicode_AsUTF8(ep->me_key));
-            fflush(stdout);
-            return -1;
-        }
-
-        ep->me_key = NULL;
-        ep->me_value = NULL;
-
-        mp->ma_used--;
-        mp->ma_keys->dk_usable++;
-        /* // Update nentries???
-        printf("\tcustominsertdict ma_used: %lld.\n", mp->ma_used);
-        fflush(stdout); */
-    }
-
-    return 0;
-}
-
 #define EBUG_INSERT
 /*
 Internal routine to insert a new item into the table.
@@ -2594,7 +2605,7 @@ static int
 custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
-        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     PyObject *old_value;
     PyDictKeyEntry *ep;
@@ -2623,7 +2634,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         fflush(stdout);
 #endif
 
-        filter(mp, i, num_cmps, ix0);
+        filter(mp, i, num_cmps);
 
         // if filter moved they item at i to a layer, then ix will have changed to DKIX_EMPTY.
         ix = dictkeys_get_index(mp->ma_keys, i);
@@ -2693,7 +2704,7 @@ dkix_empty:
             fflush(stdout);
 #endif
 
-            filter(mp, ep->i, num_cmps, ix0);
+            filter(mp, ep->i, num_cmps);
 
             // if filter moved they item at i to a layer, then ix will have changed to DKIX_EMPTY.
             ix = dictkeys_get_index(mp->ma_keys, ep->i);
@@ -3190,7 +3201,7 @@ int
 custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
     printf("called custom_PyDict_SetItem\n");
@@ -3277,7 +3288,7 @@ static int
 custom_dict_merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
     printf("\ncustom_dict_merge override: %d\n", override);
@@ -3675,7 +3686,7 @@ int
 custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
     printf("called custom_PyDict_Merge\n");
@@ -3705,7 +3716,7 @@ static int
 custom_dict_update_arg(PyObject *self, PyObject *arg,
         Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
     printf("called custom_dict_update_arg\n");

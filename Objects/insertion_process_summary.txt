@@ -1,0 +1,82 @@
+static int
+custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
+        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+{
+    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
+    Py_ssize_t ix0 = dictkeys_get_index(mp->ma_keys, i);
+
+    if (num_cmps > mp->ma_keys->dk_log2_size) filter(mp, i, num_cmps, ix0) ...
+
+    if (layer->keys) {
+        if (ix == DKIX_EMPTY) goto dkix_empty;
+        insertlayer_keyhashvalue(layer, key, hash, value);
+        return 0;
+    }
+
+    if (ix == DKIX_EMPTY) {
+dkix_empty:
+        if (mp->ma_keys->dk_usable <= 0) {
+            if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0) goto Fail;
+        }
+
+        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps);
+
+        if (num_cmps > mp->ma_keys->dk_log2_size) {
+            filter(mp, ep->i, num_cmps, ix0);
+            ix = dictkeys_get_index(mp->ma_keys, ep->i);
+        }
+
+        if (layer->keys) {
+            if (ix != DKIX_EMPTY) {
+                insertlayer_keyhashvalue(layer, key, hash, value));
+                return 0;
+            }
+        }
+
+        hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps);
+        dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
+        ep->me_key = key;
+        ep->me_hash = hash;
+        ep->me_value = value;
+
+        mp->ma_used++;
+        mp->ma_version_tag = DICT_NEXT_VERSION();
+        mp->ma_keys->dk_usable--;
+        mp->ma_keys->dk_nentries++;
+        assert(mp->ma_keys->dk_usable >= 0);
+        ASSERT_CONSISTENT(mp);
+        return 0;
+    }
+/// MAIN STUFF ENDS HERE
+
+    if (old_value != value) {
+        if (_PyDict_HasSplitTable(mp)) {
+            mp->ma_values[ix] = value;
+            if (old_value == NULL) {
+                /* pending state */
+                assert(ix == mp->ma_used);
+                mp->ma_used++;
+            }
+        }
+        else {
+            assert(old_value != NULL);
+
+            printf("updating me_value.\n");
+            fflush(stdout);
+
+            DK_ENTRIES(mp->ma_keys)[ix].me_value = value;
+        }
+        mp->ma_version_tag = DICT_NEXT_VERSION();
+    }
+    Py_XDECREF(old_value); /* which **CAN** re-enter (see issue #22653) */
+    ASSERT_CONSISTENT(mp);
+    Py_DECREF(key);
+    return 0;
+
+Fail:
+    Py_DECREF(value);
+    Py_DECREF(key);
+    return -1;
+}
