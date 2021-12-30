@@ -1698,9 +1698,29 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             i = mask & (i + 1);
         }
 
+        Py_ssize_t jx = ix;
         if (num_cmps > mp->ma_keys->dk_log2_size) {
             filter(mp, i, num_cmps);
-            //
+
+            // if filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
+            jx = dictkeys_get_index(keys, i);
+        }
+
+        Layer *layer = &(mp->ma_layers[i]);
+        if (!layer->keys) ;
+        else if (jx )
+        if (layer->keys) {
+            if (jx == DKIX_EMPTY)
+                goto dkix_empty;
+
+            insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
+            return;
+        }
+
+        if (jx == DKIX_EMPTY) {
+dkix_empty:
+            dictkeys_set_index(keys, i, ix);
+            return;
         }
 
 #ifdef EBUG_BUILD_INDICES
