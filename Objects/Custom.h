@@ -2680,8 +2680,8 @@ dkix_empty:
 
         if (num_cmps > mp->ma_keys->dk_log2_size) {
 #ifdef EBUG_INSERT
-            printf("\tcustominsertdict num_cmps: %d; need to use layers!\n", num_cmps);
-            printf("\tcustominsertdict find entries whose i == %lld and move them to a layer.\n", ep->i);
+            printf("\tcustominsertdict ix EMPTY num_cmps: %d; need to use layers!\n", num_cmps);
+            printf("\tcustominsertdict ix EMPTY find entries whose i == %lld and move them to a layer.\n", ep->i);
             fflush(stdout);
 #endif
 
