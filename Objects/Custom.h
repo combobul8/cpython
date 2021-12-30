@@ -2507,6 +2507,9 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
         layer->n = n;
     }
 
+    printf("insertlayer_keyhashvalue %s; layer->used: %d.\n", PyUnicode_AsUTF8(key), layer->used);
+    fflush(stdout);
+
     layer->keys[layer->used] = malloc(sizeof *layer->keys[layer->used]);
     if (!layer->keys[layer->used]) {
         return -1;
