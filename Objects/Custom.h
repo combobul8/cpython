@@ -1748,7 +1748,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
     }
 }
 
-#define EBUG_RESIZE
+// #define EBUG_RESIZE
 /*
 Restructure the table by allocating a new table and reinserting all
 items again.  When entries have been deleted, the new table may
@@ -1904,11 +1904,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 }
 
                 if (ep[ix].me_value) {
-#ifdef EBUG_RESIZE
-                    printf("%s(%lld), ", PyUnicode_AsUTF8(ep[ix].me_key), numentries);
-                    fflush(stdout);
-#endif
-
+                    // printf("%s(%lld), ", PyUnicode_AsUTF8(ep[ix].me_key), numentries); fflush(stdout);
                     newentries[numentries] = ep[ix];
                     numentries++;
                 }
@@ -1917,11 +1913,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         PyDictKeyEntry *layer_ep = mp->ma_layers[i].keys[j];
 
-#ifdef EBUG_RESIZE
-                        printf("%s, ", PyUnicode_AsUTF8(layer_ep->me_key));
-                        fflush(stdout);
-#endif
-
+                        // printf("%s, ", PyUnicode_AsUTF8(layer_ep->me_key)); fflush(stdout);
                         newentries[numentries] = *layer_ep;
                         numentries++;
                     }
@@ -2156,8 +2148,6 @@ custom_insertion_resize(CustomPyDictObject *mp,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    printf("%lld.\n", CUSTOM_GROWTH_RATE(mp));
-    fflush(stdout);
     return customdictresize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
 }
 
@@ -2728,7 +2718,7 @@ dkix_empty:
         assert(old_value == NULL);
 
         if (mp->ma_keys->dk_usable <= 0) {
-            printf("custominsertdict resize (%lld, %lld, %lld).\n", mp->ma_num_items, mp->ma_keys->dk_nentries, mp->ma_used);
+            printf("custominsertdict resize (num_items, used): (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
             fflush(stdout);
 
             /* Need to resize. */
