@@ -63,8 +63,11 @@ typedef struct {
 typedef struct {
     PyObject_HEAD
 
-    /* Number of items in the dictionary */
+    /* Number of items in the primary layer */
     Py_ssize_t ma_used;
+
+    /* Number of items in the dictionary */
+    Py_ssize_t ma_num_items;
 
     /* Dictionary version: globally unique, value change each time
        the dictionary is modified */
@@ -1679,7 +1682,9 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
     size_t mask = (size_t)DK_SIZE(keys) - 1;
     Py_ssize_t ix = 0;
 
-    // for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
+    mp->ma_used = 0;
+    mp->ma_num_items = 0;
+
     for (int i = 0; i < n; i++, ep++) {
         Py_hash_t hash = ep->me_hash;
         size_t hashpos0 = hash & mask;
@@ -1738,6 +1743,8 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
         }
+
+        mp->ma_num_items++;
     }
 }
 
@@ -1834,7 +1841,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         }
     }
     else {  // combined table.
-        if (oldkeys->dk_nentries == numentries) {
+        if (0 /* oldkeys->dk_nentries == numentries */) {
             mp->ma_used = 0;
 
             for (Py_ssize_t i = 0; i < numentries; i++) {
@@ -1898,7 +1905,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
 
                 if (ep[ix].me_value) {
 #ifdef EBUG_RESIZE
-                    printf("%s, ", PyUnicode_AsUTF8(ep[ix].me_key));
+                    printf("%s(%lld), ", PyUnicode_AsUTF8(ep[ix].me_key), numentries);
                     fflush(stdout);
 #endif
 
@@ -1910,7 +1917,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         PyDictKeyEntry *layer_ep = mp->ma_layers[i].keys[j];
 
-#ifdef EBUG
+#ifdef EBUG_RESIZE
                         printf("%s, ", PyUnicode_AsUTF8(layer_ep->me_key));
                         fflush(stdout);
 #endif
@@ -2141,6 +2148,7 @@ estimate_log2_keysize(Py_ssize_t n)
  * GROWTH_RATE was set to used*2 + capacity/2 in 3.4.0-3.6.0.
  */
 #define GROWTH_RATE(d) ((d)->ma_used*3)
+#define CUSTOM_GROWTH_RATE(d) ((d)->ma_num_items*3)
 
 static int
 custom_insertion_resize(CustomPyDictObject *mp,
@@ -2148,7 +2156,7 @@ custom_insertion_resize(CustomPyDictObject *mp,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    return customdictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
+    return customdictresize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
 }
 
 static int
@@ -2433,6 +2441,8 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                             return ix;
                         }
                     }
+
+                    return DKIX_EMPTY;
                 }
             }
             else if (ix == DKIX_EMPTY) {
@@ -2464,6 +2474,8 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                             return ix;
                         }
                     }
+
+                    return DKIX_EMPTY;
                 }
             }
             else if (ix == DKIX_EMPTY) {
@@ -2681,6 +2693,9 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             return -1;
         }
 
+        mp->ma_num_items++;
+        printf("custominsertdict lookup; layer (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
+        fflush(stdout);
 #ifdef EBUG_INSERT
         printf("\tcustominsertdict lookuplayer->used: %d.\n", layer->used);
         fflush(stdout);
@@ -2711,6 +2726,9 @@ dkix_empty:
         assert(old_value == NULL);
 
         if (mp->ma_keys->dk_usable <= 0) {
+            printf("custominsertdict resize (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
+            fflush(stdout);
+
             /* Need to resize. */
             if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
                 goto Fail;
@@ -2743,6 +2761,9 @@ dkix_empty:
                     return -1;
                 }
 
+                mp->ma_num_items++;
+                printf("custominsertdict emptyslot layer (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
+                fflush(stdout);
 #ifdef EBUG_INSERT
                 printf("\tcustominsertdict layer->used: %d.\n", layer->used);
                 fflush(stdout);
@@ -2773,12 +2794,15 @@ dkix_empty:
         }
         //ep->me_layer = NULL;
         mp->ma_used++;
+        mp->ma_num_items++;
         mp->ma_version_tag = DICT_NEXT_VERSION();
         mp->ma_keys->dk_usable--;
         mp->ma_keys->dk_nentries++;
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
 
+        printf("custominsertdict (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
+        fflush(stdout);
         // printf("custominsertdict dk_usable: %lld.\n", mp->ma_keys->dk_usable); fflush(stdout);
 
         return 0;
@@ -3006,6 +3030,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     fflush(stdout);
 
     mp->ma_used++;
+    mp->ma_num_items++;
     mp->ma_version_tag = DICT_NEXT_VERSION();
     mp->ma_keys->dk_usable--;
     mp->ma_keys->dk_nentries++;
