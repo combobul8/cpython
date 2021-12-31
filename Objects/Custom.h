@@ -2438,6 +2438,8 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                             return ix;
                         }
                     }
+
+                    return DKIX_EMPTY;
                 }
             }
             else if (ix == DKIX_EMPTY) {
@@ -2469,6 +2471,8 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                             return ix;
                         }
                     }
+
+                    return DKIX_EMPTY;
                 }
             }
             else if (ix == DKIX_EMPTY) {
