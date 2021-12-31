@@ -1628,10 +1628,6 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
     Layer *layer = &(mp->ma_layers[hashpos0]);
 
     if (!layer->keys) {
-#ifdef EBUG_FILTER
-        printf("\tfilter ma_layers[%lld] NULL.\n", hashpos0);
-#endif
-
         layer->keys = malloc(PyDict_MINSIZE * sizeof *(layer->keys));
         if (!layer->keys) {
             return -1;
@@ -1675,7 +1671,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
     return 0;
 }
 
-#define EBUG_BUILD_INDICES
+// #define EBUG_BUILD_INDICES
 /*
 Internal routine used by dictresize() to build a hashtable of entries.
 */
@@ -1686,9 +1682,6 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
     size_t mask = (size_t)DK_SIZE(keys) - 1;
 
     for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
-        printf("ix: %lld.\n", ix);
-        fflush(stdout);
-
         Py_hash_t hash = ep->me_hash;
 
         size_t i = hash & mask;
@@ -1697,9 +1690,6 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
         // If there's no layer at the hash value, then check if linear probing is good enough.
         if (!layer->keys) {
-            printf("%lld no layer.\n", i);
-            fflush(stdout);
-
             int num_cmps = 0;
             while (dictkeys_get_index(keys, i) != DKIX_EMPTY) {
                 num_cmps++;
@@ -1707,15 +1697,23 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             }
 
             // Linear probing is good enough.
-            if (num_cmps <= mp->ma_keys->dk_log2_size)
+            if (num_cmps <= mp->ma_keys->dk_log2_size) {
                 dictkeys_set_index(keys, i, ix);
+                mp->ma_used++;
+                mp->ma_keys->dk_usable--;
+                mp->ma_keys->dk_nentries++;
+            }
             else {
                 // Create a layer and avoid linear probing that starts at this hash value.
                 filter(mp, i, num_cmps);
 
                 // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
-                if (dictkeys_get_index(keys, i) == DKIX_EMPTY)
+                if (dictkeys_get_index(keys, i) == DKIX_EMPTY) {
                     dictkeys_set_index(keys, i, ix);
+                    mp->ma_used++;
+                    mp->ma_keys->dk_usable--;
+                    mp->ma_keys->dk_nentries++;
+                }
                 else
                     insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
             }
@@ -1725,17 +1723,17 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
         else if (dictkeys_get_index(keys, i) == DKIX_EMPTY) {
             printf("%lld layer but free cell.\n", i);
             fflush(stdout);
+
             dictkeys_set_index(keys, i, ix);
+            mp->ma_used++;
+            mp->ma_keys->dk_usable--;
+            mp->ma_keys->dk_nentries++;
         }
         else {
             printf("%lld insert into layer.\n", i);
             fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
         }
-
-        mp->ma_used++;
-        mp->ma_keys->dk_usable--;
-        mp->ma_keys->dk_nentries++;
 
 #ifdef EBUG_BUILD_INDICES
         printf("\t\tbuild_indices (key, ix, &, i): (%s, %lld, %lld, %lld).\n",
@@ -1794,6 +1792,9 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         mp->ma_keys = oldkeys;
         return -1;
     }
+
+    printf("customdictresize dk_usable: %lld.\n", mp->ma_keys->dk_usable);
+    fflush(stdout);
 
     /* assert(mp->ma_layers);
     free(mp->ma_layers);
@@ -1902,7 +1903,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
 
                 if (ep[ix].me_value) {
 #ifdef EBUG_RESIZE
-                    printf("\tcustomdictresize copy to newentries %s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+                    printf("%s, ", PyUnicode_AsUTF8(ep[ix].me_key));
                     fflush(stdout);
 #endif
 
@@ -1914,8 +1915,8 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         PyDictKeyEntry *layer_ep = mp->ma_layers[i].keys[j];
 
-#ifdef EBUG_RESIZE
-                        printf("\tcustomdictresize layer copy to newentries %s.\n", PyUnicode_AsUTF8(layer_ep->me_key));
+#ifdef EBUG
+                        printf("%s, ", PyUnicode_AsUTF8(layer_ep->me_key));
                         fflush(stdout);
 #endif
 
@@ -1931,6 +1932,11 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
 
                 i++;
             }
+
+#ifdef EBUG_RESIZE
+            printf("\n");
+            fflush(stdout);
+#endif
         }
 
         assert(oldkeys->dk_kind != DICT_KEYS_SPLIT);
@@ -2659,8 +2665,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
     if (num_cmps > mp->ma_keys->dk_log2_size) {
 #ifdef EBUG_INSERT
-        printf("\tcustominsertdict num_cmps: %d; need to use layers!\n", num_cmps);
-        printf("\tcustominsertdict find entries whose i == %lld and move them to a layer.\n", i);
+        printf("\tcustominsertdict %d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
         fflush(stdout);
 #endif
 
@@ -2722,15 +2727,9 @@ dkix_empty:
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps);
 
-#ifdef EBUG_INSERT
-        printf("emptyslot %s (i, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), ep->i, num_cmps);
-        fflush(stdout);
-#endif
-
         if (num_cmps > mp->ma_keys->dk_log2_size) {
 #ifdef EBUG_INSERT
-            printf("\tcustominsertdict ix EMPTY num_cmps: %d; need to use layers!\n", num_cmps);
-            printf("\tcustominsertdict ix EMPTY find entries whose i == %lld and move them to a layer.\n", ep->i);
+            printf("\tcustominsertdict ix == EMPTY; %d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
             fflush(stdout);
 #endif
 
@@ -2760,7 +2759,7 @@ dkix_empty:
         hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps);
 
 #ifdef EBUG_INSERT
-        printf("%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
+        printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
         fflush(stdout);
 #endif
 
@@ -2782,8 +2781,7 @@ dkix_empty:
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
 
-        printf("custominsertdict dk_usable: %lld.\n", mp->ma_keys->dk_usable);
-        fflush(stdout);
+        // printf("custominsertdict dk_usable: %lld.\n", mp->ma_keys->dk_usable); fflush(stdout);
 
         return 0;
     }

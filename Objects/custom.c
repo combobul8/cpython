@@ -1133,15 +1133,10 @@ ix_to_i(int ix0, PyDictKeysObject *keys)
     return i;
 }
 
-PyObject *
-dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
+int
+dict_traverse(CustomPyDictObject *dict, int print)
 {
-    // printf("hello, world\n");
-    CustomPyDictObject *dict = (CustomPyDictObject *) mp;
     PyDictKeysObject *keys = dict->ma_keys;
-    printf("size of primary layer: %lld.\n", DK_SIZE(keys));
-    fflush(stdout);
-
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
     int num_keys = 0;
 
@@ -1150,46 +1145,79 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
         if (ix < 0)
             continue;
 
-        printf("%d -> %lld: ", i, ix);
-        fflush(stdout);
+        if (print) {
+            printf("%d -> %lld: ", i, ix);
+            fflush(stdout);
+        }
 
         if (!ep[ix].me_key && !dict->ma_layers[i].keys) {
-            printf("\n");
-            fflush(stdout);
+            if (print) {
+                printf("\n");
+                fflush(stdout);
+            }
+
             continue;
         }
 
         if (ep[ix].me_key) {
             num_keys++;
-            printf("%s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
-            fflush(stdout);
+
+            if (print) {
+                printf("%s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+                fflush(stdout);
+            }
         }
 
         if (dict->ma_layers[i].keys) {
-            printf("\t");
-            fflush(stdout);
+            if (print) {
+                printf("\t");
+                fflush(stdout);
+            }
 
             Layer *layer = &dict->ma_layers[i];
             for (int j = 0; j < layer->used; j++) {
                 num_keys++;
-                printf("%s", PyUnicode_AsUTF8(layer->keys[j]->me_key));
-                fflush(stdout);
 
-                if (j < (layer->used - 1)) {
+                if (print) {
+                    printf("%s", PyUnicode_AsUTF8(layer->keys[j]->me_key));
+                    fflush(stdout);
+                }
+
+                if (print && j < (layer->used - 1)) {
                     printf(", ");
                     fflush(stdout);
                 }
             }
 
-            printf(".\n");
-            fflush(stdout);
+            if (print) {
+                printf(".\n");
+                fflush(stdout);
+            }
         }
     }
 
-    printf("num_keys: %d.\n", num_keys);
-    fflush(stdout);
+    if (print) {
+        printf("size of primary layer: %lld.\n", DK_SIZE(keys));
+        fflush(stdout);
+        printf("num_keys: %d.\n", num_keys);
+        fflush(stdout);
+    }
 
+    return num_items;
+}
+
+PyObject *
+dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
+{
+    dict_traverse(mp, 1);
     return mp;
+}
+
+PyObject *
+dict_num_items(PyObject *mp, PyObject *Py_UNUSED(ignored))
+{
+    int num_items = dict_traverse(mp, 0);
+    return num_items;
 }
 
 static PyMethodDef mapp_methods[] = {
@@ -1246,6 +1274,8 @@ static PyMethodDef custom_mapp_methods[] = {
     DICT___REVERSED___METHODDEF
     {"__class_getitem__", (PyCFunction)Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
     {"print",           dict_print,                     METH_NOARGS,
+    keys__doc__},
+    {"num_items",       dict_num_items,                 METH_NOARGS,
     keys__doc__},
     {NULL,              NULL}   /* sentinel */
 };
