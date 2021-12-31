@@ -1650,22 +1650,19 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
         fflush(stdout);
 #endif
 
-        dictkeys_set_index(mp->ma_keys, hashpos0 + j, DKIX_EMPTY);
-
         if (insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value)) {
             printf("\tfilter error inserting %s into layer.\n", PyUnicode_AsUTF8(ep->me_key));
             fflush(stdout);
             return -1;
         }
 
+        dictkeys_set_index(mp->ma_keys, hashpos0 + j, DKIX_EMPTY);
         ep->me_key = NULL;
         ep->me_value = NULL;
 
         mp->ma_used--;
         mp->ma_keys->dk_usable++;
-        /* // Update nentries???
-        printf("\tcustominsertdict ma_used: %lld.\n", mp->ma_used);
-        fflush(stdout); */
+        mp->ma_keys->dk_nentries--;
     }
 
     return 0;
@@ -1680,36 +1677,41 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 {
     PyDictKeysObject *keys = mp->ma_keys;
     size_t mask = (size_t)DK_SIZE(keys) - 1;
+    Py_ssize_t ix = 0;
 
-    for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
+    // for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
+    for (int i = 0; i < n; i++, ep++) {
         Py_hash_t hash = ep->me_hash;
-
-        size_t i = hash & mask;
-        ep->i = i;
-        Layer *layer = &(mp->ma_layers[i]);
+        size_t hashpos0 = hash & mask;
+        Layer *layer = &(mp->ma_layers[hashpos0]);
+        size_t hashpos = ep->i = hashpos0;
 
         // If there's no layer at the hash value, then check if linear probing is good enough.
         if (!layer->keys) {
             int num_cmps = 0;
-            while (dictkeys_get_index(keys, i) != DKIX_EMPTY) {
+            while (dictkeys_get_index(keys, hashpos) != DKIX_EMPTY) {
                 num_cmps++;
-                i = mask & (i + 1);
+                hashpos = mask & (hashpos + 1);
             }
 
             // Linear probing is good enough.
             if (num_cmps <= mp->ma_keys->dk_log2_size) {
-                dictkeys_set_index(keys, i, ix);
+                dictkeys_set_index(keys, hashpos, ix);
+                ix++;
+
                 mp->ma_used++;
                 mp->ma_keys->dk_usable--;
                 mp->ma_keys->dk_nentries++;
             }
             else {
                 // Create a layer and avoid linear probing that starts at this hash value.
-                filter(mp, i, num_cmps);
+                filter(mp, hashpos0, num_cmps);
 
                 // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
-                if (dictkeys_get_index(keys, i) == DKIX_EMPTY) {
-                    dictkeys_set_index(keys, i, ix);
+                if (dictkeys_get_index(keys, hashpos) == DKIX_EMPTY) {
+                    dictkeys_set_index(keys, hashpos, ix);
+                    ix++;
+
                     mp->ma_used++;
                     mp->ma_keys->dk_usable--;
                     mp->ma_keys->dk_nentries++;
@@ -1720,29 +1722,22 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
         }
 
         // If there's a layer at the hash value, then insert into the layer unless the cell is free.
-        else if (dictkeys_get_index(keys, i) == DKIX_EMPTY) {
-            printf("%lld layer but free cell.\n", i);
+        else if (dictkeys_get_index(keys, hashpos) == DKIX_EMPTY) {
+            printf("%lld layer but free cell.\n", hashpos);
             fflush(stdout);
 
-            dictkeys_set_index(keys, i, ix);
+            dictkeys_set_index(keys, hashpos, ix);
+            ix++;
+
             mp->ma_used++;
             mp->ma_keys->dk_usable--;
             mp->ma_keys->dk_nentries++;
         }
         else {
-            printf("%lld insert into layer.\n", i);
+            printf("%lld insert into layer.\n", hashpos);
             fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
         }
-
-#ifdef EBUG_BUILD_INDICES
-        printf("\t\tbuild_indices (key, ix, &, i): (%s, %lld, %lld, %lld).\n",
-                PyUnicode_AsUTF8(ep->me_key),
-                ix,
-                (hash & mask),
-                i);
-        fflush(stdout);
-#endif
     }
 }
 
@@ -2764,6 +2759,9 @@ dkix_empty:
 #endif
 
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
+        printf("\tdictkeys_set_index (%lld, %lld).\n", hashpos, mp->ma_keys->dk_nentries);
+        fflush(stdout);
+
         ep->me_key = key;
         ep->me_hash = hash;
         if (mp->ma_values) {
