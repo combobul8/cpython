@@ -1911,7 +1911,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
 
                 if (ep[ix].me_value) {
 #ifdef EBUG_RESIZE
-                    printf("%s, ", PyUnicode_AsUTF8(ep[ix].me_key));
+                    printf("%s(%lld), ", PyUnicode_AsUTF8(ep[ix].me_key), numentries);
                     fflush(stdout);
 #endif
 
@@ -1923,7 +1923,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         PyDictKeyEntry *layer_ep = mp->ma_layers[i].keys[j];
 
-#ifdef EBUG
+#ifdef EBUG_RESIZE
                         printf("%s, ", PyUnicode_AsUTF8(layer_ep->me_key));
                         fflush(stdout);
 #endif
