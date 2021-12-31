@@ -1681,11 +1681,11 @@ Internal routine used by dictresize() to build a hashtable of entries.
 static void
 custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 {
-    printf("custom_build_indices (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
-    fflush(stdout);
-
     PyDictKeysObject *keys = mp->ma_keys;
     size_t mask = (size_t)DK_SIZE(keys) - 1;
+
+    mp->ma_used = 0;
+    mp->ma_num_items = 0;
 
     for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
         Py_hash_t hash = ep->me_hash;
@@ -1847,7 +1847,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         }
     }
     else {  // combined table.
-        if (oldkeys->dk_nentries == numentries) {
+        if (0 /* oldkeys->dk_nentries == numentries */) {
             mp->ma_used = 0;
 
             for (Py_ssize_t i = 0; i < numentries; i++) {
