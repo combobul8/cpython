@@ -1621,7 +1621,7 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     return 0;
 }
 
-#define EBUG_FILTER
+// #define EBUG_FILTER
 int
 filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 {
@@ -2156,6 +2156,8 @@ custom_insertion_resize(CustomPyDictObject *mp,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
+    printf("%lld.\n", CUSTOM_GROWTH_RATE(mp));
+    fflush(stdout);
     return customdictresize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
 }
 
@@ -2638,7 +2640,7 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
     return i;
 }
 
-#define EBUG_INSERT
+// #define EBUG_INSERT
 /*
 Internal routine to insert a new item into the table.
 Used both by the internal resize routine and by the public insert routine.
@@ -2726,7 +2728,7 @@ dkix_empty:
         assert(old_value == NULL);
 
         if (mp->ma_keys->dk_usable <= 0) {
-            printf("custominsertdict resize (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
+            printf("custominsertdict resize (%lld, %lld, %lld).\n", mp->ma_num_items, mp->ma_keys->dk_nentries, mp->ma_used);
             fflush(stdout);
 
             /* Need to resize. */
@@ -2780,8 +2782,6 @@ dkix_empty:
 #endif
 
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
-        printf("\tdictkeys_set_index (%lld, %lld).\n", hashpos, mp->ma_keys->dk_nentries);
-        fflush(stdout);
 
         ep->me_key = key;
         ep->me_hash = hash;
@@ -2800,10 +2800,6 @@ dkix_empty:
         mp->ma_keys->dk_nentries++;
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
-
-        printf("custominsertdict (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
-        fflush(stdout);
-        // printf("custominsertdict dk_usable: %lld.\n", mp->ma_keys->dk_usable); fflush(stdout);
 
         return 0;
     }
