@@ -1134,11 +1134,11 @@ ix_to_i(int ix0, PyDictKeysObject *keys)
 }
 
 int
-dict_traverse(CustomPyDictObject *dict, int print)
+dict_traverse2(CustomPyDictObject *dict, int print)
 {
     PyDictKeysObject *keys = dict->ma_keys;
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
-    int num_keys = 0;
+    int num_items = 0;
 
     for (int i = 0; i < DK_SIZE(keys); i++) {
         Py_ssize_t ix = dictkeys_get_index(keys, i);
@@ -1160,7 +1160,7 @@ dict_traverse(CustomPyDictObject *dict, int print)
         }
 
         if (ep[ix].me_key) {
-            num_keys++;
+            num_items++;
 
             if (print) {
                 printf("%s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
@@ -1176,7 +1176,7 @@ dict_traverse(CustomPyDictObject *dict, int print)
 
             Layer *layer = &dict->ma_layers[i];
             for (int j = 0; j < layer->used; j++) {
-                num_keys++;
+                num_items++;
 
                 if (print) {
                     printf("%s", PyUnicode_AsUTF8(layer->keys[j]->me_key));
@@ -1199,7 +1199,7 @@ dict_traverse(CustomPyDictObject *dict, int print)
     if (print) {
         printf("size of primary layer: %lld.\n", DK_SIZE(keys));
         fflush(stdout);
-        printf("num_keys: %d.\n", num_keys);
+        printf("num_items: %d.\n", num_items);
         fflush(stdout);
     }
 
@@ -1209,14 +1209,14 @@ dict_traverse(CustomPyDictObject *dict, int print)
 PyObject *
 dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
 {
-    dict_traverse(mp, 1);
+    dict_traverse2((CustomPyDictObject *) mp, 1);
     return mp;
 }
 
 PyObject *
 dict_num_items(PyObject *mp, PyObject *Py_UNUSED(ignored))
 {
-    int num_items = dict_traverse(mp, 0);
+    int num_items = dict_traverse2((CustomPyDictObject *) mp, 0);
     return num_items;
 }
 
