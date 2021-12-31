@@ -31,4 +31,4 @@ for key in list(words.keys()):
         # print(key)
         None
     None
-mycustom.print()
+mycustom.num_items()

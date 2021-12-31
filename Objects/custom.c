@@ -1133,7 +1133,7 @@ ix_to_i(int ix0, PyDictKeysObject *keys)
     return i;
 }
 
-int
+void
 dict_traverse2(CustomPyDictObject *dict, int print)
 {
     PyDictKeysObject *keys = dict->ma_keys;
@@ -1199,11 +1199,10 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     if (print) {
         printf("size of primary layer: %lld.\n", DK_SIZE(keys));
         fflush(stdout);
-        printf("num_items: %d.\n", num_items);
-        fflush(stdout);
     }
 
-    return num_items;
+    printf("num_items: %d.\n", num_items);
+    fflush(stdout);
 }
 
 PyObject *
@@ -1216,8 +1215,8 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
 PyObject *
 dict_num_items(PyObject *mp, PyObject *Py_UNUSED(ignored))
 {
-    int num_items = dict_traverse2((CustomPyDictObject *) mp, 0);
-    return num_items;
+    dict_traverse2((CustomPyDictObject *) mp, 0);
+    return mp;
 }
 
 static PyMethodDef mapp_methods[] = {
