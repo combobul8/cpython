@@ -1758,7 +1758,6 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                     dictkeys_set_index(keys, hashpos, idx);
                     mp->ma_indices_to_hashpos[idx] = hashpos;
 
-                    mp->ma_indices_to_hashpos[ix] = hashpos;
                     mp->ma_used++;
                     mp->ma_keys->dk_usable--;
                     mp->ma_keys->dk_nentries++;
@@ -2783,8 +2782,8 @@ dkix_empty:
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
 
-        ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
-        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps);
+        Py_ssize_t hashpos0;
+        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
 
         if (num_cmps > mp->ma_keys->dk_log2_size) {
 #ifdef EBUG_INSERT
@@ -2792,13 +2791,13 @@ dkix_empty:
             fflush(stdout);
 #endif
 
-            filter(mp, ep->i, num_cmps);
+            filter(mp, hashpos0, num_cmps);
 
             // if filter moved they item at i to a layer, then ix will have changed to DKIX_EMPTY.
-            ix = dictkeys_get_index(mp->ma_keys, ep->i);
+            ix = dictkeys_get_index(mp->ma_keys, hashpos0);
         }
 
-        Layer *layer = &(mp->ma_layers[ep->i]);
+        Layer *layer = &(mp->ma_layers[hashpos0]);
         if (layer->keys) {
             if (ix != DKIX_EMPTY) {
                 if (insertlayer_keyhashvalue(layer, key, hash, value)) {
@@ -2818,16 +2817,25 @@ dkix_empty:
             }
         }
 
-        hashpos = empty_slot(mp->ma_keys, hash, &(ep->i), &num_cmps);
+        hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
 
-#ifdef EBUG_INSERT
-        printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
-        printf("\tset_index %lld, %lld.\n", hashpos, mp->ma_keys->dk_nentries);
+        for (int i = 0; i <= mp->ma_indices_stack_idx; i++) {
+            printf("%lld ", mp->ma_indices_stack[i]);
+        }
+        printf("\n");
         fflush(stdout);
-#endif
 
         Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
         mp->ma_indices_stack_idx--;
+
+        ep = &DK_ENTRIES(mp->ma_keys)[idx];
+        ep->i = hashpos0;
+
+#ifdef EBUG_INSERT
+        printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
+        printf("\tset_index %lld, %lld.\n", hashpos, idx);
+        fflush(stdout);
+#endif
 
         dictkeys_set_index(mp->ma_keys, hashpos, idx);
         mp->ma_indices_to_hashpos[idx] = hashpos;
