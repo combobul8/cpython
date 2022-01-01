@@ -1195,7 +1195,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
         if (ep[ix].me_key) {
             if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
-                printf("already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+                printf("primary already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
                 fflush(stdout);
                 error = 1;
                 goto error_occurred;
@@ -1219,15 +1219,15 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
             Layer *layer = &dict->ma_layers[i];
             for (int j = 0; j < layer->used; j++) {
-                if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
-                    printf("already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+                if (seen(PyUnicode_AsUTF8(layer->keys[j]->me_key), seen_keys, seen_keys_idx)) {
+                    printf("already have %s in dict.\n", PyUnicode_AsUTF8(layer->keys[j]->me_key));
                     fflush(stdout);
                     error = 1;
                     goto error_occurred;
                 }
 
                 num_items++;
-                strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(ep[ix].me_key));
+                strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(layer->keys[j]->me_key));
 
                 if (print) {
                     printf("%s", PyUnicode_AsUTF8(layer->keys[j]->me_key));
