@@ -1154,7 +1154,21 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     char **seen_keys = malloc((dict->ma_num_items * 2) * sizeof *seen_keys);
     if (!seen_keys) {
         printf("dict_traverse2 malloc fail.\n");
+        fflush(stdout);
         return;
+    }
+
+    for (int i = 0; i < (dict->ma_num_items * 2); i++) {
+        seen_keys[i] = malloc(80 * sizeof *seen_keys[i]);
+        if (!seen_keys[i]) {
+            printf("dict_traverse2 seen_keys[%d] malloc fail.\n", i);
+            fflush(stdout);
+
+            for (int j = 0; j < i; j++)
+                free(seen_keys[j]);
+            free(seen_keys);
+            return;
+        }
     }
 
     int seen_keys_idx = 0;
@@ -1182,12 +1196,15 @@ dict_traverse2(CustomPyDictObject *dict, int print)
         if (ep[ix].me_key) {
             if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
                 printf("already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+                fflush(stdout);
                 goto error_occurred;
             }
 
             num_items++;
+            printf("num_items: %d.\n", num_items);
+            fflush(stdout);
+
             strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(ep[ix].me_key));
-            // seen_keys[seen_keys_idx] = PyUnicode_AsUTF8(ep[ix].me_key);
             seen_keys_idx++;
 
             if (print) {
@@ -1206,6 +1223,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             for (int j = 0; j < layer->used; j++) {
                 if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
                     printf("already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+                    fflush(stdout);
                     goto error_occurred;
                 }
 
