@@ -12,10 +12,9 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
     for line in f:
         word = line.strip()
 
-        if i >= 243:
+        if i >= 2661:
             break
         elif mycustom.get(word) == None:
-            print("update " + word)
             mycustom.update({word: i})
             words[word] = i
             i += 1
@@ -32,4 +31,4 @@ for key in list(words.keys()):
         # print(key)
         None
     None
-mycustom.print()
+mycustom.num_items()

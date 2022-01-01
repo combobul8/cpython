@@ -309,8 +309,8 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
     assert(PyInt_Check(val) == 1);
 
     if (ix != DKIX_EMPTY) {
-        printf("%s i: %lld; num_cmps: %d.\n", PyUnicode_AsUTF8(key), i, num_cmps);
-        fflush(stdout); /* */
+        /* printf("%s i: %lld; num_cmps: %d.\n", PyUnicode_AsUTF8(key), i, num_cmps);
+        fflush(stdout); */
     }
 
 #ifdef EBUG
