@@ -2140,7 +2140,7 @@ estimate_log2_keysize(Py_ssize_t n)
  * GROWTH_RATE was set to used*2 + capacity/2 in 3.4.0-3.6.0.
  */
 #define GROWTH_RATE(d) ((d)->ma_used*3)
-#define CUSTOM_GROWTH_RATE(d) ((d)->ma_num_items*3)
+#define CUSTOM_GROWTH_RATE(d) ((d)->ma_num_items*2)
 
 static int
 custom_insertion_resize(CustomPyDictObject *mp,
