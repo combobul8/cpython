@@ -1626,7 +1626,7 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     return 0;
 }
 
-#define EBUG_FILTER
+// #define EBUG_FILTER
 int
 filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 {
@@ -1670,6 +1670,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
         printf("\tfilter set_index %lld, -1\n", hashpos0 + j);
         fflush(stdout);
 #endif
+
         mp->ma_indices_stack_idx++;
         mp->ma_indices_stack[mp->ma_indices_stack_idx] = jx;
 
@@ -1692,16 +1693,6 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
         fflush(stdout);
     }
 #endif
-
-    /* for (int i = 0; i < num_items_moved; i++) {
-        Py_ssize_t hashpos = mp->ma_indices_to_hashpos[mp->ma_num_items - 1- i];
-        dictkeys_set_index(mp->ma_keys, hashpos, DKIX_EMPTY);
-
-#ifdef EBUG_FILTER
-        printf("\tfilter post-move set_index %lld, -1\n", hashpos);
-        fflush(stdout);
-#endif
-    } */
 
     return 0;
 }
@@ -2683,7 +2674,7 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
     return i;
 }
 
-#define EBUG_INSERT
+// #define EBUG_INSERT
 /*
 Internal routine to insert a new item into the table.
 Used both by the internal resize routine and by the public insert routine.
@@ -2818,12 +2809,6 @@ dkix_empty:
         }
 
         hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
-
-        for (int i = 0; i <= mp->ma_indices_stack_idx; i++) {
-            printf("%lld ", mp->ma_indices_stack[i]);
-        }
-        printf("\n");
-        fflush(stdout);
 
         Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
         mp->ma_indices_stack_idx--;
