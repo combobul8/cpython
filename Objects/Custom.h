@@ -1668,7 +1668,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 
         mp->ma_used--;
         mp->ma_keys->dk_usable++;
-        // mp->ma_keys->dk_nentries--;
+        mp->ma_keys->dk_nentries--;
     }
 
     return 0;
