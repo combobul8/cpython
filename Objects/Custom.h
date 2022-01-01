@@ -2992,11 +2992,19 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     dictkeys_decref(Py_EMPTY_KEYS);
     mp->ma_keys = newkeys;
     mp->ma_values = NULL;
+    mp->ma_indices_to_hashpos = malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_indices_to_hashpos));
+    if (mp->ma_indices_to_hashpos == NULL) {
+        printf("custom_insert_to_emptydict ma_indices_to_hashpos malloc fail.\n");
+        fflush(stdout);
+        return -1;
+    }
 
     printf("custom_insert_to_emptydict mallocing %lld.\n", DK_SIZE(newkeys));
     fflush(stdout);
     mp->ma_layers = malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_layers));
     if (mp->ma_layers == NULL) {
+        printf("custom_insert_to_emptydict ma_layers malloc fail.\n");
+        fflush(stdout);
         return -1;
     }
 
@@ -3018,7 +3026,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     ep->me_hash = hash;
     ep->me_value = value;
     ep->i = hashpos;
-    printf("custom_insert_to_emptydict (key, hashpos): (%s, %lld).\n", PyUnicode_AsUTF8(key), hashpos);
+    printf("empty dict (key, hashpos): (%s, %lld).\n", PyUnicode_AsUTF8(key), hashpos);
     fflush(stdout);
 
     mp->ma_used++;
