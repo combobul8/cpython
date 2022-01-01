@@ -1671,7 +1671,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
         fflush(stdout);
 #endif
         mp->ma_indices_stack_idx++;
-        mp->ma_indices_stack[mp->ma_indices_stack_idx] = hashpos0 + j;
+        mp->ma_indices_stack[mp->ma_indices_stack_idx] = jx;
 
         ep->me_key = NULL;
         ep->me_value = NULL;
@@ -1693,7 +1693,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
     }
 #endif
 
-    for (int i = 0; i < num_items_moved; i++) {
+    /* for (int i = 0; i < num_items_moved; i++) {
         Py_ssize_t hashpos = mp->ma_indices_to_hashpos[mp->ma_num_items - 1- i];
         dictkeys_set_index(mp->ma_keys, hashpos, DKIX_EMPTY);
 
@@ -1701,7 +1701,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
         printf("\tfilter post-move set_index %lld, -1\n", hashpos);
         fflush(stdout);
 #endif
-    }
+    } */
 
     return 0;
 }
