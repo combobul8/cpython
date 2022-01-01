@@ -2793,12 +2793,6 @@ dkix_empty:
                 }
 
                 mp->ma_num_items++;
-                printf("custominsertdict emptyslot layer (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
-                fflush(stdout);
-#ifdef EBUG_INSERT
-                printf("\tcustominsertdict layer->used: %d.\n", layer->used);
-                fflush(stdout);
-#endif
                 return 0;
             }
         }
