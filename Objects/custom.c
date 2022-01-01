@@ -1133,12 +1133,26 @@ ix_to_i(int ix0, PyDictKeysObject *keys)
     return i;
 }
 
+int
+seen(char *s, char **A)
+{
+
+}
+
 void
 dict_traverse2(CustomPyDictObject *dict, int print)
 {
     PyDictKeysObject *keys = dict->ma_keys;
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
     int num_items = 0;
+
+    char **seen_keys = malloc((dict->ma_num_keys * 2) * sizeof *seen_keys);
+    if (!seen_keys) {
+        printf("dict_traverse2 malloc fail.\n");
+        return;
+    }
+
+    int seen_keys_idx = 0;
 
     for (int i = 0; i < DK_SIZE(keys); i++) {
         Py_ssize_t ix = dictkeys_get_index(keys, i);
@@ -1161,6 +1175,8 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
         if (ep[ix].me_key) {
             num_items++;
+            seen_keys[seen_keys_idx] = PyUnicode_AsUTF8(ep[ix].me_key);
+            seen_keys_idx++;
 
             if (print) {
                 printf("%s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
