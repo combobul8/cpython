@@ -1626,7 +1626,7 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     return 0;
 }
 
-// #define EBUG_FILTER
+#define EBUG_FILTER
 int
 filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 {
@@ -1648,8 +1648,10 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
     // move data
     int num_items_moved = 0;
     for (int j = 0; j < num_cmps; j++) {
-        Py_ssize_t jx = dictkeys_get_index(dk, hashpos0 + j);
+        size_t hashpos = (hashpos0 + j) & mask;
+        Py_ssize_t jx = dictkeys_get_index(dk, hashpos);
         PyDictKeyEntry *ep = &ep0[jx];
+
         if (ep->i != hashpos0) {
             continue;
         }
@@ -1665,9 +1667,9 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
             return -1;
         }
 
-        dictkeys_set_index(mp->ma_keys, hashpos0 + j, DKIX_EMPTY);
+        dictkeys_set_index(mp->ma_keys, hashpos, DKIX_EMPTY);
 #ifdef EBUG_FILTER
-        printf("\tfilter set_index %lld, -1\n", hashpos0 + j);
+        printf("\tfilter set_index %lld, -1\n", hashpos);
         fflush(stdout);
 #endif
 
@@ -2698,20 +2700,17 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
     Py_ssize_t i;
     int num_cmps;   /* currently not measuring the efficiency of insert */
-    printf("custominsertdict call lookup.\n");
-    fflush(stdout);
-
     Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
 
-#ifdef EBUG_INSERT
     printf("%s (i, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), i, num_cmps);
     fflush(stdout);
+#ifdef EBUG_INSERT
 #endif
 
     if (num_cmps > mp->ma_keys->dk_log2_size) {
-#ifdef EBUG_INSERT
         printf("\tcustominsertdict %d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
         fflush(stdout);
+#ifdef EBUG_INSERT
 #endif
 
         filter(mp, i, num_cmps);
