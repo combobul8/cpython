@@ -2698,8 +2698,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
     Py_ssize_t i;
     int num_cmps;   /* currently not measuring the efficiency of insert */
+    printf("custominsertdict call lookup.\n");
+    fflush(stdout);
+
     Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
-    Py_ssize_t ix0 = dictkeys_get_index(mp->ma_keys, i);
 
 #ifdef EBUG_INSERT
     printf("%s (i, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), i, num_cmps);
