@@ -1151,13 +1151,14 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
     int num_items = 0;
 
-    char *const *seen_keys = malloc((dict->ma_num_items * 2) * sizeof *seen_keys);
+    char **seen_keys = malloc((dict->ma_num_items * 2) * sizeof *seen_keys);
     if (!seen_keys) {
         printf("dict_traverse2 malloc fail.\n");
         return;
     }
 
     int seen_keys_idx = 0;
+    int error = 0;
 
     for (int i = 0; i < DK_SIZE(keys); i++) {
         Py_ssize_t ix = dictkeys_get_index(keys, i);
@@ -1181,11 +1182,12 @@ dict_traverse2(CustomPyDictObject *dict, int print)
         if (ep[ix].me_key) {
             if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
                 printf("already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
-                return;
+                goto error_occurred;
             }
 
             num_items++;
-            seen_keys[seen_keys_idx] = PyUnicode_AsUTF8(ep[ix].me_key);
+            strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(ep[ix].me_key));
+            // seen_keys[seen_keys_idx] = PyUnicode_AsUTF8(ep[ix].me_key);
             seen_keys_idx++;
 
             if (print) {
@@ -1204,10 +1206,11 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             for (int j = 0; j < layer->used; j++) {
                 if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
                     printf("already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
-                    return;
+                    goto error_occurred;
                 }
 
                 num_items++;
+                strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(ep[ix].me_key));
 
                 if (print) {
                     printf("%s", PyUnicode_AsUTF8(layer->keys[j]->me_key));
@@ -1227,13 +1230,20 @@ dict_traverse2(CustomPyDictObject *dict, int print)
         }
     }
 
-    if (print) {
-        printf("size of primary layer: %lld.\n", DK_SIZE(keys));
+error_occurred:
+    for (int i = 0; i < seen_keys_idx; i++)
+        free(seen_keys[i]);
+    free(seen_keys);
+
+    if (!error) {
+        if (print) {
+            printf("size of primary layer: %lld.\n", DK_SIZE(keys));
+            fflush(stdout);
+        }
+
+        printf("num_items: %d.\n", num_items);
         fflush(stdout);
     }
-
-    printf("num_items: %d.\n", num_items);
-    fflush(stdout);
 }
 
 PyObject *
