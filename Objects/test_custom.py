@@ -12,7 +12,7 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
     for line in f:
         word = line.strip()
 
-        if i >= 87:
+        if i >= 84:
             break
         elif mycustom.get(word) == None:
             mycustom.update({word: i})
