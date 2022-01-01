@@ -1643,6 +1643,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
     }
 
     // move data
+    int num_items_moved = 0;
     for (int j = 0; j < num_cmps; j++) {
         Py_ssize_t jx = dictkeys_get_index(dk, hashpos0 + j);
         PyDictKeyEntry *ep = &ep0[jx];
@@ -1671,6 +1672,14 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
         mp->ma_used--;
         mp->ma_keys->dk_usable++;
         mp->ma_keys->dk_nentries--;
+
+        num_items_moved++;
+    }
+
+    for (int i = 0; i < num_items_moved; i++) {
+        Py_ssize_t hashpos = mp->ma_indices_to_hashpos[mp->ma_num_items - 1- i];
+        dictkeys_set_index(mp->ma_keys, hashpos, DKIX_EMPTY);
+        printf("\tfilter post-move set_index %lld, -1\n", hashpos);
     }
 
     return 0;
@@ -1707,11 +1716,13 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             // Linear probing is good enough.
             if (num_cmps <= mp->ma_keys->dk_log2_size) {
                 dictkeys_set_index(keys, hashpos, ix);
-                ix++;
 
+                mp->ma_indices_to_hashpos[ix] = hashpos;
                 mp->ma_used++;
                 mp->ma_keys->dk_usable--;
                 mp->ma_keys->dk_nentries++;
+
+                ix++;
             }
             else {
                 // Create a layer and avoid linear probing that starts at this hash value.
@@ -1720,11 +1731,13 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                 // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
                 if (dictkeys_get_index(keys, hashpos) == DKIX_EMPTY) {
                     dictkeys_set_index(keys, hashpos, ix);
-                    ix++;
 
+                    mp->ma_indices_to_hashpos[ix] = hashpos;
                     mp->ma_used++;
                     mp->ma_keys->dk_usable--;
                     mp->ma_keys->dk_nentries++;
+
+                    ix++;
                 }
                 else
                     insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
@@ -1737,11 +1750,13 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             fflush(stdout);
 
             dictkeys_set_index(keys, hashpos, ix);
-            ix++;
 
+            mp->ma_indices_to_hashpos[ix] = hashpos;
             mp->ma_used++;
             mp->ma_keys->dk_usable--;
             mp->ma_keys->dk_nentries++;
+
+            ix++;
         }
         else {
             printf("%lld insert into layer.\n", hashpos);
@@ -1803,16 +1818,12 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
     printf("customdictresize dk_usable: %lld.\n", mp->ma_keys->dk_usable);
     fflush(stdout);
 
-    /* assert(mp->ma_layers);
-    free(mp->ma_layers);
-    mp->ma_layers = malloc(DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
-    if (mp->ma_layers == NULL) {
+    mp->ma_indices_to_hashpos = realloc(mp->ma_indices_to_hashpos, DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_indices_to_hashpos));
+    if (mp->ma_indices_to_hashpos == NULL) {
+        printf("customdictresize ma_indices_to_hashpos realloc fail.\n");
+        fflush(stdout);
         return -1;
     }
-
-    for (int64_t i = 0; i < DK_SIZE(mp->ma_keys); i++) {
-        mp->ma_layers[i].keys = NULL; // (int *) malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_layers[i].keys));
-    } */
 
     // New table must be large enough.
     assert(mp->ma_keys->dk_usable >= mp->ma_used);
@@ -1966,6 +1977,8 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
 
     mp->ma_layers = realloc(mp->ma_layers, DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
     if (mp->ma_layers == NULL) {
+        printf("customdictresize ma_indices_to_hashpos realloc fail.\n");
+        fflush(stdout);
         return -1;
     }
 
@@ -3022,6 +3035,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
 
     PyDictKeyEntry *ep = DK_ENTRIES(mp->ma_keys);
     dictkeys_set_index(mp->ma_keys, hashpos, 0);
+    mp->ma_indices_to_hashpos[0] = hashpos;
     ep->me_key = key;
     ep->me_hash = hash;
     ep->me_value = value;
