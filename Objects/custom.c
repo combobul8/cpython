@@ -309,8 +309,8 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
     assert(PyInt_Check(val) == 1);
 
     if (ix != DKIX_EMPTY) {
-        printf("%s i: %lld; num_cmps: %d.\n", PyUnicode_AsUTF8(key), i, num_cmps);
-        fflush(stdout);
+        /* printf("%s i: %lld; num_cmps: %d.\n", PyUnicode_AsUTF8(key), i, num_cmps);
+        fflush(stdout); */
     }
 
 #ifdef EBUG
@@ -1197,13 +1197,11 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
                 printf("already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
                 fflush(stdout);
+                error = 1;
                 goto error_occurred;
             }
 
             num_items++;
-            printf("num_items: %d.\n", num_items);
-            fflush(stdout);
-
             strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(ep[ix].me_key));
             seen_keys_idx++;
 
@@ -1224,6 +1222,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
                 if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
                     printf("already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
                     fflush(stdout);
+                    error = 1;
                     goto error_occurred;
                 }
 
