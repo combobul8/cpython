@@ -1259,6 +1259,7 @@ error_occurred:
         }
 
         printf("num_items: %d.\n", num_items);
+        printf("ma_num_items: %lld.\n", dict->ma_num_items);
         fflush(stdout);
     }
 }

@@ -12,10 +12,12 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
     for line in f:
         word = line.strip()
 
-        if i >= 2662:
+        if i >= 2661:
             break
         elif mycustom.get(word) == None:
+            print("updating " + word)
             mycustom.update({word: i})
+            print("updated")
             words[word] = i
             i += 1
         else:
