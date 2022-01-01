@@ -1134,9 +1134,14 @@ ix_to_i(int ix0, PyDictKeysObject *keys)
 }
 
 int
-seen(char *s, char **A)
+seen(const char *s, char **A, int n)
 {
+    for (int i = 0; i < n; i++) {
+        if (!strcmp(s, A[i]))
+            return 1;
+    }
 
+    return 0;
 }
 
 void
@@ -1146,7 +1151,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
     int num_items = 0;
 
-    char **seen_keys = malloc((dict->ma_num_keys * 2) * sizeof *seen_keys);
+    char *const *seen_keys = malloc((dict->ma_num_items * 2) * sizeof *seen_keys);
     if (!seen_keys) {
         printf("dict_traverse2 malloc fail.\n");
         return;
@@ -1174,6 +1179,11 @@ dict_traverse2(CustomPyDictObject *dict, int print)
         }
 
         if (ep[ix].me_key) {
+            if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
+                printf("already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+                return;
+            }
+
             num_items++;
             seen_keys[seen_keys_idx] = PyUnicode_AsUTF8(ep[ix].me_key);
             seen_keys_idx++;
@@ -1192,6 +1202,11 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
             Layer *layer = &dict->ma_layers[i];
             for (int j = 0; j < layer->used; j++) {
+                if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
+                    printf("already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+                    return;
+                }
+
                 num_items++;
 
                 if (print) {
