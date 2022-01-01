@@ -1670,6 +1670,8 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
         printf("\tfilter set_index %lld, -1\n", hashpos0 + j);
         fflush(stdout);
 #endif
+        mp->ma_indices_stack_idx++;
+        mp->ma_indices_stack[mp->ma_indices_stack_idx] = hashpos0 + j;
 
         ep->me_key = NULL;
         ep->me_value = NULL;
@@ -1713,7 +1715,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 {
     PyDictKeysObject *keys = mp->ma_keys;
     size_t mask = (size_t)DK_SIZE(keys) - 1;
-    Py_ssize_t ix = 0;
+    // Py_ssize_t ix = 0;
 
     mp->ma_used = 0;
     mp->ma_num_items = 0;
@@ -1734,14 +1736,15 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
             // Linear probing is good enough.
             if (num_cmps <= mp->ma_keys->dk_log2_size) {
-                dictkeys_set_index(keys, hashpos, ix);
+                Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
+                mp->ma_indices_stack_idx--;
 
-                mp->ma_indices_to_hashpos[ix] = hashpos;
+                dictkeys_set_index(keys, hashpos, idx);
+                mp->ma_indices_to_hashpos[idx] = hashpos;
+
                 mp->ma_used++;
                 mp->ma_keys->dk_usable--;
                 mp->ma_keys->dk_nentries++;
-
-                ix++;
             }
             else {
                 // Create a layer and avoid linear probing that starts at this hash value.
@@ -1749,14 +1752,16 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
                 // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
                 if (dictkeys_get_index(keys, hashpos) == DKIX_EMPTY) {
-                    dictkeys_set_index(keys, hashpos, ix);
+                    Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
+                    mp->ma_indices_stack_idx--;
+
+                    dictkeys_set_index(keys, hashpos, idx);
+                    mp->ma_indices_to_hashpos[idx] = hashpos;
 
                     mp->ma_indices_to_hashpos[ix] = hashpos;
                     mp->ma_used++;
                     mp->ma_keys->dk_usable--;
                     mp->ma_keys->dk_nentries++;
-
-                    ix++;
                 }
                 else
                     insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
@@ -1768,14 +1773,15 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             printf("%lld layer but free cell.\n", hashpos);
             fflush(stdout);
 
-            dictkeys_set_index(keys, hashpos, ix);
+            Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
+            mp->ma_indices_stack_idx--;
 
-            mp->ma_indices_to_hashpos[ix] = hashpos;
+            dictkeys_set_index(keys, hashpos, idx);
+            mp->ma_indices_to_hashpos[idx] = hashpos;
+
             mp->ma_used++;
             mp->ma_keys->dk_usable--;
             mp->ma_keys->dk_nentries++;
-
-            ix++;
         }
         else {
             printf("%lld insert into layer.\n", hashpos);
@@ -2820,8 +2826,11 @@ dkix_empty:
         fflush(stdout);
 #endif
 
-        dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
-        mp->ma_indices_to_hashpos[mp->ma_keys->dk_nentries] = hashpos;
+        Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
+        mp->ma_indices_stack_idx--;
+
+        dictkeys_set_index(mp->ma_keys, hashpos, idx);
+        mp->ma_indices_to_hashpos[idx] = hashpos;
 
         ep->me_key = key;
         ep->me_hash = hash;
@@ -3077,8 +3086,13 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     size_t hashpos = (size_t)hash & (PyDict_MINSIZE-1);
 
     PyDictKeyEntry *ep = DK_ENTRIES(mp->ma_keys);
-    dictkeys_set_index(mp->ma_keys, hashpos, 0);
-    mp->ma_indices_to_hashpos[0] = hashpos;
+
+    Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
+    mp->ma_indices_stack_idx--;
+
+    dictkeys_set_index(mp->ma_keys, hashpos, idx);
+    mp->ma_indices_to_hashpos[idx] = hashpos;
+
     ep->me_key = key;
     ep->me_hash = hash;
     ep->me_value = value;
