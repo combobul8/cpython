@@ -84,6 +84,9 @@ typedef struct {
 
     Layer* ma_layers;
 
+    Py_ssize_t *ma_indices_stack;
+    int ma_indices_stack_idx;
+
     Py_ssize_t *ma_indices_to_hashpos;
 } CustomPyDictObject;
 
@@ -1834,6 +1837,17 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
     printf("customdictresize dk_usable: %lld.\n", mp->ma_keys->dk_usable);
     fflush(stdout);
 
+    mp->ma_indices_stack = realloc(mp->ma_indices_stack, DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_indices_stack));
+    if (mp->ma_indices_to_hashpos == NULL) {
+        printf("customdictresize ma_indices_stack realloc fail.\n");
+        fflush(stdout);
+        return -1;
+    }
+
+    for (int i = 0; i < DK_SIZE(mp->ma_keys); i++)
+        mp->ma_indices_stack[i] = DK_SIZE(mp->ma_keys) - 1 - i;
+    mp->ma_indices_stack_idx = DK_SIZE(mp->ma_keys) - 1;
+
     mp->ma_indices_to_hashpos = realloc(mp->ma_indices_to_hashpos, DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_indices_to_hashpos));
     if (mp->ma_indices_to_hashpos == NULL) {
         printf("customdictresize ma_indices_to_hashpos realloc fail.\n");
@@ -3022,6 +3036,18 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     dictkeys_decref(Py_EMPTY_KEYS);
     mp->ma_keys = newkeys;
     mp->ma_values = NULL;
+
+    mp->ma_indices_stack = malloc(DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_indices_stack));
+    if (mp->ma_indices_stack == NULL) {
+        printf("custom_insert_to_emptydict ma_indices_stack malloc fail.\n");
+        fflush(stdout);
+        return -1;
+    }
+
+    for (int i = 0; i < DK_SIZE(mp->ma_keys); i++)
+        mp->ma_indices_stack[i] = DK_SIZE(mp->ma_keys) - 1 - i;
+    mp->ma_indices_stack_idx = DK_SIZE(mp->ma_keys) - 1;
+
     mp->ma_indices_to_hashpos = malloc(DK_SIZE(newkeys) * sizeof *(mp->ma_indices_to_hashpos));
     if (mp->ma_indices_to_hashpos == NULL) {
         printf("custom_insert_to_emptydict ma_indices_to_hashpos malloc fail.\n");
