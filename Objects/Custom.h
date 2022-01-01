@@ -83,6 +83,8 @@ typedef struct {
     PyObject **ma_values;
 
     Layer* ma_layers;
+
+    Py_ssize_t *ma_indices_to_hashpos;
 } CustomPyDictObject;
 
 struct _dictkeysobject {
