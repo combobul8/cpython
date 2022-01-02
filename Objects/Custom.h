@@ -2814,14 +2814,24 @@ error_occurred:
     }
 
     for (int i = 0; i < dict->ma_num_items; i++) {
+        int found = 0;
         for (int j = 0; j < num_items; j++) {
-            if (!strcmp(dict->ma_string_keys[i], seen_keys[j]))
-                continue;
+            if (!strcmp(dict->ma_string_keys[i], seen_keys[j])) {
+                found = 1;
+                break;
+            }
         }
 
-        printf("%s missing!!!\n", dict->ma_string_keys[i]);
-        fflush(stdout);
+        if (!found) {
+            printf("%s missing!!!\n", dict->ma_string_keys[i]);
+            fflush(stdout);
+            error = 1;
+        }
     }
+
+    if (error)
+        return -1;
+
     return num_items;
 }
 
@@ -3266,6 +3276,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     printf("empty dict (key, hashpos): (%s, %lld).\n", PyUnicode_AsUTF8(key), hashpos);
     fflush(stdout);
 
+    strcpy(mp->ma_string_keys[0], PyUnicode_AsUTF8(ep->me_key));
     mp->ma_used++;
     mp->ma_num_items++;
     mp->ma_version_tag = DICT_NEXT_VERSION();
