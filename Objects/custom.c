@@ -1143,7 +1143,10 @@ dict_print(PyObject *mp, PyObject *Py_UNUSED(ignored))
 PyObject *
 dict_num_items(PyObject *mp, PyObject *Py_UNUSED(ignored))
 {
-    dict_traverse2((CustomPyDictObject *) mp, 0);
+    int num_items = dict_traverse2((CustomPyDictObject *) mp, 0);
+    printf("num_items: %d.\n", num_items);
+    fflush(stdout);
+
     return mp;
 }
 
