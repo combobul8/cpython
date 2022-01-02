@@ -1748,7 +1748,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                 // Create a layer and avoid linear probing that starts at this hash value.
                 int num_items_moved = filter(mp, hashpos0, num_cmps);
 
-                if (num_items_moved == 0) {
+                /* if (num_items_moved == 0) {
                     dictkeys_set_index(mp->ma_keys, hashpos0, DKIX_EMPTY);
 
                     Py_ssize_t idx = dictkeys_get_index(mp->ma_keys, hashpos0);
@@ -1762,7 +1762,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                     mp->ma_used--;
                     mp->ma_keys->dk_usable++;
                     mp->ma_keys->dk_nentries--;
-                }
+                } */
 
                 // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
                 if (dictkeys_get_index(keys, hashpos) == DKIX_EMPTY) {
@@ -2930,7 +2930,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 #endif
 
         int num_items_moved = filter(mp, i, num_cmps);
-        if (num_items_moved == 0) {
+        /* if (num_items_moved == 0) {
             dictkeys_set_index(mp->ma_keys, i, DKIX_EMPTY);
 
             Py_ssize_t idx = dictkeys_get_index(mp->ma_keys, i);
@@ -2944,7 +2944,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             mp->ma_used--;
             mp->ma_keys->dk_usable++;
             mp->ma_keys->dk_nentries--;
-        }
+        } */
 
         // if filter moved they item at i to a layer, then ix will have changed to DKIX_EMPTY.
         ix = dictkeys_get_index(mp->ma_keys, i);
@@ -3013,7 +3013,7 @@ dkix_empty:
 #endif
 
             int num_items_moved = filter(mp, hashpos0, num_cmps);
-            if (num_items_moved == 0) {
+            /* if (num_items_moved == 0) {
                 dictkeys_set_index(mp->ma_keys, hashpos0, DKIX_EMPTY);
 
                 Py_ssize_t idx = dictkeys_get_index(mp->ma_keys, hashpos0);
@@ -3027,7 +3027,7 @@ dkix_empty:
                 mp->ma_used--;
                 mp->ma_keys->dk_usable++;
                 mp->ma_keys->dk_nentries--;
-            }
+            } */
 
             // if filter moved they item at i to a layer, then ix will have changed to DKIX_EMPTY.
             ix = dictkeys_get_index(mp->ma_keys, hashpos0);
