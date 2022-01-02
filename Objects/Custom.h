@@ -1626,7 +1626,7 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     return 0;
 }
 
-// #define EBUG_FILTER
+#define EBUG_FILTER
 int
 filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 {
@@ -1669,6 +1669,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 
         dictkeys_set_index(mp->ma_keys, hashpos, DKIX_EMPTY);
 #ifdef EBUG_FILTER
+        printf("\tfilter get_index %lld: %lld\n", hashpos, dictkeys_get_index(mp->ma_keys, hashpos));
         printf("\tfilter set_index %lld, -1\n", hashpos);
         fflush(stdout);
 #endif
@@ -1690,10 +1691,12 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
     printf("\tfilter dk_nentries: %lld.\n", mp->ma_keys->dk_nentries);
     fflush(stdout);
 
-    for (int i = 0; i < mp->ma_num_items; i++) {
+    /* for (int i = 0; i < mp->ma_num_items; i++) {
+        if (mp->ma_indices_to_hashpos[i] <= 0) continue;
+
         printf("%d %lld\n", i, mp->ma_indices_to_hashpos[i]);
         fflush(stdout);
-    }
+    } */
 #endif
 
     return 0;
@@ -1852,6 +1855,9 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         fflush(stdout);
         return -1;
     }
+
+    for (int i = 0; i < DK_SIZE(mp->ma_keys); i++)
+        mp->ma_indices_to_hashpos[i] = -1;
 
     // New table must be large enough.
     assert(mp->ma_keys->dk_usable >= mp->ma_used);
@@ -3190,6 +3196,9 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
         fflush(stdout);
         return -1;
     }
+
+    for (int i = 0; i < DK_SIZE(mp->ma_keys); i++)
+        mp->ma_indices_to_hashpos[i] = -1;
 
     printf("custom_insert_to_emptydict mallocing %lld.\n", DK_SIZE(newkeys));
     fflush(stdout);
