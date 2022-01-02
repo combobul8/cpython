@@ -1667,12 +1667,12 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
             return -1;
         }
 
-        dictkeys_set_index(mp->ma_keys, hashpos, DKIX_EMPTY);
 #ifdef EBUG_FILTER
         printf("\tfilter get_index %lld: %lld\n", hashpos, dictkeys_get_index(mp->ma_keys, hashpos));
         printf("\tfilter set_index %lld, -1\n", hashpos);
         fflush(stdout);
 #endif
+        dictkeys_set_index(mp->ma_keys, hashpos, DKIX_EMPTY);
 
         mp->ma_indices_stack_idx++;
         mp->ma_indices_stack[mp->ma_indices_stack_idx] = jx;
