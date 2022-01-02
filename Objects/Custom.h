@@ -2822,11 +2822,14 @@ error_occurred:
             }
         }
 
-        if (!found) {
+        if (found)
+            printf("found %s.\n", dict->ma_string_keys[i]);
+        else {
             printf("%s missing!!!\n", dict->ma_string_keys[i]);
-            fflush(stdout);
             error = 1;
         }
+
+        fflush(stdout);
     }
 
     if (error)
