@@ -2950,6 +2950,9 @@ dkix_empty:
 #endif
 
         dictkeys_set_index(mp->ma_keys, hashpos, idx);
+        printf("\t set_index done: (hashpos, idx): (%lld, %lld).\n", hashpos, idx);
+        fflush(stdout);
+
         mp->ma_indices_to_hashpos[idx] = hashpos;
 
         ep->me_key = key;
