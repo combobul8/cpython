@@ -2811,8 +2811,12 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     }
 
 error_occurred:
-    for (int i = 0; i < seen_keys_idx; i++)
+    for (int i = 0; i < seen_keys_idx; i++) {
+        printf("error_occurred freeing %s.\n", seen_keys[i]);
+        fflush(stdout);
+
         free(seen_keys[i]);
+    }
     free(seen_keys);
 
     if (error)
