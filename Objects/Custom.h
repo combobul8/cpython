@@ -2939,7 +2939,7 @@ dkix_empty:
 
         Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
         mp->ma_indices_stack_idx--;
-        printf("\tcheck idx: %lld", mp->ma_indices_to_hashpos[idx]);
+        printf("\tcheck; indices to hashpos %lld, %lld.\n", idx, mp->ma_indices_to_hashpos[idx]);
 
         ep = &DK_ENTRIES(mp->ma_keys)[idx];
         ep->i = hashpos0;
