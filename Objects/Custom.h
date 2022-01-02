@@ -88,6 +88,8 @@ typedef struct {
     int ma_indices_stack_idx;
 
     Py_ssize_t *ma_indices_to_hashpos;
+
+    char **ma_string_keys;
 } CustomPyDictObject;
 
 struct _dictkeysobject {
@@ -2811,6 +2813,15 @@ error_occurred:
         fflush(stdout);
     }
 
+    for (int i = 0; i < dict->ma_num_items; i++) {
+        for (int j = 0; j < num_items; j++) {
+            if (!strcmp(dict->ma_string_keys[i], seen_keys[j]))
+                continue;
+        }
+
+        printf("%s missing!!!\n", dict->ma_string_keys[i]);
+        fflush(stdout);
+    }
     return num_items;
 }
 
@@ -2868,6 +2879,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             return -1;
         }
 
+        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
         mp->ma_num_items++;
         if (mp->ma_num_items == dict_traverse2(mp, 0))
             return 0;
@@ -2933,6 +2945,7 @@ dkix_empty:
                     return -1;
                 }
 
+                strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
                 mp->ma_num_items++;
                 if (mp->ma_num_items == dict_traverse2(mp, 0))
                     return 0;
@@ -2971,6 +2984,7 @@ dkix_empty:
         else {
             ep->me_value = value;
         }
+        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
         //ep->me_layer = NULL;
         mp->ma_used++;
         mp->ma_num_items++;
@@ -3213,6 +3227,22 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
         mp->ma_layers[i].keys = NULL;
         mp->ma_layers[i].used = 0;
         mp->ma_layers[i].n = 0;
+    }
+
+    mp->ma_string_keys = malloc(3000 * sizeof *(mp->ma_string_keys));
+    if (!mp->ma_string_keys) {
+        printf("custom_insert_to_emptydict ma_string_keys malloc fail.\n");
+        fflush(stdout);
+        return -1;
+    }
+
+    for (int i = 0; i < 3000; i++) {
+        mp->ma_string_keys[i] = malloc(80 * sizeof *(mp->ma_string_keys[i]));
+        if (!mp->ma_string_keys[i]) {
+            printf("custom_insert_to_emptydict ma_string_keys[%d] malloc fail.\n", i);
+            fflush(stdout);
+            return -1;
+        }
     }
 
     Py_INCREF(key);
