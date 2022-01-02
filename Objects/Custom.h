@@ -2710,7 +2710,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     }
 
     for (int i = 0; i < (dict->ma_num_items * 2); i++) {
-        seen_keys[i] = malloc(80 * sizeof *seen_keys[i]);
+        seen_keys[i] = malloc(80 * sizeof *(seen_keys[i]));
         if (!seen_keys[i]) {
             printf("dict_traverse2 seen_keys[%d] malloc fail.\n", i);
             fflush(stdout);
@@ -2754,6 +2754,9 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
             num_items++;
             strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(ep[ix].me_key));
+            printf("strcpied %s to %d.\n", PyUnicode_AsUTF8(ep[ix].me_key), seen_keys_idx);
+            fflush(stdout);
+
             seen_keys_idx++;
 
             if (print) {
@@ -2816,7 +2819,7 @@ error_occurred:
 
     for (int i = 0; i < dict->ma_num_items; i++) {
         int found = 0;
-        for (int j = 0; j < num_items; j++) {
+        for (int j = 0; j < seen_keys_idx; j++) {
             if (!strcmp(dict->ma_string_keys[i], seen_keys[j])) {
                 found = 1;
                 break;
