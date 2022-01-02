@@ -2676,6 +2676,138 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
     return i;
 }
 
+int
+seen(const char *s, char **A, int n)
+{
+    for (int i = 0; i < n; i++) {
+        if (!strcmp(s, A[i]))
+            return 1;
+    }
+
+    return 0;
+}
+
+int
+dict_traverse2(CustomPyDictObject *dict, int print)
+{
+    PyDictKeysObject *keys = dict->ma_keys;
+    PyDictKeyEntry *ep = DK_ENTRIES(keys);
+    int num_items = 0;
+
+    char **seen_keys = malloc((dict->ma_num_items * 2) * sizeof *seen_keys);
+    if (!seen_keys) {
+        printf("dict_traverse2 malloc fail.\n");
+        fflush(stdout);
+        return -1;
+    }
+
+    for (int i = 0; i < (dict->ma_num_items * 2); i++) {
+        seen_keys[i] = malloc(80 * sizeof *seen_keys[i]);
+        if (!seen_keys[i]) {
+            printf("dict_traverse2 seen_keys[%d] malloc fail.\n", i);
+            fflush(stdout);
+
+            for (int j = 0; j < i; j++)
+                free(seen_keys[j]);
+            free(seen_keys);
+            return -1;
+        }
+    }
+
+    int seen_keys_idx = 0;
+    int error = 0;
+
+    for (int i = 0; i < DK_SIZE(keys); i++) {
+        Py_ssize_t ix = dictkeys_get_index(keys, i);
+        if (ix < 0)
+            continue;
+
+        if (print) {
+            printf("%d -> %lld: ", i, ix);
+            fflush(stdout);
+        }
+
+        if (!ep[ix].me_key && !dict->ma_layers[i].keys) {
+            if (print) {
+                printf("\n");
+                fflush(stdout);
+            }
+
+            continue;
+        }
+
+        if (ep[ix].me_key) {
+            if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
+                printf("primary already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+                fflush(stdout);
+                error = 1;
+                goto error_occurred;
+            }
+
+            num_items++;
+            strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(ep[ix].me_key));
+            seen_keys_idx++;
+
+            if (print) {
+                printf("%s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+                fflush(stdout);
+            }
+        }
+
+        if (dict->ma_layers[i].keys) {
+            if (print) {
+                printf("\t");
+                fflush(stdout);
+            }
+
+            Layer *layer = &dict->ma_layers[i];
+            for (int j = 0; j < layer->used; j++) {
+                if (seen(PyUnicode_AsUTF8(layer->keys[j]->me_key), seen_keys, seen_keys_idx)) {
+                    printf("already have %s in dict.\n", PyUnicode_AsUTF8(layer->keys[j]->me_key));
+                    fflush(stdout);
+                    error = 1;
+                    goto error_occurred;
+                }
+
+                num_items++;
+                strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(layer->keys[j]->me_key));
+
+                if (print) {
+                    printf("%s", PyUnicode_AsUTF8(layer->keys[j]->me_key));
+                    fflush(stdout);
+                }
+
+                if (print && j < (layer->used - 1)) {
+                    printf(", ");
+                    fflush(stdout);
+                }
+            }
+
+            if (print) {
+                printf(".\n");
+                fflush(stdout);
+            }
+        }
+    }
+
+error_occurred:
+    for (int i = 0; i < seen_keys_idx; i++)
+        free(seen_keys[i]);
+    free(seen_keys);
+
+    if (error)
+        return -1;
+
+    if (print) {
+        printf("size of primary layer: %lld.\n", DK_SIZE(keys));
+        printf("num_items: %d.\n", num_items);
+        printf("ma_num_items: %lld.\n", dict->ma_num_items);
+        fflush(stdout);
+    }
+
+    return num_items;
+}
+
 // #define EBUG_INSERT
 /*
 Internal routine to insert a new item into the table.
@@ -2731,7 +2863,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
 
         mp->ma_num_items++;
-        return 0;
+        if (mp->ma_num_items == dict_traverse2(mp, 0))
+            return 0;
+        printf("\t\t0INEQUALITY\n");
+        return -1;
     }
 
     if (ix == DKIX_ERROR)
@@ -2793,7 +2928,10 @@ dkix_empty:
                 }
 
                 mp->ma_num_items++;
-                return 0;
+                if (mp->ma_num_items == dict_traverse2(mp, 0))
+                    return 0;
+                printf("\t\t1INEQUALITY\n");
+                return -1;
             }
         }
 
@@ -2805,10 +2943,10 @@ dkix_empty:
         ep = &DK_ENTRIES(mp->ma_keys)[idx];
         ep->i = hashpos0;
 
-#ifdef EBUG_INSERT
         printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
         printf("\tset_index %lld, %lld.\n", hashpos, idx);
         fflush(stdout);
+#ifdef EBUG_INSERT
 #endif
 
         dictkeys_set_index(mp->ma_keys, hashpos, idx);
@@ -2832,7 +2970,10 @@ dkix_empty:
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
 
-        return 0;
+        if (mp->ma_num_items == dict_traverse2(mp, 0))
+            return 0;
+        printf("\t\t2INEQUALITY\n");
+        return -1;
     }
 
     if (old_value != value) {
