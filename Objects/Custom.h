@@ -2754,8 +2754,15 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
             num_items++;
             strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(ep[ix].me_key));
-            printf("strcpied %s to %d.\n", PyUnicode_AsUTF8(ep[ix].me_key), seen_keys_idx);
+            printf("strcpied %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
             fflush(stdout);
+
+            if (num_items <= 0) ;
+            else if (seen_keys[0][0] != 'w' && seen_keys[0][0] != 't' && seen_keys[0][0] != 'y') {
+                printf("seen_keys[0][0]: %c != 'w', 't'.\n", seen_keys[0][0]);
+                fflush(stdout);
+                return -1;
+            }
 
             seen_keys_idx++;
 
@@ -2782,6 +2789,16 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
                 num_items++;
                 strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(layer->keys[j]->me_key));
+                printf("strcpied layer %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
+                fflush(stdout);
+
+                if (num_items <= 0) ;
+                else if (seen_keys[0][0] != 'w' && seen_keys[0][0] != 't' && seen_keys[0][0] != 'y') {
+                    printf("seen_keys[0][0]: %c != 'w', 't'.\n", seen_keys[0][0]);
+                    fflush(stdout);
+                    return -1;
+                }
+
                 seen_keys_idx++;
 
                 if (print) {
@@ -2817,9 +2834,17 @@ error_occurred:
         fflush(stdout);
     }
 
+    for (int i = 0; i < seen_keys_idx; i++) {
+        printf("%d %s\n", i, seen_keys[i]);
+        fflush(stdout);
+    }
+
     for (int i = 0; i < dict->ma_num_items; i++) {
         int found = 0;
         for (int j = 0; j < seen_keys_idx; j++) {
+            printf("strcmp %s %s.\n", dict->ma_string_keys[i], seen_keys[j]);
+            fflush(stdout);
+
             if (!strcmp(dict->ma_string_keys[i], seen_keys[j])) {
                 found = 1;
                 break;
@@ -3011,7 +3036,7 @@ dkix_empty:
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
 
-        if (mp->ma_num_items == dict_traverse2(mp, 0))
+        if (mp->ma_num_items == dict_traverse2(mp, 1))
             return 0;
         printf("\t\t2INEQUALITY\n");
         return -1;
