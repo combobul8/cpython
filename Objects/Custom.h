@@ -2446,9 +2446,9 @@ found:
 Py_ssize_t _Py_HOT_FUNCTION
 custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, size_t* i0, int *num_cmps)
 {
+#ifdef EBUG
     printf("custom_lookup2 %s.\n", PyUnicode_AsUTF8(key));
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     PyDictKeysObject *dk;
@@ -2465,9 +2465,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("custom_lookup2 0(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2498,9 +2498,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
             i = mask & (i + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("custom_lookup2 1(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2728,9 +2728,6 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     int seen_keys_idx = 0;
     int error = 0;
 
-    printf("dict_traverse2 traversing...\n");
-    fflush(stdout);
-
     for (int i = 0; i < DK_SIZE(keys); i++) {
         Py_ssize_t ix = dictkeys_get_index(keys, i);
 
@@ -2761,8 +2758,17 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
             num_items++;
             strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(ep[ix].me_key));
-            printf("strcpied %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
-            fflush(stdout); /* */
+            /* printf("strcpied %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
+            fflush(stdout); */
+
+            /* if (!isalpha(seen_keys[seen_keys_idx][0]) || seen_keys[seen_keys_idx][0] != '\'') {
+                printf("not alpha.\n");
+                fflush(stdout);
+
+                error = 1;
+                goto error_occurred;
+            } */
+
             seen_keys_idx++;
 
             if (print) {
@@ -2788,8 +2794,17 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
                 num_items++;
                 strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(layer->keys[j]->me_key));
-                printf("strcpied layer %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
-                fflush(stdout);
+                /* printf("strcpied layer %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
+                fflush(stdout); */
+
+                /* if (!isalpha(seen_keys[seen_keys_idx][0]) || seen_keys[seen_keys_idx][0] != '\'') {
+                    printf("not alpha.\n");
+                    fflush(stdout);
+
+                    error = 1;
+                    goto error_occurred;
+                } */
+
                 seen_keys_idx++;
 
                 if (print) {
@@ -2810,18 +2825,6 @@ dict_traverse2(CustomPyDictObject *dict, int print)
         }
     }
 
-error_occurred:
-    for (int i = 0; i < seen_keys_idx; i++) {
-        printf("error_occurred freeing %s.\n", seen_keys[i]);
-        fflush(stdout);
-
-        free(seen_keys[i]);
-    }
-    free(seen_keys);
-
-    if (error)
-        return -1;
-
     if (print) {
         printf("size of primary layer: %lld.\n", DK_SIZE(keys));
         printf("num_items: %d.\n", num_items);
@@ -2829,14 +2832,18 @@ error_occurred:
         fflush(stdout);
     }
 
-    for (int i = 0; i < seen_keys_idx; i++) {
-        // printf("%d %s\n", i, seen_keys[i]);
-        if (!isalpha(seen_keys[i][0])) {
-            printf("not alpha.\n");
+    /* for (int i = 0; i < seen_keys_idx; i++) {
+        printf("%d %s\n", i, seen_keys[i]);
+        fflush(stdout);
+
+        if (!isalpha(seen_keys[i][0]) || seen_keys[i][0] != '\'') {
+            printf("i: %d not alpha.\n", i);
             fflush(stdout);
+
+            error = 1;
+            goto error_occurred;
         }
-        // fflush(stdout);
-    }
+    } */
 
     for (int i = 0; i < dict->ma_num_items; i++) {
         int found = 0;
@@ -2851,7 +2858,7 @@ error_occurred:
         }
 
         if (found)
-            printf("found %s.\n", dict->ma_string_keys[i]);
+            ; // printf("found %s.\n", dict->ma_string_keys[i]);
         else {
             printf("%s missing!!!\n", dict->ma_string_keys[i]);
             error = 1;
@@ -2860,21 +2867,15 @@ error_occurred:
         fflush(stdout);
     }
 
+error_occurred:
     for (int i = 0; i < seen_keys_idx; i++) {
-        printf("freeing %s.\n", seen_keys[i]);
-        fflush(stdout);
-
         free(seen_keys[i]);
-        printf("freed seen_keys[%d].\n", i);
-        fflush(stdout);
     }
     free(seen_keys);
 
     if (error)
         return -1;
 
-    printf("returning %d.\n", num_items);
-    fflush(stdout);
     return num_items;
 }
 
@@ -2902,9 +2903,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
     Py_ssize_t i;
     int num_cmps;   /* currently not measuring the efficiency of insert */
-    printf("custominsertdict looking up.\n");
-    fflush(stdout);
-
     Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
 
 #ifdef EBUG_INSERT
@@ -2923,9 +2921,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         // if filter moved they item at i to a layer, then ix will have changed to DKIX_EMPTY.
         ix = dictkeys_get_index(mp->ma_keys, i);
     }
-
-    printf("post num_cmps comparison.\n");
-    fflush(stdout);
 
     Layer *layer = &(mp->ma_layers[i]);
     if (layer->keys) {
@@ -3043,11 +3038,8 @@ dkix_empty:
         else {
             ep->me_value = value;
         }
-        printf("strcpying.\n");
-        fflush(stdout);
+
         strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-        printf("strcpied.\n");
-        fflush(stdout);
 
         //ep->me_layer = NULL;
         mp->ma_used++;
