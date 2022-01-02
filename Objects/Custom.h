@@ -2779,6 +2779,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
                 num_items++;
                 strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(layer->keys[j]->me_key));
+                seen_keys_idx++;
 
                 if (print) {
                     printf("%s", PyUnicode_AsUTF8(layer->keys[j]->me_key));
