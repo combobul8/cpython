@@ -2756,14 +2756,6 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(ep[ix].me_key));
             printf("strcpied %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
             fflush(stdout);
-
-            if (num_items <= 0) ;
-            else if (seen_keys[0][0] != 'w' && seen_keys[0][0] != 't' && seen_keys[0][0] != 'y') {
-                printf("seen_keys[0][0]: %c != 'w', 't'.\n", seen_keys[0][0]);
-                fflush(stdout);
-                return -1;
-            }
-
             seen_keys_idx++;
 
             if (print) {
@@ -2791,14 +2783,6 @@ dict_traverse2(CustomPyDictObject *dict, int print)
                 strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(layer->keys[j]->me_key));
                 printf("strcpied layer %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
                 fflush(stdout);
-
-                if (num_items <= 0) ;
-                else if (seen_keys[0][0] != 'w' && seen_keys[0][0] != 't' && seen_keys[0][0] != 'y') {
-                    printf("seen_keys[0][0]: %c != 'w', 't'.\n", seen_keys[0][0]);
-                    fflush(stdout);
-                    return -1;
-                }
-
                 seen_keys_idx++;
 
                 if (print) {
@@ -2836,6 +2820,10 @@ error_occurred:
 
     for (int i = 0; i < seen_keys_idx; i++) {
         printf("%d %s\n", i, seen_keys[i]);
+        if (!isalpha(seen_keys[i][0])) {
+            printf("not alpha.\n");
+            fflush(stdout);
+        }
         fflush(stdout);
     }
 
@@ -2860,6 +2848,10 @@ error_occurred:
 
         fflush(stdout);
     }
+
+    for (int i = 0; i < seen_keys_idx; i++)
+        free(seen_keys[i]);
+    free(seen_keys);
 
     if (error)
         return -1;
