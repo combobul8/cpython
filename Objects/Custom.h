@@ -2751,15 +2751,12 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     for (int i = 0; i < DK_SIZE(keys); i++) {
         Py_ssize_t ix = dictkeys_get_index(keys, i);
 
-        if (ix < 0)
-            continue;
-
         if (print) {
             printf("%d -> %lld: ", i, ix);
             fflush(stdout);
         }
 
-        if (!ep[ix].me_key && !dict->ma_layers[i].keys) {
+        if (ix >= 0 && !ep[ix].me_key && !dict->ma_layers[i].keys) {
             if (print) {
                 printf("\n");
                 fflush(stdout);
@@ -2768,7 +2765,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             continue;
         }
 
-        if (ep[ix].me_key) {
+        if (ix >= 0 && ep[ix].me_key) {
             if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
                 printf("primary already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
                 fflush(stdout);
