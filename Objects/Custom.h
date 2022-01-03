@@ -1628,7 +1628,7 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     return 0;
 }
 
-// #define EBUG_FILTER
+#define EBUG_FILTER
 int
 filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 {
@@ -2744,7 +2744,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     for (int i = 0; i < DK_SIZE(keys); i++) {
         Py_ssize_t ix = dictkeys_get_index(keys, i);
 
-        if (print) {
+        if (ix >= 0 && print) {
             printf("%d -> %lld: ", i, ix);
             fflush(stdout);
         }
@@ -2771,14 +2771,6 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             /* printf("strcpied %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
             fflush(stdout); */
 
-            /* if (!isalpha(seen_keys[seen_keys_idx][0]) || seen_keys[seen_keys_idx][0] != '\'') {
-                printf("not alpha.\n");
-                fflush(stdout);
-
-                error = 1;
-                goto error_occurred;
-            } */
-
             seen_keys_idx++;
 
             if (print) {
@@ -2794,26 +2786,20 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             }
 
             Layer *layer = &dict->ma_layers[i];
+            printf("%d items in layer; ", layer->used);
+            fflush(stdout);
+
             for (int j = 0; j < layer->used; j++) {
                 if (seen(PyUnicode_AsUTF8(layer->keys[j]->me_key), seen_keys, seen_keys_idx)) {
-                    printf("already have %s in dict.\n", PyUnicode_AsUTF8(layer->keys[j]->me_key));
+                    printf("already have %s in dict;", PyUnicode_AsUTF8(layer->keys[j]->me_key));
                     fflush(stdout);
                     error = 1;
-                    goto error_occurred;
                 }
 
                 num_items++;
                 strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(layer->keys[j]->me_key));
                 /* printf("strcpied layer %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
                 fflush(stdout); */
-
-                /* if (!isalpha(seen_keys[seen_keys_idx][0]) || seen_keys[seen_keys_idx][0] != '\'') {
-                    printf("not alpha.\n");
-                    fflush(stdout);
-
-                    error = 1;
-                    goto error_occurred;
-                } */
 
                 seen_keys_idx++;
 
@@ -2832,6 +2818,9 @@ dict_traverse2(CustomPyDictObject *dict, int print)
                 printf(".\n");
                 fflush(stdout);
             }
+
+            if (error)
+                goto error_occurred;
         }
     }
 
@@ -2845,14 +2834,6 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     /* for (int i = 0; i < seen_keys_idx; i++) {
         printf("%d %s\n", i, seen_keys[i]);
         fflush(stdout);
-
-        if (!isalpha(seen_keys[i][0]) || seen_keys[i][0] != '\'') {
-            printf("i: %d not alpha.\n", i);
-            fflush(stdout);
-
-            error = 1;
-            goto error_occurred;
-        }
     } */
 
     for (int i = 0; i < dict->ma_num_items; i++) {

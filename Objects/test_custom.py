@@ -32,4 +32,4 @@ for key in list(words.keys()):
         # print(key)
         None
     None
-mycustom.num_items()
+mycustom.print()
