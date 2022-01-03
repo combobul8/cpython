@@ -1628,7 +1628,7 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     return 0;
 }
 
-#define EBUG_FILTER
+// #define EBUG_FILTER
 int
 filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 {
@@ -2481,9 +2481,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("custom_lookup2 0(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2493,16 +2493,12 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 assert(PyUnicode_CheckExact(ep->me_key));
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                    printf("%s in primary layer.\n", PyUnicode_AsUTF8(key));
-                    fflush(stdout);
                     goto found;
                 }
                 else if (i == *i0 && mp->ma_layers[i].keys) {
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         (*num_cmps)++;
                         if (mp->ma_layers[i].keys[j]->me_key == key) {
-                            printf("%s in secondary layer.\n", PyUnicode_AsUTF8(key));
-                            fflush(stdout);
                             *value_addr = mp->ma_layers[i].keys[j]->me_value;
                             return ix;
                         }
@@ -2518,9 +2514,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
             i = mask & (i + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("custom_lookup2 1(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2697,13 +2693,10 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
     *num_cmps = 0;
 
     while (ix >= 0) {
-        printf("%lld %lld; ", i, ix);
         (*num_cmps)++;
         i = (i + 1) & mask;
         ix = dictkeys_get_index(keys, i);
     }
-    printf("\n");
-    fflush(stdout);
     return i;
 }
 
@@ -2896,7 +2889,7 @@ error_occurred:
     return num_items;
 }
 
-#define EBUG_INSERT
+// #define EBUG_INSERT
 /*
 Internal routine to insert a new item into the table.
 Used both by the internal resize routine and by the public insert routine.
@@ -3059,22 +3052,18 @@ dkix_empty:
 
         Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
         mp->ma_indices_stack_idx--;
-        printf("\tcheck; indices to hashpos %lld, %lld.\n", idx, mp->ma_indices_to_hashpos[idx]);
 
         ep = &DK_ENTRIES(mp->ma_keys)[idx];
         ep->i = hashpos0;
 
+#ifdef EBUG_INSERT
         printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
         printf("\tset_index %lld, %lld.\n", hashpos, idx);
         fflush(stdout);
-#ifdef EBUG_INSERT
 #endif
 
         dictkeys_set_index(mp->ma_keys, hashpos, idx);
-
         mp->ma_indices_to_hashpos[idx] = hashpos;
-        printf("\tindices_to_hashpos %lld: %lld.\n", idx, hashpos);
-        fflush(stdout);
 
         ep->me_key = key;
         ep->me_hash = hash;
@@ -3097,7 +3086,7 @@ dkix_empty:
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
 
-        if (mp->ma_num_items == dict_traverse2(mp, 0))
+        if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */)
             return 0;
         printf("\t\t2INEQUALITY\n");
         return -1;
