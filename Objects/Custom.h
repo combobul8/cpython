@@ -2481,9 +2481,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-#ifdef EBUG
             printf("custom_lookup2 0(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
+#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2493,12 +2493,16 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 assert(PyUnicode_CheckExact(ep->me_key));
                 if (ep->me_key == key ||
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                    printf("%s in primary layer.\n", PyUnicode_AsUTF8(key));
+                    fflush(stdout);
                     goto found;
                 }
                 else if (mp->ma_layers[i].keys) {
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         (*num_cmps)++;
                         if (mp->ma_layers[i].keys[j]->me_key == key) {
+                            printf("%s in secondary layer.\n", PyUnicode_AsUTF8(key));
+                            fflush(stdout);
                             *value_addr = mp->ma_layers[i].keys[j]->me_value;
                             return ix;
                         }
@@ -2514,9 +2518,9 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
             i = mask & (i + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-#ifdef EBUG
             printf("custom_lookup2 1(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
+#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2693,10 +2697,13 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
     *num_cmps = 0;
 
     while (ix >= 0) {
+        printf("%lld %lld; ", i, ix);
         (*num_cmps)++;
         i = (i + 1) & mask;
         ix = dictkeys_get_index(keys, i);
     }
+    printf("\n");
+    fflush(stdout);
     return i;
 }
 
