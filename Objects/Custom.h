@@ -1797,7 +1797,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             mp->ma_keys->dk_nentries++;
         }
         else {
-            printf("%lld insert into layer.\n", hashpos);
+            printf("%s insert into layer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
             fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
         }
@@ -2786,9 +2786,6 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             }
 
             Layer *layer = &dict->ma_layers[i];
-            printf("%d items in layer; ", layer->used);
-            fflush(stdout);
-
             for (int j = 0; j < layer->used; j++) {
                 if (seen(PyUnicode_AsUTF8(layer->keys[j]->me_key), seen_keys, seen_keys_idx)) {
                     printf("already have %s in dict;", PyUnicode_AsUTF8(layer->keys[j]->me_key));
