@@ -2497,7 +2497,7 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                     fflush(stdout);
                     goto found;
                 }
-                else if (mp->ma_layers[i].keys) {
+                else if (i == *i0 && mp->ma_layers[i].keys) {
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         (*num_cmps)++;
                         if (mp->ma_layers[i].keys[j]->me_key == key) {
@@ -2532,7 +2532,7 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
                     goto found;
                 }
-                else if (mp->ma_layers[i].keys) {
+                else if (i == *i0 && mp->ma_layers[i].keys) {
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         (*num_cmps)++;
                         if (mp->ma_layers[i].keys[j]->me_key == key) {
