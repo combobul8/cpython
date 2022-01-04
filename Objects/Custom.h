@@ -1689,7 +1689,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
         num_items_moved++;
 
         Py_ssize_t foo;
-        if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542) >= 0) && ep0[foo].me_key) {
+        if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542)) >= 0 && ep0[foo].me_key) {
             printf("0 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(ep0[foo].me_key));
             fflush(stdout);
         }
@@ -2588,6 +2588,12 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             fflush(stdout);
         }
 
+        Py_ssize_t foo = 375;
+        if (foo < mp->ma_keys->dk_usable && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
+            printf("-1 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
+            fflush(stdout);
+        }
+
         Py_hash_t hash = ep->me_hash;
         size_t hashpos0 = hash & mask;
         Layer *layer = &(mp->ma_layers[hashpos0]);
@@ -2999,7 +3005,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         mp->ma_num_items++;
         if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
             Py_ssize_t foo;
-            if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542) >= 0) && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
+            if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542)) >= 0 && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
                 printf("1 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
                 fflush(stdout);
             }
@@ -3086,7 +3092,7 @@ dkix_empty:
                 mp->ma_num_items++;
                 if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
                     Py_ssize_t foo;
-                    if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542) >= 0) && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
+                    if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542)) >= 0 && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
                         printf("2 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
                         fflush(stdout);
                     }
@@ -3112,8 +3118,6 @@ dkix_empty:
 #endif
 
         dictkeys_set_index(mp->ma_keys, hashpos, idx);
-        printf("\tget_index %lld, %lld.\n", hashpos, dictkeys_get_index(mp->ma_keys, hashpos));
-        fflush(stdout);
         mp->ma_indices_to_hashpos[idx] = hashpos;
 
         ep->me_key = key;
@@ -3126,8 +3130,6 @@ dkix_empty:
             ep->me_value = value;
         }
 
-        printf("\t1get_index %d, %lld.\n", 542, dictkeys_get_index(mp->ma_keys, 542));
-        fflush(stdout);
         strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
 
         //ep->me_layer = NULL;
@@ -3138,14 +3140,10 @@ dkix_empty:
         mp->ma_keys->dk_nentries++;
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
-        printf("\t2get_index %d, %lld.\n", 542, dictkeys_get_index(mp->ma_keys, 542));
-        fflush(stdout);
 
         if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
-            printf("\t3get_index %d, %lld.\n", 542, dictkeys_get_index(mp->ma_keys, 542));
-            fflush(stdout);
             Py_ssize_t foo, bar = 542;
-            if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, bar) >= 0) && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
+            if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, bar)) >= 0 && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
                 printf("3 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
                 fflush(stdout);
             }
