@@ -3113,6 +3113,7 @@ dkix_empty:
 
         dictkeys_set_index(mp->ma_keys, hashpos, idx);
         printf("\tget_index %lld, %lld.\n", hashpos, dictkeys_get_index(mp->ma_keys, hashpos));
+        fflush(stdout);
         mp->ma_indices_to_hashpos[idx] = hashpos;
 
         ep->me_key = key;
@@ -3125,6 +3126,8 @@ dkix_empty:
             ep->me_value = value;
         }
 
+        printf("\t1get_index %d, %lld.\n", 542, dictkeys_get_index(mp->ma_keys, 542));
+        fflush(stdout);
         strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
 
         //ep->me_layer = NULL;
@@ -3135,8 +3138,12 @@ dkix_empty:
         mp->ma_keys->dk_nentries++;
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
+        printf("\t2get_index %d, %lld.\n", 542, dictkeys_get_index(mp->ma_keys, 542));
+        fflush(stdout);
 
         if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
+            printf("\t3get_index %d, %lld.\n", 542, dictkeys_get_index(mp->ma_keys, 542));
+            fflush(stdout);
             Py_ssize_t foo, bar = 542;
             if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, bar) >= 0) && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
                 printf("3 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
