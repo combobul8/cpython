@@ -1687,6 +1687,12 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
         mp->ma_keys->dk_nentries--;
 
         num_items_moved++;
+
+        Py_ssize_t foo;
+        if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542) >= 0) && ep0[foo].me_key) {
+            printf("0 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(ep0[foo].me_key));
+            fflush(stdout);
+        }
     }
 
 #ifdef EBUG_FILTER
@@ -2798,7 +2804,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
         Py_ssize_t ix = dictkeys_get_index(keys, i);
 
         if (ix >= 0 && print) {
-            printf("%d -> %lld: ", i, ix);
+            printf("%d -> %lld (-> %d): ", i, ix, dict->ma_indices_to_hashpos[ix]);
             fflush(stdout);
         }
 
@@ -2991,8 +2997,14 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
         mp->ma_num_items++;
-        if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */)
+        if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
+            Py_ssize_t foo;
+            if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542) >= 0) && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
+                printf("1 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
+                fflush(stdout);
+            }
             return 0;
+        }
         printf("\t\t0INEQUALITY\n");
         return -1;
     }
@@ -3072,8 +3084,14 @@ dkix_empty:
 
                 strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
                 mp->ma_num_items++;
-                if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */)
+                if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
+                    Py_ssize_t foo;
+                    if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542) >= 0) && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
+                        printf("2 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
+                        fflush(stdout);
+                    }
                     return 0;
+                }
                 printf("\t\t1INEQUALITY\n");
                 return -1;
             }
@@ -3094,6 +3112,7 @@ dkix_empty:
 #endif
 
         dictkeys_set_index(mp->ma_keys, hashpos, idx);
+        printf("\tget_index %lld, %lld.\n", hashpos, dictkeys_get_index(mp->ma_keys, hashpos));
         mp->ma_indices_to_hashpos[idx] = hashpos;
 
         ep->me_key = key;
@@ -3117,8 +3136,14 @@ dkix_empty:
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
 
-        if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */)
+        if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
+            Py_ssize_t foo, bar = 542;
+            if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, bar) >= 0) && DK_ENTRIES(mp->ma_keys)[bar].me_key) {
+                printf("3 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[bar].me_key));
+                fflush(stdout);
+            }
             return 0;
+        }
         printf("\t\t2INEQUALITY\n");
         return -1;
     }
