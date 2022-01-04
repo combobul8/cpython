@@ -3138,8 +3138,8 @@ dkix_empty:
 
         if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
             Py_ssize_t foo, bar = 542;
-            if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, bar) >= 0) && DK_ENTRIES(mp->ma_keys)[bar].me_key) {
-                printf("3 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[bar].me_key));
+            if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, bar) >= 0) && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
+                printf("3 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
                 fflush(stdout);
             }
             return 0;
