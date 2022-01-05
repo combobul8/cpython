@@ -3006,14 +3006,11 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
                 mp->ma_keys->dk_usable++;
                 mp->ma_keys->dk_nentries--;
             } */
-
-            // if filter moved they item at i to a layer, then ix will have changed to DKIX_EMPTY.
-            ix = dictkeys_get_index(mp->ma_keys, hashpos0);
         }
 
         Layer *layer = &(mp->ma_layers[hashpos0]);
         if (layer->keys) {
-            if (ix != DKIX_EMPTY) {
+            if (dictkeys_get_index(mp->ma_keys, hashpos0) != DKIX_EMPTY) {
                 if (insertlayer_keyhashvalue(layer, key, hash, value)) {
                     printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
                     fflush(stdout);
