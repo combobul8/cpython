@@ -2614,7 +2614,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                 mp->ma_indices_stack_idx--;
 
                 dictkeys_set_index(keys, hashpos, idx);
-                printf("build_indices %lld used to be mapped to by %lld.\n", idx, mp->ma_indices_to_hashpos[idx]);
+                // printf("build_indices %lld used to be mapped to by %lld.\n", idx, mp->ma_indices_to_hashpos[idx]);
                 printf("build_indices set_index %lld %lld.\n", hashpos, idx);
                 fflush(stdout);
 
@@ -2645,16 +2645,16 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                 } */
 
                 // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
-                if (dictkeys_get_index(keys, hashpos) == DKIX_EMPTY) {
+                if (dictkeys_get_index(keys, hashpos0) == DKIX_EMPTY) {
                     Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
                     mp->ma_indices_stack_idx--;
 
-                    dictkeys_set_index(keys, hashpos, idx);
-                    printf("build_indices %lld used to be mapped to by %lld.\n", idx, mp->ma_indices_to_hashpos[idx]);
-                    printf("build_indices set_index %lld %lld.\n", hashpos, idx);
+                    dictkeys_set_index(keys, hashpos0, idx);
+                    // printf("build_indices %lld used to be mapped to by %lld.\n", idx, mp->ma_indices_to_hashpos[idx]);
+                    printf("build_indices set_index %lld %lld.\n", hashpos0, idx);
                     fflush(stdout);
 
-                    mp->ma_indices_to_hashpos[idx] = hashpos;
+                    mp->ma_indices_to_hashpos[idx] = hashpos0;
 
                     mp->ma_used++;
                     mp->ma_keys->dk_usable--;
@@ -2674,7 +2674,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             mp->ma_indices_stack_idx--;
 
             dictkeys_set_index(keys, hashpos, idx);
-            printf("build_indices %lld used to be mapped to by %lld.\n", idx, mp->ma_indices_to_hashpos[idx]);
+            // printf("build_indices %lld used to be mapped to by %lld.\n", idx, mp->ma_indices_to_hashpos[idx]);
             printf("build_indices set_index %lld %lld.\n", hashpos, idx);
             fflush(stdout);
 
@@ -2701,6 +2701,8 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
         }
 
         mp->ma_num_items++;
+        printf("---\n");
+        fflush(stdout);
     }
 }
 
