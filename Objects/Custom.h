@@ -1687,12 +1687,6 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
         mp->ma_keys->dk_nentries--;
 
         num_items_moved++;
-
-        Py_ssize_t foo;
-        if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542)) >= 0 && ep0[foo].me_key) {
-            printf("0 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(ep0[foo].me_key));
-            fflush(stdout);
-        }
     }
 
 #ifdef EBUG_FILTER
@@ -2588,12 +2582,6 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             fflush(stdout);
         }
 
-        Py_ssize_t foo = 375;
-        if (foo < mp->ma_keys->dk_usable && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
-            printf("-1 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
-            fflush(stdout);
-        }
-
         Py_hash_t hash = ep->me_hash;
         size_t hashpos0 = hash & mask;
         Layer *layer = &(mp->ma_layers[hashpos0]);
@@ -2960,63 +2948,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     int num_cmps;   /* currently not measuring the efficiency of insert */
     Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
 
-#ifdef EBUG_INSERT
-    printf("%s (i, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), i, num_cmps);
-    fflush(stdout);
-#endif
-
-    if (num_cmps > mp->ma_keys->dk_log2_size) {
-#ifdef EBUG_INSERT
-        printf("\tcustominsertdict %d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
-        fflush(stdout);
-#endif
-
-        int num_items_moved = filter(mp, i, num_cmps);
-        /* if (num_items_moved == 0) {
-            dictkeys_set_index(mp->ma_keys, i, DKIX_EMPTY);
-
-            Py_ssize_t idx = dictkeys_get_index(mp->ma_keys, i);
-
-            mp->ma_indices_stack_idx++;
-            mp->ma_indices_stack[mp->ma_indices_stack_idx] = idx;
-
-            ep->me_key = NULL;
-            ep->me_value = NULL;
-
-            mp->ma_used--;
-            mp->ma_keys->dk_usable++;
-            mp->ma_keys->dk_nentries--;
-        } */
-
-        // if filter moved they item at i to a layer, then ix will have changed to DKIX_EMPTY.
-        ix = dictkeys_get_index(mp->ma_keys, i);
-    }
-
-    Layer *layer = &(mp->ma_layers[i]);
-    if (layer->keys) {
-        if (ix == DKIX_EMPTY)
-            goto dkix_empty;
-
-        if (insertlayer_keyhashvalue(layer, key, hash, value)) {
-            printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
-            fflush(stdout);
-            return -1;
-        }
-
-        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-        mp->ma_num_items++;
-        if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
-            Py_ssize_t foo;
-            if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542)) >= 0 && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
-                printf("1 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
-                fflush(stdout);
-            }
-            return 0;
-        }
-        printf("\t\t0INEQUALITY\n");
-        return -1;
-    }
-
     if (ix == DKIX_ERROR)
         goto Fail;
 
@@ -3034,7 +2965,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     }
 
     if (ix == DKIX_EMPTY) {
-dkix_empty:
         /* Insert into new slot. */
         mp->ma_keys->dk_version = 0;
         assert(old_value == NULL);
@@ -3093,11 +3023,6 @@ dkix_empty:
                 strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
                 mp->ma_num_items++;
                 if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
-                    Py_ssize_t foo;
-                    if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, 542)) >= 0 && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
-                        printf("2 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
-                        fflush(stdout);
-                    }
                     return 0;
                 }
                 printf("\t\t1INEQUALITY\n");
@@ -3144,11 +3069,6 @@ dkix_empty:
         ASSERT_CONSISTENT(mp);
 
         if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
-            Py_ssize_t foo, bar = 542;
-            if (542 < DK_SIZE(mp->ma_keys) && (foo = dictkeys_get_index(mp->ma_keys, bar)) >= 0 && DK_ENTRIES(mp->ma_keys)[foo].me_key) {
-                printf("3 542 %lld stores %s.\n", foo, PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[foo].me_key));
-                fflush(stdout);
-            }
             return 0;
         }
         printf("\t\t2INEQUALITY\n");
