@@ -1628,7 +1628,7 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     return 0;
 }
 
-// #define EBUG_FILTER
+#define EBUG_FILTER
 int
 filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 {
@@ -2917,7 +2917,7 @@ error_occurred:
     return num_items;
 }
 
-// #define EBUG_INSERT
+#define EBUG_INSERT
 /*
 Internal routine to insert a new item into the table.
 Used both by the internal resize routine and by the public insert routine.
