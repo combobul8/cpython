@@ -1628,7 +1628,7 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     return 0;
 }
 
-#define EBUG_FILTER
+// #define EBUG_FILTER
 int
 filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 {
@@ -2571,7 +2571,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
     mp->ma_num_items = 0;
 
     for (int i = 0; i < n; i++, ep++) {
-        PyObject *rv;
+        /* PyObject *rv;
         Py_ssize_t i0;
         int num_cmps2;
 
@@ -2580,7 +2580,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
         if (custom_lookup2(mp, ep->me_key, ep->me_hash, &rv, &i0, &num_cmps2) >= 0) {
             printf("build_indices found %s already.\n", PyUnicode_AsUTF8(ep->me_key));
             fflush(stdout);
-        }
+        } */
 
         Py_hash_t hash = ep->me_hash;
         size_t hashpos0 = hash & mask;
@@ -2602,9 +2602,8 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                 mp->ma_indices_stack_idx--;
 
                 dictkeys_set_index(keys, hashpos, idx);
-                // printf("build_indices %lld used to be mapped to by %lld.\n", idx, mp->ma_indices_to_hashpos[idx]);
-                printf("build_indices set_index %lld %lld.\n", hashpos, idx);
-                fflush(stdout);
+                /* printf("build_indices set_index %lld %lld.\n", hashpos, idx);
+                fflush(stdout); */
 
                 mp->ma_indices_to_hashpos[idx] = hashpos;
 
@@ -2638,9 +2637,8 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                     mp->ma_indices_stack_idx--;
 
                     dictkeys_set_index(keys, hashpos0, idx);
-                    // printf("build_indices %lld used to be mapped to by %lld.\n", idx, mp->ma_indices_to_hashpos[idx]);
-                    printf("build_indices set_index %lld %lld.\n", hashpos0, idx);
-                    fflush(stdout);
+                    /* printf("build_indices set_index %lld %lld.\n", hashpos0, idx);
+                    fflush(stdout); */
 
                     mp->ma_indices_to_hashpos[idx] = hashpos0;
 
@@ -2662,9 +2660,8 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             mp->ma_indices_stack_idx--;
 
             dictkeys_set_index(keys, hashpos, idx);
-            // printf("build_indices %lld used to be mapped to by %lld.\n", idx, mp->ma_indices_to_hashpos[idx]);
-            printf("build_indices set_index %lld %lld.\n", hashpos, idx);
-            fflush(stdout);
+            /* printf("build_indices set_index %lld %lld.\n", hashpos, idx);
+            fflush(stdout); */
 
             mp->ma_indices_to_hashpos[idx] = hashpos;
 
@@ -2689,8 +2686,6 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
         }
 
         mp->ma_num_items++;
-        printf("---\n");
-        fflush(stdout);
     }
 }
 
@@ -3035,10 +3030,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         ep = &DK_ENTRIES(mp->ma_keys)[idx];
         ep->i = hashpos0;
 
-        printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
-        printf("\tset_index %lld, %lld.\n", hashpos, idx);
-        fflush(stdout);
 #ifdef EBUG_INSERT
+        printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
+        // printf("\tset_index %lld, %lld.\n", hashpos, idx);
+        fflush(stdout);
 #endif
 
         dictkeys_set_index(mp->ma_keys, hashpos, idx);
