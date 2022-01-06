@@ -2602,7 +2602,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                 mp->ma_indices_stack_idx--;
 
                 dictkeys_set_index(keys, hashpos, idx);
-                printf("%s build_indices probe set_index %lld %lld.\n", PyUnicode_AsUTF8(ep->me_value), hashpos, idx);
+                printf("%s build_indices probe set_index %lld %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos, idx, hashpos0);
                 fflush(stdout); /* */
 
                 mp->ma_indices_to_hashpos[idx] = hashpos;
