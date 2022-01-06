@@ -1885,12 +1885,8 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
 
             while (i < DK_SIZE(oldkeys)) {
                 Py_ssize_t ix = dictkeys_get_index(oldkeys, i);
-                if (ix < 0) {
-                    i++;
-                    continue;
-                }
 
-                if (ep[ix].me_value) {
+                if (ix >= 0 && ep[ix].me_value) {
                     // printf("%s(%lld), ", PyUnicode_AsUTF8(ep[ix].me_key), numentries); fflush(stdout);
                     newentries[numentries] = ep[ix];
                     numentries++;
