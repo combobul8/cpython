@@ -1625,6 +1625,8 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     layer->keys[layer->used]->me_value = value;
     layer->used++;
 
+    printf("%s inserted into layer.\n", PyUnicode_AsUTF8(key));
+    fflush(stdout);
     return 0;
 }
 
@@ -2607,6 +2609,12 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
                 mp->ma_indices_to_hashpos[idx] = hashpos;
 
+                PyDictKeyEntry *entry = &DK_ENTRIES(mp->ma_keys)[idx];
+                entry->me_key = ep->me_key;
+                entry->me_hash = ep->me_hash;
+                entry->me_value = ep->me_value;
+                entry->i = ep->i;
+
                 mp->ma_used++;
                 mp->ma_keys->dk_usable--;
                 mp->ma_keys->dk_nentries++;
@@ -2641,6 +2649,12 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                     fflush(stdout); /* */
 
                     mp->ma_indices_to_hashpos[idx] = hashpos0;
+
+                    PyDictKeyEntry *entry = &DK_ENTRIES(mp->ma_keys)[idx];
+                    entry->me_key = ep->me_key;
+                    entry->me_hash = ep->me_hash;
+                    entry->me_value = ep->me_value;
+                    entry->i = ep->i;
 
                     mp->ma_used++;
                     mp->ma_keys->dk_usable--;
