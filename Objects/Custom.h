@@ -2600,8 +2600,8 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                 mp->ma_indices_stack_idx--;
 
                 dictkeys_set_index(keys, hashpos, idx);
-                printf("%s build_indices probe set_index %lld %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos, idx, hashpos0);
-                fflush(stdout); /* */
+                /* printf("%s build_indices probe set_index %lld %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos, idx, hashpos0);
+                fflush(stdout); */
 
                 mp->ma_indices_to_hashpos[idx] = hashpos;
 
@@ -2641,8 +2641,8 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                     mp->ma_indices_stack_idx--;
 
                     dictkeys_set_index(keys, hashpos0, idx);
-                    printf("build_indices post-filter set_index %lld %lld.\n", hashpos0, idx);
-                    fflush(stdout); /* */
+                    /* printf("build_indices post-filter set_index %lld %lld.\n", hashpos0, idx);
+                    fflush(stdout); */
 
                     mp->ma_indices_to_hashpos[idx] = hashpos0;
 
@@ -2927,7 +2927,7 @@ error_occurred:
     return num_items;
 }
 
-#define EBUG_INSERT
+// #define EBUG_INSERT
 /*
 Internal routine to insert a new item into the table.
 Used both by the internal resize routine and by the public insert routine.
