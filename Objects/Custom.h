@@ -1730,10 +1730,7 @@ After resizing a table is always combined,
 but can be resplit by make_keys_shared().
 */
 static int
-customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl helpers)
 {
     printf("customdictresize log2_newsize: %ld.\n", log2_newsize);
     fflush(stdout);
@@ -1797,9 +1794,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         return -1;
     }
 
-    /* for (int i = 0; i < DK_SIZE(mp->ma_keys); i++)
-        mp->ma_indices_to_hashpos[i] = -1; */
-
     // New table must be large enough.
     assert(mp->ma_keys->dk_usable >= mp->ma_used);
     if (oldkeys->dk_kind == DICT_KEYS_GENERAL)
@@ -1844,7 +1838,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 PyObject *old_value;
                 size_t j;
                 int num_cmps;
-                Py_ssize_t ix = lookup(mp, entry->me_key, entry->me_hash, &old_value, &j, &num_cmps);
+                Py_ssize_t ix = helpers.lookup(mp, entry->me_key, entry->me_hash, &old_value, &j, &num_cmps);
                 assert(ix == DKIX_EMPTY);
 
                 if (num_cmps > mp->ma_keys->dk_log2_size) {
@@ -1861,7 +1855,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 }
 
                 int num_cmps2;
-                Py_ssize_t hashpos = empty_slot(mp->ma_keys, entry->me_hash, &i, &num_cmps2);
+                Py_ssize_t hashpos = helpers.empty_slot(mp->ma_keys, entry->me_hash, &i, &num_cmps2);
                 if (num_cmps2 != num_cmps) {
                     printf("customdictresize num_cmps2 != num_cmps: %d != %d.\n", num_cmps2, num_cmps);
                     fflush(stdout);
@@ -1891,7 +1885,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 Py_ssize_t ix = dictkeys_get_index(oldkeys, i);
 
                 if (ix >= 0 && ep[ix].me_value) {
-                    // printf("%s(%lld), ", PyUnicode_AsUTF8(ep[ix].me_key), numentries); fflush(stdout);
                     newentries[numentries] = ep[ix];
                     numentries++;
                 }
@@ -1899,8 +1892,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
                 if (mp->ma_layers[i].keys) {
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         PyDictKeyEntry *layer_ep = mp->ma_layers[i].keys[j];
-
-                        // printf("%s, ", PyUnicode_AsUTF8(layer_ep->me_key)); fflush(stdout);
                         newentries[numentries] = *layer_ep;
                         numentries++;
                     }
@@ -1940,10 +1931,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         }
     }
 
-    /* for (int i = 0; i < DK_SIZE(oldkeys); i++) {
-        dictkeys_set_index(oldkeys, )
-    } */
-
     if (!mp->ma_layers) {
         printf("customdictresize mp->ma_layers NULL???\n");
         fflush(stdout);
@@ -1963,7 +1950,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
         mp->ma_layers[i].n = 0;
     }
 
-    build_idxs(mp, newentries, numentries);
+    helpers.build_idxs(mp, newentries, numentries);
     // mp->ma_keys->dk_usable -= numentries;
     mp->ma_keys->dk_nentries = numentries;
 
@@ -2138,7 +2125,7 @@ estimate_log2_keysize(Py_ssize_t n)
 static int
 custom_insertion_resize(CustomPyDictObject *mp, DictHelpersImpl helpers)
 {
-    return customdictresize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
+    return customdictresize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)), helpers);
 }
 
 static int
@@ -3605,7 +3592,7 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value, DictHelpers
         return custom_insert_to_emptydict(mp, key, hash, value);
     }
     /* custominsertdict() handles any resizing that might be necessary */
-    return custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+    return custominsertdict(mp, key, hash, value, helpers);
 }
 
 /* CAUTION: PyDict_SetItem() must guarantee that it won't resize the
@@ -3655,10 +3642,7 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
 }
 
 static int
-custom_dict_merge(PyObject *a, PyObject *b, int override,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custom_dict_merge(PyObject *a, PyObject *b, int override, DictHelpersImpl helpers)
 {
 #ifdef EBUG
     printf("\ncustom_dict_merge override: %d\n", override);
@@ -3730,7 +3714,7 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
          * that there will be no (or few) overlapping keys.
          */
         if (USABLE_FRACTION(DK_SIZE(mp->ma_keys)) < other->ma_used) {
-            if (customdictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used), lookup, empty_slot, build_idxs)) {
+            if (customdictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used), helpers)) {
                return -1;
             }
         }
@@ -3751,11 +3735,11 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
                 Py_INCREF(key);
                 Py_INCREF(value);
                 if (override == 1)
-                    err = custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+                    err = custominsertdict(mp, key, hash, value, helpers);
                 else {
                     err = custom_PyDict_Contains_KnownHash(a, key, hash);
                     if (err == 0) {
-                        err = custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+                        err = custominsertdict(mp, key, hash, value, helpers);
                     }
                     else if (err > 0) {
                         if (override != 0) {
@@ -3830,7 +3814,7 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
                 Py_DECREF(key);
                 return -1;
             }
-            status = custom_PyDict_SetItem2(a, key, value, lookup, empty_slot, build_idxs);
+            status = custom_PyDict_SetItem2(a, key, value, helpers);
 
 #ifdef EBUG
             printf("status: %d\n", status);
@@ -4053,10 +4037,7 @@ dict_merge(PyObject *a, PyObject *b, int override,
 }
 
 int
-custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custom_PyDict_Merge2(PyObject *a, PyObject *b, int override, DictHelpersImpl helpers)
 {
 #ifdef EBUG
     printf("called custom_PyDict_Merge\n");
@@ -4064,7 +4045,7 @@ custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
-    return custom_dict_merge(a, b, override != 0, lookup, empty_slot, build_idxs);
+    return custom_dict_merge(a, b, override != 0, helpers);
 }
 
 int
@@ -4083,10 +4064,7 @@ custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
 
 /* Single-arg dict update; used by dict_update_common and operators. */
 static int
-custom_dict_update_arg(PyObject *self, PyObject *arg,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custom_dict_update_arg(PyObject *self, PyObject *arg, DictHelpersImpl helpers)
 {
 #ifdef EBUG
     printf("called custom_dict_update_arg\n");
@@ -4094,7 +4072,7 @@ custom_dict_update_arg(PyObject *self, PyObject *arg,
 #endif
 
     if (PyDict_CheckExact(arg)) {
-        return custom_PyDict_Merge2(self, arg, 1, lookup, empty_slot, build_idxs);
+        return custom_PyDict_Merge2(self, arg, 1, helpers);
     }
     _Py_IDENTIFIER(keys);
     PyObject *func;
@@ -4103,7 +4081,7 @@ custom_dict_update_arg(PyObject *self, PyObject *arg,
     }
     if (func != NULL) {
         Py_DECREF(func);
-        return custom_PyDict_Merge2(self, arg, 1, lookup, empty_slot, build_idxs);
+        return custom_PyDict_Merge2(self, arg, 1, helpers);
     }
     return PyDict_MergeFromSeq2(self, arg, 1);
 }
