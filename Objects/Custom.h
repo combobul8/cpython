@@ -1762,20 +1762,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl h
         return -1;
     }
 
-    int i = 0;
-    while (i < DK_SIZE(mp->ma_keys)) {
-        Py_ssize_t ix = dictkeys_get_index(mp->ma_keys, i);
-        if (ix >= 0) {
-            printf("customdictresize get_index %d = %lld > 0.\n", i, ix);
-            fflush(stdout);
-            return -1;
-        }
-        i++;
-    }
-
-    printf("customdictresize dk_usable: %lld.\n", mp->ma_keys->dk_usable);
-    fflush(stdout);
-
     mp->ma_indices_stack = realloc(mp->ma_indices_stack, DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_indices_stack));
     if (mp->ma_indices_to_hashpos == NULL) {
         printf("customdictresize ma_indices_stack realloc fail.\n");
@@ -1800,7 +1786,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl h
         mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
 
     numentries = mp->ma_used;
-
     oldentries = DK_ENTRIES(oldkeys);
     newentries = DK_ENTRIES(mp->ma_keys);
     oldvalues = mp->ma_values;
@@ -1836,15 +1821,10 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl h
                 PyDictKeyEntry *entry = &oldentries[i];
 
                 PyObject *old_value;
-                size_t j;
+                size_t hashpos0;
                 int num_cmps;
-                Py_ssize_t ix = helpers.lookup(mp, entry->me_key, entry->me_hash, &old_value, &j, &num_cmps);
+                Py_ssize_t ix = helpers.lookup(mp, entry->me_key, entry->me_hash, &old_value, &hashpos0, &num_cmps);
                 assert(ix == DKIX_EMPTY);
-
-                if (num_cmps > mp->ma_keys->dk_log2_size) {
-                    printf("customdictresize j: %lld; num_cmps: %d; need to use layers!\n", j, num_cmps);
-                    fflush(stdout);
-                }
 
                 /* Insert into new slot. */
                 mp->ma_keys->dk_version = 0;
@@ -2938,9 +2918,9 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             goto Fail;
     }
 
-    Py_ssize_t i;
+    Py_ssize_t hashpos0;
     int num_cmps;   /* currently not measuring the efficiency of insert */
-    Py_ssize_t ix = helpers.lookup(mp, key, hash, &old_value, &i, &num_cmps);
+    Py_ssize_t ix = helpers.lookup(mp, key, hash, &old_value, &hashpos0, &num_cmps);
 
     if (ix == DKIX_ERROR)
         goto Fail;
@@ -2975,7 +2955,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
 
-        Py_ssize_t hashpos0;
         Py_ssize_t hashpos = helpers.empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
 
         if (num_cmps > mp->ma_keys->dk_log2_size) {
