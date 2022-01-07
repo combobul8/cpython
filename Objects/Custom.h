@@ -3306,14 +3306,15 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
         mp->ma_layers[i].n = 0;
     }
 
-    mp->ma_string_keys = malloc(3000 * sizeof *(mp->ma_string_keys));
+    int MAX = 10000;
+    mp->ma_string_keys = malloc(MAX * sizeof *(mp->ma_string_keys));
     if (!mp->ma_string_keys) {
         printf("custom_insert_to_emptydict ma_string_keys malloc fail.\n");
         fflush(stdout);
         return -1;
     }
 
-    for (int i = 0; i < 3000; i++) {
+    for (int i = 0; i < MAX; i++) {
         mp->ma_string_keys[i] = malloc(80 * sizeof *(mp->ma_string_keys[i]));
         if (!mp->ma_string_keys[i]) {
             printf("custom_insert_to_emptydict ma_string_keys[%d] malloc fail.\n", i);
