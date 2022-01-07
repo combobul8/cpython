@@ -128,6 +128,12 @@ struct _dictkeysobject {
     char dk_indices[];  /* char is required to avoid strict aliasing. */
 };
 
+typedef struct {
+    Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *);
+    Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *);
+    void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t);
+} DictHelpers;
+
 typedef enum {
     DICT_KEYS_GENERAL = 0,
     DICT_KEYS_UNICODE = 1,
@@ -2130,10 +2136,7 @@ estimate_log2_keysize(Py_ssize_t n)
 #define CUSTOM_GROWTH_RATE(d) ((d)->ma_num_items*2)
 
 static int
-custom_insertion_resize(CustomPyDictObject *mp,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custom_insertion_resize(CustomPyDictObject *mp, DictHelpers helpers)
 {
     return customdictresize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
 }
@@ -2936,10 +2939,7 @@ Used both by the internal resize routine and by the public insert routine.
 Returns -1 if an error occurred, or 0 on success.
 */
 static int
-custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value, DictHelpers helpers)
 {
     PyObject *old_value;
     PyDictKeyEntry *ep;
@@ -2947,13 +2947,13 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     Py_INCREF(key);
     Py_INCREF(value);
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
-        if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
+        if (custom_insertion_resize(mp, helpers) < 0)
             goto Fail;
     }
 
     Py_ssize_t i;
     int num_cmps;   /* currently not measuring the efficiency of insert */
-    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
+    Py_ssize_t ix = helpers.lookup(mp, key, hash, &old_value, &i, &num_cmps);
 
     if (ix == DKIX_ERROR)
         goto Fail;
@@ -2966,7 +2966,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     if (_PyDict_HasSplitTable(mp) &&
         ((ix >= 0 && old_value == NULL && mp->ma_used != ix) ||
          (ix == DKIX_EMPTY && mp->ma_used != mp->ma_keys->dk_nentries))) {
-        if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
+        if (custom_insertion_resize(mp, helpers) < 0)
             goto Fail;
         ix = DKIX_EMPTY;
     }
@@ -2981,7 +2981,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             fflush(stdout);
 
             /* Need to resize. */
-            if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
+            if (custom_insertion_resize(mp, helpers) < 0)
                 goto Fail;
         }
         if (!PyUnicode_CheckExact(key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
@@ -2989,7 +2989,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
 
         Py_ssize_t hashpos0;
-        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
+        Py_ssize_t hashpos = helpers.empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
 
         if (num_cmps > mp->ma_keys->dk_log2_size) {
 #ifdef EBUG_INSERT
@@ -3034,7 +3034,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             }
         }
 
-        hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
+        hashpos = helpers.empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
 
         Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
         mp->ma_indices_stack_idx--;
@@ -3571,10 +3571,7 @@ custom_PyObject_Hash(PyObject *v)
  * remove them.
  */
 int
-custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value, DictHelpers helpers)
 {
 #ifdef EBUG
     printf("called custom_PyDict_SetItem\n");
