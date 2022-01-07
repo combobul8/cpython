@@ -12,7 +12,7 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
     for line in f:
         word = line.strip()
 
-        if i >= 6754:
+        if i >= 16384:
             break
         elif mycustom.get(word) == None:
             mycustom.update({word: i})
@@ -28,8 +28,8 @@ toc = time.perf_counter()
 
 for key in list(words.keys()):
     # print(key)
-    # if mycustom.get(key) != None:
+    if mycustom.get(key) != None:
         # print(key)
-        # None
+        None
     None
 mycustom.print()

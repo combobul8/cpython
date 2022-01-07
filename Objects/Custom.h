@@ -1625,12 +1625,10 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     layer->keys[layer->used]->me_value = value;
     layer->used++;
 
-    printf("%s inserted into layer.\n", PyUnicode_AsUTF8(key));
-    fflush(stdout);
     return 0;
 }
 
-#define EBUG_FILTER
+// #define EBUG_FILTER
 int
 filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 {
@@ -2381,9 +2379,9 @@ found:
 Py_ssize_t _Py_HOT_FUNCTION
 custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, size_t* i0, int *num_cmps)
 {
+#ifdef EBUG
     printf("custom_lookup2 %s i: %lld.\n", PyUnicode_AsUTF8(key), (size_t)hash & DK_MASK(mp->ma_keys));
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     PyDictKeysObject *dk;
@@ -3310,7 +3308,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
         mp->ma_layers[i].n = 0;
     }
 
-    int MAX = 10000;
+    int MAX = 50000;
     mp->ma_string_keys = malloc(MAX * sizeof *(mp->ma_string_keys));
     if (!mp->ma_string_keys) {
         printf("custom_insert_to_emptydict ma_string_keys malloc fail.\n");
