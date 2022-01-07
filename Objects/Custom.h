@@ -1812,49 +1812,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl h
     }
     else {  // combined table.
         if (0 /* oldkeys->dk_nentries == numentries */) {
-            mp->ma_used = 0;
-
-            for (Py_ssize_t i = 0; i < numentries; i++) {
-                printf("customdictresize SHOULD NOT BE HERE: %lld\n", i);
-                fflush(stdout);
-
-                PyDictKeyEntry *entry = &oldentries[i];
-
-                PyObject *old_value;
-                size_t hashpos0;
-                int num_cmps;
-                Py_ssize_t ix = helpers.lookup(mp, entry->me_key, entry->me_hash, &old_value, &hashpos0, &num_cmps);
-                assert(ix == DKIX_EMPTY);
-
-                /* Insert into new slot. */
-                mp->ma_keys->dk_version = 0;
-                assert(old_value == NULL);
-                assert(mp->ma_keys->dk_usable > 0);
-                if (!PyUnicode_CheckExact(entry->me_key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
-                    mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
-                }
-
-                int num_cmps2;
-                Py_ssize_t hashpos = helpers.empty_slot(mp->ma_keys, entry->me_hash, &i, &num_cmps2);
-                if (num_cmps2 != num_cmps) {
-                    printf("customdictresize num_cmps2 != num_cmps: %d != %d.\n", num_cmps2, num_cmps);
-                    fflush(stdout);
-                }
-
-                PyDictKeyEntry *ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
-                dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
-                ep->me_key = entry->me_key;
-                ep->me_hash = entry->me_hash;
-                ep->me_value = entry->me_value;
-
-                //ep->me_layer = NULL;
-                mp->ma_used++;
-                mp->ma_version_tag = DICT_NEXT_VERSION();
-                mp->ma_keys->dk_usable--;
-                mp->ma_keys->dk_nentries++;
-                assert(mp->ma_keys->dk_usable >= 0);
-                ASSERT_CONSISTENT(mp);
-            }
+            memcpy(newentries, oldentries, numentries * sizeof(PyDictKeyEntry));
         }
         else {
             numentries = 0;
@@ -1933,7 +1891,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl h
     helpers.build_idxs(mp, newentries, numentries);
     // mp->ma_keys->dk_usable -= numentries;
     mp->ma_keys->dk_nentries = numentries;
-
+    ASSERT_CONSISTENT(mp);
     return 0;
 }
 
