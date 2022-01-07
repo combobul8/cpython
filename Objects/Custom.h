@@ -2381,9 +2381,9 @@ found:
 Py_ssize_t _Py_HOT_FUNCTION
 custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, size_t* i0, int *num_cmps)
 {
-#ifdef EBUG
-    printf("custom_lookup2 %s.\n", PyUnicode_AsUTF8(key));
+    printf("custom_lookup2 %s i: %lld.\n", PyUnicode_AsUTF8(key), (size_t)hash & DK_MASK(mp->ma_keys));
     fflush(stdout);
+#ifdef EBUG
 #endif
 
     PyDictKeysObject *dk;
@@ -2416,13 +2416,16 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 }
                 else if (i == *i0 && mp->ma_layers[i].keys) {
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
+                        printf("%s ", PyUnicode_AsUTF8(mp->ma_layers[i].keys[j]->me_key));
                         (*num_cmps)++;
-                        if (mp->ma_layers[i].keys[j]->me_key == key) {
+                        if (mp->ma_layers[i].keys[j]->me_key == key ||
+                                (mp->ma_layers[i].keys[j]->me_hash == hash && unicode_eq(mp->ma_layers[i].keys[j]->me_key, key))) {
                             *value_addr = mp->ma_layers[i].keys[j]->me_value;
                             return ix;
                         }
                     }
-
+                    printf("\n");
+                    fflush(stdout);
                     return DKIX_EMPTY;
                 }
             }
@@ -2450,7 +2453,8 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                 else if (i == *i0 && mp->ma_layers[i].keys) {
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         (*num_cmps)++;
-                        if (mp->ma_layers[i].keys[j]->me_key == key) {
+                        if (mp->ma_layers[i].keys[j]->me_key == key ||
+                                (mp->ma_layers[i].keys[j]->me_hash == hash && unicode_eq(mp->ma_layers[i].keys[j]->me_key, key))) {
                             *value_addr = mp->ma_layers[i].keys[j]->me_value;
                             return ix;
                         }
@@ -2680,7 +2684,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             mp->ma_keys->dk_nentries++;
         }
         else {
-            printf("%s insert into layer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
+            printf("build_indices %s layer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
             fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
 

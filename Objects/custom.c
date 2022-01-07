@@ -313,6 +313,8 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
         fflush(stdout); */
     }
 
+    printf("get_impl %s ix: %lld.\n", PyUnicode_AsUTF8(key), ix);
+    fflush(stdout);
 #ifdef EBUG
 #endif
 
