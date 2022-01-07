@@ -132,7 +132,7 @@ typedef struct {
     Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *);
     Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *);
     void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t);
-} DictHelpers;
+} DictHelpersImpl;
 
 typedef enum {
     DICT_KEYS_GENERAL = 0,
@@ -2136,7 +2136,7 @@ estimate_log2_keysize(Py_ssize_t n)
 #define CUSTOM_GROWTH_RATE(d) ((d)->ma_num_items*2)
 
 static int
-custom_insertion_resize(CustomPyDictObject *mp, DictHelpers helpers)
+custom_insertion_resize(CustomPyDictObject *mp, DictHelpersImpl helpers)
 {
     return customdictresize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
 }
@@ -2939,7 +2939,7 @@ Used both by the internal resize routine and by the public insert routine.
 Returns -1 if an error occurred, or 0 on success.
 */
 static int
-custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value, DictHelpers helpers)
+custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value, DictHelpersImpl helpers)
 {
     PyObject *old_value;
     PyDictKeyEntry *ep;
@@ -3571,7 +3571,7 @@ custom_PyObject_Hash(PyObject *v)
  * remove them.
  */
 int
-custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value, DictHelpers helpers)
+custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value, DictHelpersImpl helpers)
 {
 #ifdef EBUG
     printf("called custom_PyDict_SetItem\n");
