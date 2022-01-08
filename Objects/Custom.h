@@ -1751,6 +1751,38 @@ collect_entries(CustomPyDictObject *mp, PyDictKeysObject *oldkeys, PyDictKeyEntr
     }
 }
 
+int
+layers_reinit(CustomPyDictObject *mp, PyDictKeysObject *oldkeys)
+{
+    if (!mp->ma_layers) {
+        printf("layers_reinit ma_layers NULL???\n");
+        fflush(stdout);
+        return -1;
+    }
+
+    Py_ssize_t i = 0;
+    while (i < DK_SIZE(oldkeys)) {
+        if (mp->ma_layers[i].keys)
+            free(mp->ma_layers[i].keys);
+        i++;
+    }
+
+    mp->ma_layers = realloc(mp->ma_layers, DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
+    if (mp->ma_layers == NULL) {
+        printf("customdictresize ma_indices_to_hashpos realloc fail.\n");
+        fflush(stdout);
+        return -1;
+    }
+
+    for (Py_ssize_t i = 0; i < DK_SIZE(mp->ma_keys); i++) {
+        mp->ma_layers[i].keys = NULL;
+        mp->ma_layers[i].used = 0;
+        mp->ma_layers[i].n = 0;
+    }
+
+    return 0;
+}
+
 // #define EBUG_RESIZE
 /*
 Restructure the table by allocating a new table and reinserting all
@@ -1871,24 +1903,10 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl h
         }
     }
 
-    if (!mp->ma_layers) {
-        printf("customdictresize mp->ma_layers NULL???\n");
-        fflush(stdout);
+    printf("calling layers_reinit.\n");
+    fflush(stdout);
+    if (layers_reinit(mp, oldkeys))
         return -1;
-    }
-
-    mp->ma_layers = realloc(mp->ma_layers, DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
-    if (mp->ma_layers == NULL) {
-        printf("customdictresize ma_indices_to_hashpos realloc fail.\n");
-        fflush(stdout);
-        return -1;
-    }
-
-    for (int64_t i = 0; i < DK_SIZE(mp->ma_keys); i++) {
-        mp->ma_layers[i].keys = NULL;
-        mp->ma_layers[i].used = 0;
-        mp->ma_layers[i].n = 0;
-    }
 
     helpers.build_idxs(mp, newentries, numentries);
     // mp->ma_keys->dk_usable -= numentries;
