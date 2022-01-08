@@ -2963,22 +2963,20 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             return 0;
         }
 
-        // No layer at this point. Use linear probing if it's efficient.
-        if (num_cmps <= mp->ma_keys->dk_log2_size) {
-        }
-        else {
+        // No layer at this point.
+        // But if linear probing would be inefficient, then create a layer for this and future insertions.
+        if (num_cmps > mp->ma_keys->dk_log2_size) {
 #ifdef EBUG_INSERT
             printf("\t%d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
             fflush(stdout);
 #endif
 
             filter(mp, hashpos0, num_cmps);
-            // Insert into layer that's just been created.
+            // Insert into layer (that's just been created).
             return 0;
         }
 
-        hashpos = helpers.empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
-
+        // Insert into empty slot that linear probing computed.
 #ifdef EBUG_INSERT
         printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
         fflush(stdout);
