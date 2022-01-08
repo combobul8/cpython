@@ -1718,6 +1718,39 @@ Internal routine used by dictresize() to build a hashtable of entries.
 
 // custom_build_indices
 
+void
+collect_entries(CustomPyDictObject *mp, PyDictKeysObject *oldkeys, PyDictKeyEntry *newentries,
+        Py_ssize_t *numentries)
+{
+    Py_ssize_t i = 0;
+    PyDictKeyEntry *ep = DK_ENTRIES(oldkeys);
+    *numentries = 0;
+
+    while (i < DK_SIZE(oldkeys)) {
+        Py_ssize_t ix = dictkeys_get_index(oldkeys, i);
+
+        if (ix >= 0 && ep[ix].me_value) {
+            newentries[*numentries] = ep[ix];
+            (*numentries)++;
+        }
+
+        if (mp->ma_layers[i].keys) {
+            for (int j = 0; j < mp->ma_layers[i].used; j++) {
+                PyDictKeyEntry *layer_ep = mp->ma_layers[i].keys[j];
+                newentries[*numentries] = *layer_ep;
+                (*numentries)++;
+            }
+
+            free(mp->ma_layers[i].keys);
+            mp->ma_layers[i].keys = NULL;
+            mp->ma_layers[i].used = 0;
+            mp->ma_layers[i].n = 0;
+        }
+
+        i++;
+    }
+}
+
 // #define EBUG_RESIZE
 /*
 Restructure the table by allocating a new table and reinserting all
@@ -1815,38 +1848,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl h
             memcpy(newentries, oldentries, numentries * sizeof(PyDictKeyEntry));
         }
         else {
-            numentries = 0;
-            PyDictKeyEntry *ep = oldentries;
-            Py_ssize_t i = 0;
-
-            while (i < DK_SIZE(oldkeys)) {
-                Py_ssize_t ix = dictkeys_get_index(oldkeys, i);
-
-                if (ix >= 0 && ep[ix].me_value) {
-                    newentries[numentries] = ep[ix];
-                    numentries++;
-                }
-
-                if (mp->ma_layers[i].keys) {
-                    for (int j = 0; j < mp->ma_layers[i].used; j++) {
-                        PyDictKeyEntry *layer_ep = mp->ma_layers[i].keys[j];
-                        newentries[numentries] = *layer_ep;
-                        numentries++;
-                    }
-
-                    free(mp->ma_layers[i].keys);
-                    mp->ma_layers[i].keys = NULL;
-                    mp->ma_layers[i].used = 0;
-                    mp->ma_layers[i].n = 0;
-                }
-
-                i++;
-            }
-
-#ifdef EBUG_RESIZE
-            printf("\n");
-            fflush(stdout);
-#endif
+            collect_entries(mp, oldkeys, newentries, &numentries);
         }
 
         assert(oldkeys->dk_kind != DICT_KEYS_SPLIT);
