@@ -1884,6 +1884,9 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl h
             collect_entries(mp, oldkeys, newentries, &numentries);
         }
 
+        if (layers_reinit(mp, oldkeys))
+            return -1;
+
         assert(oldkeys->dk_kind != DICT_KEYS_SPLIT);
         assert(oldkeys->dk_refcnt == 1);
 #ifdef Py_REF_DEBUG
@@ -1903,13 +1906,6 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl h
             PyObject_Free(oldkeys);
         }
     }
-
-    printf("calling layers_reinit.\n");
-    fflush(stdout);
-    if (layers_reinit(mp, oldkeys))
-        return -1;
-    printf("called layers_reinit.\n");
-    fflush(stdout);
 
     helpers.build_idxs(mp, newentries, numentries);
     // mp->ma_keys->dk_usable -= numentries;
