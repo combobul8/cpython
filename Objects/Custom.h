@@ -129,7 +129,7 @@ struct _dictkeysobject {
 };
 
 typedef struct {
-    Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *);
+    Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *);
     Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *);
     void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t);
 } DictHelpersImpl;
@@ -2496,39 +2496,34 @@ found:
 }
 
 Py_ssize_t _Py_HOT_FUNCTION
-custom_Py_dict_lookup(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr)
+custom_Py_dict_lookup(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr,
+        int *num_cmps)
 {
     PyDictKeysObject *dk;
-start:
     dk = mp->ma_keys;
     DictKeysKind kind = dk->dk_kind;
     if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
-        size_t *hashpos0, int *num_cmps;
-        Ix ix = custom_dictkeys_stringlookup(dk, mp->ma_layers, key, hash);
+        Ix ix;
+        {
+            size_t hashpos0;
+            ix = custom_dictkeys_stringlookup(dk, mp->ma_layers, key, hash, &hashpos0, num_cmps);
+        }
         if (ix.ix == DKIX_EMPTY) {
             *value_addr = NULL;
         }
         else if (kind == DICT_KEYS_SPLIT) {
-            *value_addr = mp->ma_values->values[ix];
+            *value_addr = mp->ma_values[ix.ix];
         }
         else if (ix.layer_i < 0) {
             *value_addr = DK_ENTRIES(dk)[ix.ix].me_value;
         }
         else {
             Py_ssize_t i = mp->ma_indices_to_hashpos[ix.ix];
-            *value_addr = mp->ma_layers[i]->keys[ix.layer_i]->me_value;
+            *value_addr = mp->ma_layers[i].keys[ix.layer_i]->me_value;
         }
         return ix.ix;
     }
     Py_UNREACHABLE();
-found:
-    if (dk->dk_kind == DICT_KEYS_SPLIT) {
-        *value_addr = mp->ma_values->values[ix];
-    }
-    else {
-        *value_addr = ep0[ix].me_value;
-    }
-    return ix;
 }
 
 static void
@@ -2920,9 +2915,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     Py_ssize_t ix;
     {
         // Insert doesn't use lookup's extra return values
-        Py_ssize_t hashpos0;
         int num_cmps;
-        ix = helpers.lookup(mp, key, hash, &old_value, &hashpos0, &num_cmps);
+        ix = helpers.lookup(mp, key, hash, &old_value, &num_cmps);
     }
     if (ix == DKIX_ERROR)
         goto Fail;
