@@ -2331,84 +2331,79 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
     PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
     size_t mask = DK_MASK(dk);
     size_t i = *hashpos0 = (size_t)hash & mask;
-
     Py_ssize_t ix;
     *num_cmps = 0;
-    if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
-        /* Strings only */
-        for (;;) {
-            ix = dictkeys_get_index(mp->ma_keys, i);
+    for (;;) {
+        ix = dictkeys_get_index(mp->ma_keys, i);
 
 #ifdef EBUG
-            printf("custom_lookup2 0(i, ix): (%lld, %lld)\n", i, ix);
-            fflush(stdout);
+        printf("custom_lookup2 0(i, ix): (%lld, %lld)\n", i, ix);
+        fflush(stdout);
 #endif
 
-            if (ix >= 0) {
-                (*num_cmps)++;
-                PyDictKeyEntry *ep = &ep0[ix];
-                assert(ep->me_key != NULL);
-                assert(PyUnicode_CheckExact(ep->me_key));
-                if (ep->me_key == key ||
-                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                    goto found;
-                }
-                else if (i == *hashpos0 && mp->ma_layers[i].keys) {
-                    for (int j = 0; j < mp->ma_layers[i].used; j++) {
-                        printf("%s ", PyUnicode_AsUTF8(mp->ma_layers[i].keys[j]->me_key));
-                        (*num_cmps)++;
-                        if (mp->ma_layers[i].keys[j]->me_key == key ||
-                                (mp->ma_layers[i].keys[j]->me_hash == hash && unicode_eq(mp->ma_layers[i].keys[j]->me_key, key))) {
-                            *value_addr = mp->ma_layers[i].keys[j]->me_value;
-                            return ix;
-                        }
-                    }
-                    printf("\n");
-                    fflush(stdout);
-                    return DKIX_EMPTY;
-                }
+        if (ix >= 0) {
+            (*num_cmps)++;
+            PyDictKeyEntry *ep = &ep0[ix];
+            assert(ep->me_key != NULL);
+            assert(PyUnicode_CheckExact(ep->me_key));
+            if (ep->me_key == key ||
+                    (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                goto found;
             }
-            else if (ix == DKIX_EMPTY) {
-                *value_addr = NULL;
+            else if (i == *hashpos0 && mp->ma_layers[i].keys) {
+                for (int j = 0; j < mp->ma_layers[i].used; j++) {
+                    printf("%s ", PyUnicode_AsUTF8(mp->ma_layers[i].keys[j]->me_key));
+                    (*num_cmps)++;
+                    if (mp->ma_layers[i].keys[j]->me_key == key ||
+                            (mp->ma_layers[i].keys[j]->me_hash == hash && unicode_eq(mp->ma_layers[i].keys[j]->me_key, key))) {
+                        *value_addr = mp->ma_layers[i].keys[j]->me_value;
+                        return ix;
+                    }
+                }
+                printf("\n");
+                fflush(stdout);
                 return DKIX_EMPTY;
             }
-            i = mask & (i + 1);
-            ix = dictkeys_get_index(mp->ma_keys, i);
-
-#ifdef EBUG
-            printf("custom_lookup2 1(i, ix): (%lld, %lld)\n", i, ix);
-            fflush(stdout);
-#endif
-
-            if (ix >= 0) {
-                (*num_cmps)++;
-                PyDictKeyEntry *ep = &ep0[ix];
-                assert(ep->me_key != NULL);
-                assert(PyUnicode_CheckExact(ep->me_key));
-                if (ep->me_key == key ||
-                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                    goto found;
-                }
-                else if (i == *hashpos0 && mp->ma_layers[i].keys) {
-                    for (int j = 0; j < mp->ma_layers[i].used; j++) {
-                        (*num_cmps)++;
-                        if (mp->ma_layers[i].keys[j]->me_key == key ||
-                                (mp->ma_layers[i].keys[j]->me_hash == hash && unicode_eq(mp->ma_layers[i].keys[j]->me_key, key))) {
-                            *value_addr = mp->ma_layers[i].keys[j]->me_value;
-                            return ix;
-                        }
-                    }
-
-                    return DKIX_EMPTY;
-                }
-            }
-            else if (ix == DKIX_EMPTY) {
-                *value_addr = NULL;
-                return DKIX_EMPTY;
-            }
-            i = mask & (i + 1);
         }
-        Py_UNREACHABLE();
+        else if (ix == DKIX_EMPTY) {
+            *value_addr = NULL;
+            return DKIX_EMPTY;
+        }
+        i = mask & (i + 1);
+        ix = dictkeys_get_index(mp->ma_keys, i);
+
+#ifdef EBUG
+        printf("custom_lookup2 1(i, ix): (%lld, %lld)\n", i, ix);
+        fflush(stdout);
+#endif
+
+        if (ix >= 0) {
+            (*num_cmps)++;
+            PyDictKeyEntry *ep = &ep0[ix];
+            assert(ep->me_key != NULL);
+            assert(PyUnicode_CheckExact(ep->me_key));
+            if (ep->me_key == key ||
+                    (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                goto found;
+            }
+            else if (i == *hashpos0 && mp->ma_layers[i].keys) {
+                for (int j = 0; j < mp->ma_layers[i].used; j++) {
+                    (*num_cmps)++;
+                    if (mp->ma_layers[i].keys[j]->me_key == key ||
+                            (mp->ma_layers[i].keys[j]->me_hash == hash && unicode_eq(mp->ma_layers[i].keys[j]->me_key, key))) {
+                        *value_addr = mp->ma_layers[i].keys[j]->me_value;
+                        return ix;
+                    }
+                }
+
+                return DKIX_EMPTY;
+            }
+        }
+        else if (ix == DKIX_EMPTY) {
+            *value_addr = NULL;
+            return DKIX_EMPTY;
+        }
+        i = mask & (i + 1);
     }
     Py_UNREACHABLE();
 found:
