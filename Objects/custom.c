@@ -282,7 +282,7 @@ Return the value for key if key is in the dictionary, else default.
 
 static PyObject *
 custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
         int *success)
 /*[clinic end generated code: output=bba707729dee05bf input=279ddb5790b6b107]*/
 {
@@ -299,16 +299,10 @@ custom_dict_get_impl(CustomPyDictObject *self, PyObject *key, PyObject *default_
             return NULL;
     }
 
-    size_t i;
     int num_cmps;
-    ix = lookup(self, key, hash, &val, &i, &num_cmps);
+    ix = lookup(self, key, hash, &val, &num_cmps);
 
     assert(PyInt_Check(val) == 1);
-
-    if (ix != DKIX_EMPTY) {
-        /* printf("%s i: %lld; num_cmps: %d.\n", PyUnicode_AsUTF8(key), i, num_cmps);
-        fflush(stdout); */
-    }
 
 #ifdef EBUG
     printf("get_impl %s ix: %lld.\n", PyUnicode_AsUTF8(key), ix);
