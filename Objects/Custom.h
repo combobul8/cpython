@@ -2318,7 +2318,7 @@ found:
 }
 
 Py_ssize_t _Py_HOT_FUNCTION
-custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, size_t* i0, int *num_cmps)
+custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, size_t *hashpos0, int *num_cmps)
 {
 #ifdef EBUG
     printf("custom_lookup2 %s i: %lld.\n", PyUnicode_AsUTF8(key), (size_t)hash & DK_MASK(mp->ma_keys));
@@ -2330,7 +2330,7 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
     DictKeysKind kind = dk->dk_kind;
     PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
     size_t mask = DK_MASK(dk);
-    size_t i = *i0 = (size_t)hash & mask;
+    size_t i = *hashpos0 = (size_t)hash & mask;
 
     Py_ssize_t ix;
     *num_cmps = 0;
@@ -2353,7 +2353,7 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
                     goto found;
                 }
-                else if (i == *i0 && mp->ma_layers[i].keys) {
+                else if (i == *hashpos0 && mp->ma_layers[i].keys) {
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         printf("%s ", PyUnicode_AsUTF8(mp->ma_layers[i].keys[j]->me_key));
                         (*num_cmps)++;
@@ -2389,7 +2389,7 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
                         (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
                     goto found;
                 }
-                else if (i == *i0 && mp->ma_layers[i].keys) {
+                else if (i == *hashpos0 && mp->ma_layers[i].keys) {
                     for (int j = 0; j < mp->ma_layers[i].used; j++) {
                         (*num_cmps)++;
                         if (mp->ma_layers[i].keys[j]->me_key == key ||
