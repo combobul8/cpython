@@ -156,7 +156,7 @@ custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 #endif
 
 #ifdef ORIG_LOOKUP
-    return custom_dict_update_common(self, args, kwds, "dict", _Custom_Py_dict_lookup, find_empty_slot,
+    return custom_dict_update_common(self, args, kwds, "dict", rprobe_Py_dict_lookup, find_empty_slot,
             build_indices);
 #else
     DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
@@ -569,7 +569,7 @@ custom_dict_get(CustomPyDictObject *self, PyObject *const *args, Py_ssize_t narg
     default_value = args[1];
 skip_optional:
 #ifdef ORIG_LOOKUP
-    return_value = custom_dict_get_impl(self, key, default_value, _Custom_Py_dict_lookup);
+    return_value = custom_dict_get_impl(self, key, default_value, rprobe_Py_dict_lookup);
 #else
     int success;
     return_value = custom_dict_get_impl(self, key, default_value, custom_Py_dict_lookup, &success);

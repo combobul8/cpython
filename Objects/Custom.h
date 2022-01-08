@@ -2086,7 +2086,7 @@ insertion_resize(PyDictObject *mp, void (*build_idxs)(PyDictKeysObject *, PyDict
 }
 
 Py_ssize_t _Py_HOT_FUNCTION
-_Custom_Py_dict_lookup(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
+rprobe_Py_dict_lookup(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
 {
 #ifdef EBUG
     printf("called _Py_dict_lookup\n");
