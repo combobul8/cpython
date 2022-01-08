@@ -159,7 +159,7 @@ custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
     return custom_dict_update_common(self, args, kwds, "dict", _Custom_Py_dict_lookup, find_empty_slot,
             build_indices);
 #else
-    DictHelpersImpl helpers = { custom_lookup2, custom_find_empty_slot, custom_build_indices };
+    DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
     return custom_dict_update_common(self, args, kwds, "dict", helpers);
 #endif
 }
@@ -572,7 +572,7 @@ skip_optional:
     return_value = custom_dict_get_impl(self, key, default_value, _Custom_Py_dict_lookup);
 #else
     int success;
-    return_value = custom_dict_get_impl(self, key, default_value, custom_lookup2, &success);
+    return_value = custom_dict_get_impl(self, key, default_value, custom_Py_dict_lookup, &success);
     /* if (success) {
         printf("custom_dict_get returning %ld.\n", PyLong_AsLong(return_value));
         fflush(stdout);
@@ -673,7 +673,7 @@ custom_dict_popitem_impl(CustomPyDictObject *self)
     }
     /* Convert split table to combined table */
     if (self->ma_keys->dk_kind == DICT_KEYS_SPLIT) {
-        DictHelpersImpl helpers = { custom_lookup2, custom_find_empty_slot, custom_build_indices };
+        DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
         if (customdictresize(self, DK_LOG_SIZE(self->ma_keys), helpers)) {
             Py_DECREF(res);
             return NULL;
@@ -854,7 +854,7 @@ custom_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
     if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update", _Py_dict_lookup,
             find_empty_slot, build_indices)) != -1) {
 #else
-    DictHelpersImpl helpers = { custom_lookup2, custom_find_empty_slot, custom_build_indices };
+    DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
     if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update", helpers)) != -1) {
 #endif
 #ifdef EBUG
@@ -884,7 +884,7 @@ _Custom_PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
     if (d == NULL)
         return NULL;
 
-    DictHelpersImpl helpers = { custom_lookup2, custom_find_empty_slot, custom_build_indices };
+    DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
 
     if (PyDict_CheckExact(d) && ((CustomPyDictObject *)d)->ma_used == 0) {
         if (PyDict_CheckExact(iterable)) {

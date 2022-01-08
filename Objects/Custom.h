@@ -2317,27 +2317,30 @@ found:
     return ix;
 }
 
-Py_ssize_t _Py_HOT_FUNCTION
-custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, size_t *hashpos0, int *num_cmps)
+typedef struct {
+    Py_ssize_t ix;
+    Py_ssize_t layer_i;
+} Ix;
+
+Ix _Py_HOT_FUNCTION
+custom_dictkeys_stringlookup(PyDictKeysObject *dk, Layer *layers, PyObject *key, Py_hash_t hash,
+        size_t *hashpos0, int *num_cmps)
 {
 #ifdef EBUG
-    printf("custom_lookup2 %s i: %lld.\n", PyUnicode_AsUTF8(key), (size_t)hash & DK_MASK(mp->ma_keys));
+    printf("custom_dictkeys_stringlookup %s i: %lld.\n", PyUnicode_AsUTF8(key), (size_t)hash & DK_MASK(mp->ma_keys));
     fflush(stdout);
 #endif
 
-    PyDictKeysObject *dk;
-    dk = mp->ma_keys;
-    DictKeysKind kind = dk->dk_kind;
     PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
     size_t mask = DK_MASK(dk);
     size_t i = *hashpos0 = (size_t)hash & mask;
     Py_ssize_t ix;
     *num_cmps = 0;
     for (;;) {
-        ix = dictkeys_get_index(mp->ma_keys, i);
+        ix = dictkeys_get_index(dk, i);
 
 #ifdef EBUG
-        printf("custom_lookup2 0(i, ix): (%lld, %lld)\n", i, ix);
+        printf("custom_dictkeys_stringlookup 0(i, ix): (%lld, %lld)\n", i, ix);
         fflush(stdout);
 #endif
 
@@ -2348,33 +2351,34 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
             assert(PyUnicode_CheckExact(ep->me_key));
             if (ep->me_key == key ||
                     (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                *value_addr = ep->me_value;
-                return ix;
+                Ix rv = { ix, -1 };
+                return rv;
             }
-            else if (i == *hashpos0 && mp->ma_layers[i].keys) {
-                for (int j = 0; j < mp->ma_layers[i].used; j++) {
-                    printf("%s ", PyUnicode_AsUTF8(mp->ma_layers[i].keys[j]->me_key));
+            else if (i == *hashpos0 && layers[i].keys) {
+                for (int j = 0; j < layers[i].used; j++) {
+                    printf("%s ", PyUnicode_AsUTF8(layers[i].keys[j]->me_key));
                     (*num_cmps)++;
-                    if (mp->ma_layers[i].keys[j]->me_key == key ||
-                            (mp->ma_layers[i].keys[j]->me_hash == hash && unicode_eq(mp->ma_layers[i].keys[j]->me_key, key))) {
-                        *value_addr = mp->ma_layers[i].keys[j]->me_value;
-                        return ix;
+                    if (layers[i].keys[j]->me_key == key ||
+                            (layers[i].keys[j]->me_hash == hash && unicode_eq(layers[i].keys[j]->me_key, key))) {
+                        Ix rv = { ix, j };
+                        return rv;
                     }
                 }
                 printf("\n");
                 fflush(stdout);
-                return DKIX_EMPTY;
+                Ix rv = { DKIX_EMPTY, -1 };
+                return rv;
             }
         }
         else if (ix == DKIX_EMPTY) {
-            *value_addr = NULL;
-            return DKIX_EMPTY;
+            Ix rv = { DKIX_EMPTY, -1 };
+            return rv;
         }
         i = mask & (i + 1);
-        ix = dictkeys_get_index(mp->ma_keys, i);
+        ix = dictkeys_get_index(dk, i);
 
 #ifdef EBUG
-        printf("custom_lookup2 1(i, ix): (%lld, %lld)\n", i, ix);
+        printf("custom_dictkeys_stringlookup 1(i, ix): (%lld, %lld)\n", i, ix);
         fflush(stdout);
 #endif
 
@@ -2385,25 +2389,26 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
             assert(PyUnicode_CheckExact(ep->me_key));
             if (ep->me_key == key ||
                     (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                *value_addr = ep->me_value;
-                return ix;
+                Ix rv = { ix, -1 };
+                return rv;
             }
-            else if (i == *hashpos0 && mp->ma_layers[i].keys) {
-                for (int j = 0; j < mp->ma_layers[i].used; j++) {
+            else if (i == *hashpos0 && layers[i].keys) {
+                for (int j = 0; j < layers[i].used; j++) {
                     (*num_cmps)++;
-                    if (mp->ma_layers[i].keys[j]->me_key == key ||
-                            (mp->ma_layers[i].keys[j]->me_hash == hash && unicode_eq(mp->ma_layers[i].keys[j]->me_key, key))) {
-                        *value_addr = mp->ma_layers[i].keys[j]->me_value;
-                        return ix;
+                    if (layers[i].keys[j]->me_key == key ||
+                            (layers[i].keys[j]->me_hash == hash && unicode_eq(layers[i].keys[j]->me_key, key))) {
+                        Ix rv = { ix, j };
+                        return rv;
                     }
                 }
 
-                return DKIX_EMPTY;
+                Ix rv = { DKIX_EMPTY, -1 };
+                return rv;
             }
         }
         else if (ix == DKIX_EMPTY) {
-            *value_addr = NULL;
-            return DKIX_EMPTY;
+            Ix rv = { DKIX_EMPTY, -1 };
+            return rv;
         }
         i = mask & (i + 1);
     }
@@ -2490,6 +2495,42 @@ found:
     return ix;
 }
 
+Py_ssize_t _Py_HOT_FUNCTION
+custom_Py_dict_lookup(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr)
+{
+    PyDictKeysObject *dk;
+start:
+    dk = mp->ma_keys;
+    DictKeysKind kind = dk->dk_kind;
+    if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
+        size_t *hashpos0, int *num_cmps;
+        Ix ix = custom_dictkeys_stringlookup(dk, mp->ma_layers, key, hash);
+        if (ix.ix == DKIX_EMPTY) {
+            *value_addr = NULL;
+        }
+        else if (kind == DICT_KEYS_SPLIT) {
+            *value_addr = mp->ma_values->values[ix];
+        }
+        else if (ix.layer_i < 0) {
+            *value_addr = DK_ENTRIES(dk)[ix.ix].me_value;
+        }
+        else {
+            Py_ssize_t i = mp->ma_indices_to_hashpos[ix.ix];
+            *value_addr = mp->ma_layers[i]->keys[ix.layer_i]->me_value;
+        }
+        return ix.ix;
+    }
+    Py_UNREACHABLE();
+found:
+    if (dk->dk_kind == DICT_KEYS_SPLIT) {
+        *value_addr = mp->ma_values->values[ix];
+    }
+    else {
+        *value_addr = ep0[ix].me_value;
+    }
+    return ix;
+}
+
 static void
 custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 {
@@ -2507,7 +2548,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
         printf("build_indices calling lookup %s.\n", PyUnicode_AsUTF8(ep->me_key));
         fflush(stdout);
-        if (custom_lookup2(mp, ep->me_key, ep->me_hash, &rv, &i0, &num_cmps2) >= 0) {
+        if (custom_dictkeys_stringlookup(mp, ep->me_key, ep->me_hash, &rv, &i0, &num_cmps2) >= 0) {
             printf("build_indices found %s already.\n", PyUnicode_AsUTF8(ep->me_key));
             fflush(stdout);
         } */
