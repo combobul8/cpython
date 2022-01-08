@@ -2348,7 +2348,7 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
             assert(PyUnicode_CheckExact(ep->me_key));
             if (ep->me_key == key ||
                     (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                goto found;
+                return ix;
             }
             else if (i == *hashpos0 && mp->ma_layers[i].keys) {
                 for (int j = 0; j < mp->ma_layers[i].used; j++) {
@@ -2406,14 +2406,6 @@ custom_lookup2(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *
         i = mask & (i + 1);
     }
     Py_UNREACHABLE();
-found:
-    if (dk->dk_kind == DICT_KEYS_SPLIT) {
-        *value_addr = mp->ma_values[ix];
-    }
-    else {
-        *value_addr = ep0[ix].me_value;
-    }
-    return ix;
 }
 
 Py_ssize_t _Py_HOT_FUNCTION
