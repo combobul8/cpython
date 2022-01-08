@@ -2416,6 +2416,86 @@ custom_dictkeys_stringlookup(PyDictKeysObject *dk, Layer *layers, PyObject *key,
 }
 
 Py_ssize_t _Py_HOT_FUNCTION
+custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
+{
+#ifdef EBUG
+    printf("custom_lookup hash: %lld.\n", hash);
+    fflush(stdout);
+#endif
+
+    PyDictKeysObject *dk;
+    dk = mp->ma_keys;
+    DictKeysKind kind = dk->dk_kind;
+    PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
+    size_t mask = DK_MASK(dk);
+    size_t i = (size_t)hash & mask;
+    Py_ssize_t ix;
+    *num_cmps = 0;
+    if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
+        /* Strings only */
+        for (;;) {
+            ix = dictkeys_get_index(mp->ma_keys, i);
+
+#ifdef EBUG
+            printf("0(i, ix): (%lld, %lld)\n", i, ix);
+            fflush(stdout);
+#endif
+
+            (*num_cmps)++;
+            if (ix >= 0) {
+                PyDictKeyEntry *ep = &ep0[ix];
+                assert(ep->me_key != NULL);
+                assert(PyUnicode_CheckExact(ep->me_key));
+                if (ep->me_key == key ||
+                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                    //printf("here.\n");
+                    //fflush(stdout);
+                    //assert(ep->me_layer != NULL);
+                    goto found;
+                }
+            }
+            else if (ix == DKIX_EMPTY) {
+                *value_addr = NULL;
+                return DKIX_EMPTY;
+            }
+            i = mask & (i + 1);
+            ix = dictkeys_get_index(mp->ma_keys, i);
+
+#ifdef EBUG
+            printf("1(i, ix): (%lld, %lld)\n", i, ix);
+            fflush(stdout);
+#endif
+
+            (*num_cmps)++;
+            if (ix >= 0) {
+                PyDictKeyEntry *ep = &ep0[ix];
+                assert(ep->me_key != NULL);
+                assert(PyUnicode_CheckExact(ep->me_key));
+                if (ep->me_key == key ||
+                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
+                    goto found;
+                }
+            }
+            else if (ix == DKIX_EMPTY) {
+                *value_addr = NULL;
+                return DKIX_EMPTY;
+            }
+            i = mask & (i + 1);
+        }
+        Py_UNREACHABLE();
+    }
+    Py_UNREACHABLE();
+found:
+    if (dk->dk_kind == DICT_KEYS_SPLIT) {
+        *value_addr = mp->ma_values[ix];
+    }
+    else {
+        *value_addr = ep0[ix].me_value;
+    }
+    return ix;
+}
+
+Py_ssize_t _Py_HOT_FUNCTION
 custom_Py_dict_lookup(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr,
         int *num_cmps)
 {
@@ -2863,28 +2943,38 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         int num_cmps;
         Py_ssize_t hashpos = helpers.empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
 
-        if (num_cmps > mp->ma_keys->dk_log2_size) {
+        // No collisions? Simply insert!
+        if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
+            // Insert at hashpos0
+            return 0;
+        }
+
+        // At least one collision? Insert into layer if it already exists.
+        Layer *layer = &(mp->ma_layers[hashpos0]);
+        if (layer->keys) {
+            if (insertlayer_keyhashvalue(layer, key, hash, value)) {
+                printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
+                fflush(stdout);
+                return -1;
+            }
+
+            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+            mp->ma_num_items++;
+            return 0;
+        }
+
+        // No layer at this point. Use linear probing if it's efficient.
+        if (num_cmps <= mp->ma_keys->dk_log2_size) {
+        }
+        else {
 #ifdef EBUG_INSERT
             printf("\t%d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
             fflush(stdout);
 #endif
 
             filter(mp, hashpos0, num_cmps);
-        }
-
-        Layer *layer = &(mp->ma_layers[hashpos0]);
-        if (layer->keys) {
-            if (dictkeys_get_index(mp->ma_keys, hashpos0) != DKIX_EMPTY) {
-                if (insertlayer_keyhashvalue(layer, key, hash, value)) {
-                    printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
-                    fflush(stdout);
-                    return -1;
-                }
-
-                strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-                mp->ma_num_items++;
-                return 0;
-            }
+            // Insert into layer that's just been created.
+            return 0;
         }
 
         hashpos = helpers.empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);

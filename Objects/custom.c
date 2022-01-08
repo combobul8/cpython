@@ -132,22 +132,6 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
 // #define ORIG_LOOKUP
 
 static int
-dict_init(PyObject *self, PyObject *args, PyObject *kwds)
-{
-#ifdef EBUG
-    printf("called dict_init\n");
-#endif
-
-#ifdef ORIG_LOOKUP
-    return dict_update_common(self, args, kwds, "dict", _Py_dict_lookup, find_empty_slot,
-            build_indices);
-#else
-    return dict_update_common(self, args, kwds, "dict", custom_lookup, custom_find_empty_slot,
-            build_indices);
-#endif
-}
-
-static int
 custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 {
 #ifdef EBUG
@@ -577,38 +561,6 @@ exit:
     return return_value;
 }
 
-static PyObject *
-dict_get(PyDictObject *self, PyObject *const *args, Py_ssize_t nargs)
-{
-#ifdef EBUG
-    printf("\ncalled dict_get\n");
-    fflush(stdout);
-#endif
-
-    PyObject *return_value = NULL;
-    PyObject *key;
-    PyObject *default_value = Py_None;
-
-    if (!_PyArg_CheckPositional("get", nargs, 1, 2)) {
-        printf("dict_get first if\n");
-        goto exit;
-    }
-    key = args[0];
-    if (nargs < 2) {
-        goto skip_optional;
-    }
-    default_value = args[1];
-skip_optional:
-#ifdef ORIG_LOOKUP
-    return_value = dict_get_impl(self, key, default_value, _Py_dict_lookup);
-#else
-    return_value = dict_get_impl(self, key, default_value, custom_lookup);
-#endif
-
-exit:
-    return return_value;
-}
-
 /* Search index of hash table from offset of entry table */
 static Py_ssize_t
 lookdict_index(PyDictKeysObject *k, Py_hash_t hash, Py_ssize_t index)
@@ -798,38 +750,6 @@ static PyObject *
 dictvalues_new(PyObject *dict, PyObject *Py_UNUSED(ignored))
 {
     return _PyDictView_New(dict, &PyDictValues_Type);
-}
-
-/* Note: dict.update() uses the METH_VARARGS|METH_KEYWORDS calling convention.
-   Using METH_FASTCALL|METH_KEYWORDS would make dict.update(**dict2) calls
-   slower, see the issue #29312. */
-static PyObject *
-my_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
-{
-#ifdef EBUG
-    printf("\ncalled my_dict_update\n");
-#endif
-
-    int dict_update_common_rv;
-#ifdef ORIG_LOOKUP
-    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", _Py_dict_lookup,
-            find_empty_slot, build_indices)) != -1) {
-#else
-    if ((dict_update_common_rv = dict_update_common(self, args, kwds, "update", custom_lookup,
-            custom_find_empty_slot, build_indices)) != -1) {
-#endif
-#ifdef EBUG
-        printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
-#endif
-
-        Py_RETURN_NONE;
-    }
-
-#ifdef EBUG
-    printf("dict_update_common_rv: %d\n", dict_update_common_rv);
-#endif
-
-    return NULL;
 }
 
 /* Note: dict.update() uses the METH_VARARGS|METH_KEYWORDS calling convention.
@@ -1145,34 +1065,6 @@ dict_num_items(PyObject *mp, PyObject *Py_UNUSED(ignored))
 
     return mp;
 }
-
-static PyMethodDef mapp_methods[] = {
-    DICT___CONTAINS___METHODDEF
-    {"__getitem__", (PyCFunction)(void(*)(void))dict_subscript,        METH_O | METH_COEXIST,
-     getitem__doc__},
-    {"__sizeof__",      (PyCFunction)(void(*)(void))dict_sizeof,       METH_NOARGS,
-     sizeof__doc__},
-    DICT_GET_METHODDEF
-    DICT_SETDEFAULT_METHODDEF
-    DICT_POP_METHODDEF
-    DICT_POPITEM_METHODDEF
-    {"keys",            dictkeys_new,                   METH_NOARGS,
-    keys__doc__},
-    {"items",           dictitems_new,                  METH_NOARGS,
-    items__doc__},
-    {"values",          dictvalues_new,                 METH_NOARGS,
-    values__doc__},
-    {"update",          (PyCFunction)(void(*)(void))my_dict_update, METH_VARARGS | METH_KEYWORDS,
-     update__doc__},
-    DICT_FROMKEYS_METHODDEF
-    {"clear",           (PyCFunction)dict_clear,        METH_NOARGS,
-     clear__doc__},
-    {"copy",            (PyCFunction)dict_copy,         METH_NOARGS,
-     copy__doc__},
-    DICT___REVERSED___METHODDEF
-    {"__class_getitem__", (PyCFunction)Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
-    {NULL,              NULL}   /* sentinel */
-};
 
 static PyMethodDef custom_mapp_methods[] = {
     DICT___CONTAINS___METHODDEF
@@ -1597,22 +1489,6 @@ dict_vectorcall(PyObject *type, PyObject * const*args,
     }
     return self;
 }
-
-PyTypeObject MyPyDict_Type = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "dict",
-    .tp_doc = dictionary_doc,
-    .tp_basicsize = sizeof(PyDictObject),
-    .tp_itemsize = 0,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
-        Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DICT_SUBCLASS |
-        _Py_TPFLAGS_MATCH_SELF | Py_TPFLAGS_MAPPING,
-    .tp_new = dict_new,
-    .tp_init = dict_init,
-    .tp_dealloc = (destructor)dict_dealloc,
-    .tp_methods = mapp_methods,
-    .tp_traverse = dict_traverse
-};
 
 PyTypeObject MyPyDict_Type2 = {
     PyVarObject_HEAD_INIT(NULL, 0)
