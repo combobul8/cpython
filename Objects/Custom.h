@@ -1749,8 +1749,6 @@ collect_entries(CustomPyDictObject *mp, PyDictKeysObject *oldkeys, PyDictKeyEntr
 int
 layers_reinit(CustomPyDictObject *mp, PyDictKeysObject *oldkeys)
 {
-    printf("in layers_reinit; DK_SIZE(oldkeys): %lld.\n", DK_SIZE(oldkeys));
-    fflush(stdout);
     if (!mp->ma_layers) {
         printf("layers_reinit ma_layers NULL???\n");
         fflush(stdout);
@@ -1759,14 +1757,10 @@ layers_reinit(CustomPyDictObject *mp, PyDictKeysObject *oldkeys)
 
     Py_ssize_t i = 0;
     while (i < DK_SIZE(oldkeys)) {
-        printf("layers_reinit i: %lld.\n", i);
-        fflush(stdout);
         if (mp->ma_layers[i].keys)
             free(mp->ma_layers[i].keys);
         i++;
     }
-    printf("layers_reinit freed.\n");
-    fflush(stdout);
 
     mp->ma_layers = realloc(mp->ma_layers, DK_SIZE(mp->ma_keys) * sizeof *(mp->ma_layers));
     if (mp->ma_layers == NULL) {
