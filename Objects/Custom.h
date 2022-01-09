@@ -1778,12 +1778,12 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                 int num_items_moved = filter(mp, hashpos0, num_cmps);
 
                 // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
-                if (dictkeys_get_index(keys, hashpos0) == DKIX_EMPTY) {
+                if (dictkeys_get_index(keys, hashpos0) == DKIX_EMPTY)
                     insertslot(mp, hashpos0, ep);
+                else {
+                    insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
                     mp->ma_num_items++;
                 }
-                else
-                    insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
             }
         }
 
