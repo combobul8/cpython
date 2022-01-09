@@ -1726,14 +1726,10 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
     mp->ma_indices_to_hashpos[idx] = hashpos;
     printf("%s set_index %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos, idx);
     fflush(stdout);
-    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
-        printf("%lld.\n", mp->ma_indices_to_hashpos[4782]);
-        fflush(stdout);
-        printf("At 7338: %s.\n", PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[7338].me_key));
-        fflush(stdout);
-    }
 
     PyDictKeyEntry *entry = &DK_ENTRIES(mp->ma_keys)[idx];
+    printf("entry: %p.\n", entry);
+    fflush(stdout);
     entry->me_key = ep->me_key;
     entry->me_hash = ep->me_hash;
     if (mp->ma_values) {
@@ -1753,6 +1749,15 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
     ASSERT_CONSISTENT(mp);
    
     mp->ma_num_items++;
+
+    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
+        printf("%lld.\n", mp->ma_indices_to_hashpos[4782]);
+        fflush(stdout);
+        printf("DK_ENTRIES: %p.\n", &DK_ENTRIES(mp->ma_keys)[7338]);
+        fflush(stdout);
+        printf("At 7338: %s.\n", DK_ENTRIES(mp->ma_keys)[7338].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[7338].me_key) : "NULL");
+        fflush(stdout);
+    }
 }
 
 // #define EBUG_BUILD_INDICES
