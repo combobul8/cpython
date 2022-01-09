@@ -2751,6 +2751,11 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
         if (dict->ma_layers[i].keys) {
             if (print) {
+                if (ix < 0) {
+                    printf("%d -> %lld: ", i, ix);
+                    fflush(stdout);
+                }
+
                 printf("\t");
                 fflush(stdout);
             }
