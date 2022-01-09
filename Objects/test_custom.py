@@ -2,7 +2,10 @@ import custom2
 import time
 
 mycustom = custom2.Custom()
-words = {}
+# words = {}
+
+mycustom.update({"the": 0})
+mycustom.update({"you": 1})
 
 tic = time.perf_counter()
 with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
@@ -12,12 +15,12 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
     for line in f:
         word = line.strip()
 
-        if i >= 4965:
+        if i >= 2:
             break
         elif mycustom.get(word) == None:
-            mycustom.update({word: i})
+            # mycustom.update({word: i})
             # print("updated " + word, flush = True)
-            words[word] = i
+            # words[word] = i
             i += 1
         else:
             print("already seen " + word, flush = True)
@@ -26,10 +29,10 @@ with open(r"C:\Users\fooba\repos\cpython\Objects\words.txt") as f:
 toc = time.perf_counter()
 # print(str((toc - tic) * 1000) + " milliseconds")
 
-for key in list(words.keys()):
+# for key in list(words.keys()):
     # print(key)
-    if mycustom.get(key) != None:
+    # if mycustom.get(key) != None:
         # print(key)
-        None
-    None
+        # None
+    # None
 mycustom.print()
