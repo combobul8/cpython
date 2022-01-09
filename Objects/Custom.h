@@ -1753,9 +1753,9 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
     if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
         printf("%lld.\n", mp->ma_indices_to_hashpos[4782]);
         fflush(stdout);
-        printf("DK_ENTRIES: %p.\n", &DK_ENTRIES(mp->ma_keys)[7338]);
+        printf("DK_ENTRIES: %p.\n", &DK_ENTRIES(mp->ma_keys)[4782]);
         fflush(stdout);
-        printf("At 7338: %s.\n", DK_ENTRIES(mp->ma_keys)[7338].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[7338].me_key) : "NULL");
+        printf("At 7338: %s.\n", DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
         fflush(stdout);
     }
 }
