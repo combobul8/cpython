@@ -1719,13 +1719,26 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
     printf("PREAt hashpos %lld: %s.\n", hashpos, DK_ENTRIES(mp->ma_keys)[idx].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[idx].me_key) : "NULL");
     fflush(stdout);
 
+    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
+        printf("-1At 7338: %s.\n", DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
+        fflush(stdout);
+    }
+
     dictkeys_set_index(mp->ma_keys, hashpos, idx);
     mp->ma_indices_to_hashpos[idx] = hashpos;
     printf("%s set_index %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos, idx);
     fflush(stdout);
 
     PyDictKeyEntry *entry = &DK_ENTRIES(mp->ma_keys)[idx];
+    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
+        printf("0At 7338: %s.\n", DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
+        fflush(stdout);
+    }
     entry->me_key = ep->me_key;
+    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
+        printf("1At 7338: %s.\n", DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
+        fflush(stdout);
+    }
     entry->me_hash = ep->me_hash;
     if (mp->ma_values) {
         assert (mp->ma_values[mp->ma_keys->dk_nentries] == NULL);
@@ -1752,7 +1765,7 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
         fflush(stdout);
         printf("At hashpos %lld: %s.\n", hashpos, DK_ENTRIES(mp->ma_keys)[idx].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[idx].me_key) : "NULL");
         fflush(stdout);
-        int j = 1;
+        /* int j = 1;
         for (Py_ssize_t i = hashpos; i < DK_SIZE(mp->ma_keys); i++, j++) {
             Py_ssize_t ix = dictkeys_get_index(mp->ma_keys, i);
             if (ix >= 0)
@@ -1762,7 +1775,7 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
                 fflush(stdout);
             }
         }
-        printf("\n");
+        printf("\n"); */
         printf("At 7338: %s.\n\n", DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
         fflush(stdout);
     }
