@@ -1716,11 +1716,8 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
     Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
     mp->ma_indices_stack_idx--;
 
-    Py_ssize_t old_idx = dictkeys_get_index(mp->ma_keys, hashpos);
-    if (old_idx >= 0) {
-        printf("%s overriding %s.\n", PyUnicode_AsUTF8(ep->me_key), PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[old_idx].me_key));
-        fflush(stdout);
-    }
+    printf("PREAt hashpos %lld: %s.\n", hashpos, DK_ENTRIES(mp->ma_keys)[idx].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[idx].me_key) : "NULL");
+    fflush(stdout);
 
     dictkeys_set_index(mp->ma_keys, hashpos, idx);
     mp->ma_indices_to_hashpos[idx] = hashpos;
@@ -1728,8 +1725,6 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
     fflush(stdout);
 
     PyDictKeyEntry *entry = &DK_ENTRIES(mp->ma_keys)[idx];
-    printf("entry: %p.\n", entry);
-    fflush(stdout);
     entry->me_key = ep->me_key;
     entry->me_hash = ep->me_hash;
     if (mp->ma_values) {
@@ -1755,7 +1750,8 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
         fflush(stdout);
         printf("DK_ENTRIES: %p.\n", &DK_ENTRIES(mp->ma_keys)[4782]);
         fflush(stdout);
-        printf("At 7338: %s.\n", DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
+        printf("At hashpos %lld: %s.\n", hashpos, DK_ENTRIES(mp->ma_keys)[idx].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[idx].me_key) : "NULL");
+        printf("At 7338: %s.\n\n", DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
         fflush(stdout);
     }
 }
