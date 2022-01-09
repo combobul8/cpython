@@ -1719,11 +1719,6 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
     printf("PREAt hashpos %lld: %s.\n", hashpos, DK_ENTRIES(mp->ma_keys)[idx].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[idx].me_key) : "NULL");
     fflush(stdout);
 
-    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
-        printf("-1At 7338: %s.\n", DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
-        fflush(stdout);
-    }
-
     dictkeys_set_index(mp->ma_keys, hashpos, idx);
     mp->ma_indices_to_hashpos[idx] = hashpos;
     printf("%s set_index %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos, idx);
@@ -1823,8 +1818,13 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                 int num_items_moved = filter(mp, hashpos0, num_cmps);
 
                 // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
-                if (dictkeys_get_index(keys, hashpos0) == DKIX_EMPTY)
+                if (dictkeys_get_index(keys, hashpos0) == DKIX_EMPTY) {
+    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
+        printf("build_indices filtercleared -1At 7338: %s.\n", DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
+        fflush(stdout);
+    }
                     insertslot(mp, hashpos0, ep);
+                }
                 else {
                     printf("%s insertlayer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos0);
                     fflush(stdout);
@@ -2903,6 +2903,11 @@ Returns -1 if an error occurred, or 0 on success.
 static int
 custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value, DictHelpersImpl helpers)
 {
+    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
+        printf("insert %s -1At 7338: %s.\n", PyUnicode_AsUTF8(key), DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
+        fflush(stdout);
+    }
+
     PyObject *old_value;
     // PyDictKeyEntry *ep;
 
@@ -2948,6 +2953,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
             PyDictKeyEntry entry = { hash, key, value, hashpos0 };
             insertslot(mp, hashpos0, &entry);
+    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
+        printf("inserted %s -1At 7338: %s.\n", PyUnicode_AsUTF8(key), DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
+        fflush(stdout);
+    }
             return 0;
         }
 
@@ -2989,6 +2998,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         fflush(stdout);
 #endif
 
+    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
+        printf("insert probe -1At 7338: %s.\n", DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
+        fflush(stdout);
+    }
         PyDictKeyEntry entry = { hash, key, value, hashpos };
         insertslot(mp, hashpos, &entry);
         return 0;
@@ -3498,6 +3511,10 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value, DictHelpers
     assert(value);
     mp = (CustomPyDictObject *)op;
 
+    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
+        printf("setitem2 %s -1At 7338: %s.\n", PyUnicode_AsUTF8(key), DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
+        fflush(stdout);
+    }
     hash = custom_PyObject_Hash(key);
 
 #ifdef EBUG
