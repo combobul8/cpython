@@ -1716,6 +1716,11 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
     Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
     mp->ma_indices_stack_idx--;
 
+    Py_ssize_t old_idx = dictkeys_get_index(mp->ma_keys, hashpos);
+    if (old_idx >= 0) {
+        printf("%s overriding %s.\n", PyUnicode_AsUTF8(ep->me_key), PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[old_idx].me_key));
+        fflush(stdout);
+    }
     dictkeys_set_index(mp->ma_keys, hashpos, idx);
     mp->ma_indices_to_hashpos[idx] = hashpos;
 
