@@ -1784,6 +1784,9 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                 if (dictkeys_get_index(keys, hashpos0) == DKIX_EMPTY)
                     insertslot(mp, hashpos0, ep);
                 else {
+                    printf("%s insertlayer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos0);
+                    fflush(stdout);
+
                     insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
                     mp->ma_num_items++;
                 }
