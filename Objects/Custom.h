@@ -2441,7 +2441,6 @@ custom_dictkeys_stringlookup(PyDictKeysObject *dk, Layer *layers, PyObject *key,
             }
             else if (i == *hashpos0 && layers[i].keys) {
                 for (int j = 0; j < layers[i].used; j++) {
-                    printf("%s ", PyUnicode_AsUTF8(layers[i].keys[j]->me_key));
                     (*num_cmps)++;
                     if (layers[i].keys[j]->me_key == key ||
                             (layers[i].keys[j]->me_hash == hash && unicode_eq(layers[i].keys[j]->me_key, key))) {
@@ -2449,8 +2448,7 @@ custom_dictkeys_stringlookup(PyDictKeysObject *dk, Layer *layers, PyObject *key,
                         return rv;
                     }
                 }
-                printf("\n");
-                fflush(stdout);
+
                 Ix rv = { DKIX_EMPTY, -1 };
                 return rv;
             }
