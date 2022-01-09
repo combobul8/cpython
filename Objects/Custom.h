@@ -1719,6 +1719,9 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
     dictkeys_set_index(mp->ma_keys, hashpos, idx);
     mp->ma_indices_to_hashpos[idx] = hashpos;
 
+    printf("%s set_index %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos, idx);
+    fflush(stdout);
+
     PyDictKeyEntry *entry = &DK_ENTRIES(mp->ma_keys)[idx];
     entry->me_key = ep->me_key;
     entry->me_hash = ep->me_hash;
@@ -2852,7 +2855,7 @@ static int
 custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value, DictHelpersImpl helpers)
 {
     PyObject *old_value;
-    PyDictKeyEntry *ep;
+    // PyDictKeyEntry *ep;
 
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
         if (custom_insertion_resize(mp, helpers) < 0)
