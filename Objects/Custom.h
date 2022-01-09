@@ -1721,11 +1721,17 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
         printf("%s overriding %s.\n", PyUnicode_AsUTF8(ep->me_key), PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[old_idx].me_key));
         fflush(stdout);
     }
+
     dictkeys_set_index(mp->ma_keys, hashpos, idx);
     mp->ma_indices_to_hashpos[idx] = hashpos;
-
     printf("%s set_index %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos, idx);
     fflush(stdout);
+    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
+        printf("%lld.\n", mp->ma_indices_to_hashpos[4782]);
+        fflush(stdout);
+        printf("At 7338: %s.\n", PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[7338].me_key));
+        fflush(stdout);
+    }
 
     PyDictKeyEntry *entry = &DK_ENTRIES(mp->ma_keys)[idx];
     entry->me_key = ep->me_key;
@@ -1764,6 +1770,8 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
     mp->ma_num_items = 0;
 
     for (int i = 0; i < n; i++, ep++) {
+        printf("build_indices i: %d.\n", i);
+        fflush(stdout);
         Py_hash_t hash = ep->me_hash;
         size_t hashpos0 = hash & mask;
         Layer *layer = &(mp->ma_layers[hashpos0]);
@@ -1779,8 +1787,11 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             }
 
             // Linear probing is good enough.
-            if (num_cmps <= mp->ma_keys->dk_log2_size)
+            if (num_cmps <= mp->ma_keys->dk_log2_size) {
+                printf("insertslot.\n");
+                fflush(stdout);
                 insertslot(mp, hashpos, ep);
+            }
             else {
                 // Create a layer and avoid linear probing that starts at this hash value.
                 int num_items_moved = filter(mp, hashpos0, num_cmps);
@@ -1934,6 +1945,10 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl h
         printf("customdictresize ma_indices_to_hashpos realloc fail.\n");
         fflush(stdout);
         return -1;
+    }
+
+    for (int i = 0; i < DK_SIZE(mp->ma_keys); i++) {
+        mp->ma_indices_to_hashpos[i] = -1;
     }
 
     // New table must be large enough.
