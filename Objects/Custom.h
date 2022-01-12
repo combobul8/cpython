@@ -2912,110 +2912,147 @@ Used both by the internal resize routine and by the public insert routine.
 Returns -1 if an error occurred, or 0 on success.
 */
 static int
-custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value, DictHelpersImpl helpers)
+custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
+        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
-        printf("insert %s -1At 7338: %p %s.\n", PyUnicode_AsUTF8(key), DK_ENTRIES(mp->ma_keys)[4782].me_key, DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
-        fflush(stdout);
-    }
-
     PyObject *old_value;
-    // PyDictKeyEntry *ep;
+    PyDictKeyEntry *ep;
 
+    Py_INCREF(key);
+    Py_INCREF(value);
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
-        if (custom_insertion_resize(mp, helpers) < 0)
+        if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
             goto Fail;
     }
 
-    Py_ssize_t ix;
-    {
-        // Insert doesn't use lookup's extra return values
-        int num_cmps;
-        ix = helpers.lookup(mp, key, hash, &old_value, &num_cmps);
-    }
+    Py_ssize_t i;
+    int num_cmps;   /* currently not measuring the efficiency of insert */
+    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
+
     if (ix == DKIX_ERROR)
         goto Fail;
 
     MAINTAIN_TRACKING(mp, key, value);
 
+    /* When insertion order is different from shared key, we can't share
+     * the key anymore.  Convert this instance to combine table.
+     */
+    if (_PyDict_HasSplitTable(mp) &&
+        ((ix >= 0 && old_value == NULL && mp->ma_used != ix) ||
+         (ix == DKIX_EMPTY && mp->ma_used != mp->ma_keys->dk_nentries))) {
+        if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
+            goto Fail;
+        ix = DKIX_EMPTY;
+    }
+
     if (ix == DKIX_EMPTY) {
         /* Insert into new slot. */
         mp->ma_keys->dk_version = 0;
         assert(old_value == NULL);
+
         if (mp->ma_keys->dk_usable <= 0) {
             printf("custominsertdict resize (num_items, used): (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
             fflush(stdout);
 
             /* Need to resize. */
-            if (custom_insertion_resize(mp, helpers) < 0)
+            if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
                 goto Fail;
         }
         if (!PyUnicode_CheckExact(key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
 
-        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-
         Py_ssize_t hashpos0;
-        int num_cmps;
-        Py_ssize_t hashpos = helpers.empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
+        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
 
-        // No collisions? Simply insert!
-        if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
-            PyDictKeyEntry entry = { hash, key, value, hashpos0 };
-            insertslot(mp, hashpos0, &entry);
-    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
-        printf("inserted %s -1At 7338: %p %s.\n", PyUnicode_AsUTF8(key), DK_ENTRIES(mp->ma_keys)[4782].me_key, DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
-        fflush(stdout);
-    }
-            return 0;
-        }
-
-        // At least one collision? Insert into layer if it already exists.
-        Layer *layer = &(mp->ma_layers[hashpos0]);
-        if (layer->keys) {
-            if (insertlayer_keyhashvalue(layer, key, hash, value)) {
-                printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
-                fflush(stdout);
-                return -1;
-            }
-
-            mp->ma_num_items++;
-            return 0;
-        }
-
-        // No layer at this point.
-        // But if linear probing would be inefficient, then create a layer for this and future insertions.
         if (num_cmps > mp->ma_keys->dk_log2_size) {
 #ifdef EBUG_INSERT
-            printf("\t%d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
+            printf("\tcustominsertdict ix == EMPTY; %d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
             fflush(stdout);
 #endif
 
-            filter(mp, hashpos0, num_cmps);
-            if (insertlayer_keyhashvalue(layer, key, hash, value)) {
-                printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
-                fflush(stdout);
-                return -1;
-            }
+            int num_items_moved = filter(mp, hashpos0, num_cmps);
+            /* if (num_items_moved == 0) {
+                dictkeys_set_index(mp->ma_keys, hashpos0, DKIX_EMPTY);
 
-            mp->ma_num_items++;
-            return 0;
+                Py_ssize_t idx = dictkeys_get_index(mp->ma_keys, hashpos0);
+
+                mp->ma_indices_stack_idx++;
+                mp->ma_indices_stack[mp->ma_indices_stack_idx] = idx;
+
+                ep->me_key = NULL;
+                ep->me_value = NULL;
+
+                mp->ma_used--;
+                mp->ma_keys->dk_usable++;
+                mp->ma_keys->dk_nentries--;
+            } */
         }
 
-        // Insert into empty slot that linear probing computed.
+        Layer *layer = &(mp->ma_layers[hashpos0]);
+        if (layer->keys) {
+            if (dictkeys_get_index(mp->ma_keys, hashpos0) != DKIX_EMPTY) {
+                if (insertlayer_keyhashvalue(layer, key, hash, value)) {
+                    printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
+                    fflush(stdout);
+                    return -1;
+                }
+
+                strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+                mp->ma_num_items++;
+                if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
+                    return 0;
+                }
+                printf("\t\t1INEQUALITY\n");
+                return -1;
+            }
+        }
+
+        hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
+
+        Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
+        mp->ma_indices_stack_idx--;
+
+        ep = &DK_ENTRIES(mp->ma_keys)[idx];
+        ep->i = hashpos0;
+
 #ifdef EBUG_INSERT
         printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
+        // printf("\tset_index %lld, %lld.\n", hashpos, idx);
         fflush(stdout);
 #endif
 
-    if (DK_SIZE(mp->ma_keys) >= 7339 && mp->ma_indices_to_hashpos[4782] >= 0) {
-        printf("insert probe -1At 7338: %p %s.\n", DK_ENTRIES(mp->ma_keys)[4782].me_key, DK_ENTRIES(mp->ma_keys)[4782].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[4782].me_key) : "NULL");
-        fflush(stdout);
-    }
-        PyDictKeyEntry entry = { hash, key, value, hashpos };
-        insertslot(mp, hashpos, &entry);
-        return 0;
+        dictkeys_set_index(mp->ma_keys, hashpos, idx);
+        mp->ma_indices_to_hashpos[idx] = hashpos;
+
+        ep->me_key = key;
+        ep->me_hash = hash;
+        if (mp->ma_values) {
+            assert (mp->ma_values[mp->ma_keys->dk_nentries] == NULL);
+            mp->ma_values[mp->ma_keys->dk_nentries] = value;
+        }
+        else {
+            ep->me_value = value;
+        }
+
+        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+
+        //ep->me_layer = NULL;
+        mp->ma_used++;
+        mp->ma_num_items++;
+        mp->ma_version_tag = DICT_NEXT_VERSION();
+        mp->ma_keys->dk_usable--;
+        mp->ma_keys->dk_nentries++;
+        assert(mp->ma_keys->dk_usable >= 0);
+        ASSERT_CONSISTENT(mp);
+
+        if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
+            return 0;
+        }
+        printf("\t\t2INEQUALITY\n");
+        return -1;
     }
 
     if (old_value != value) {
@@ -3029,6 +3066,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
         else {
             assert(old_value != NULL);
+
+            printf("updating me_value.\n");
+            fflush(stdout);
+
             DK_ENTRIES(mp->ma_keys)[ix].me_value = value;
         }
         mp->ma_version_tag = DICT_NEXT_VERSION();
