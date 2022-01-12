@@ -2727,8 +2727,6 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
 int
 seen(const char *s, char **A, int n)
 {
-    printf("seen(%s)\n", s);
-    fflush(stdout);
     for (int i = 0; i < n; i++) {
         if (!strcmp(s, A[i]))
             return 1;
@@ -2785,13 +2783,6 @@ dict_traverse2(CustomPyDictObject *dict, int print)
         }
 
         if (ix >= 0 && ep[ix].me_key) {
-            if (i > 1387) {
-                printf("calling AsUTF8\n");
-                fflush(stdout);
-                PyUnicode_AsUTF8(ep[ix].me_key);
-                printf("called AsUTF8\n");
-                fflush(stdout);
-            }
             if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
                 printf("primary already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
                 fflush(stdout);
