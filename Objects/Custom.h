@@ -1716,9 +1716,6 @@ insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
     Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
     mp->ma_indices_stack_idx--;
 
-    printf("PREAt hashpos %lld: %s.\n", hashpos, DK_ENTRIES(mp->ma_keys)[idx].me_key ? PyUnicode_AsUTF8(DK_ENTRIES(mp->ma_keys)[idx].me_key) : "NULL");
-    fflush(stdout);
-
     dictkeys_set_index(mp->ma_keys, hashpos, idx);
     mp->ma_indices_to_hashpos[idx] = hashpos;
     printf("%s set_index %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos, idx);
@@ -1791,8 +1788,6 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
     mp->ma_num_items = 0;
 
     for (int i = 0; i < n; i++, ep++) {
-        printf("build_indices i: %d.\n", i);
-        fflush(stdout);
         Py_hash_t hash = ep->me_hash;
         size_t hashpos0 = hash & mask;
         Layer *layer = &(mp->ma_layers[hashpos0]);
@@ -1809,8 +1804,6 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
             // Linear probing is good enough.
             if (num_cmps <= mp->ma_keys->dk_log2_size) {
-                printf("insertslot.\n");
-                fflush(stdout);
                 insertslot(mp, hashpos, ep);
             }
             else {
@@ -2722,6 +2715,8 @@ custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *
 int
 seen(const char *s, char **A, int n)
 {
+    printf("seen(%s)\n", s);
+    fflush(stdout);
     for (int i = 0; i < n; i++) {
         if (!strcmp(s, A[i]))
             return 1;
@@ -2768,15 +2763,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             fflush(stdout);
         }
 
-        if (i > 1387) {
-            printf("before checking for no key no layer.\n");
-            fflush(stdout);
-        }
         if (ix >= 0 && !ep[ix].me_key && !dict->ma_layers[i].keys) {
-            if (i > 1387) {
-                printf("%d no key no layer.\n", i);
-                fflush(stdout);
-            }
             if (print) {
                 printf("\n");
                 fflush(stdout);
@@ -2785,13 +2772,12 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             continue;
         }
 
-        if (i > 1387) {
-            printf("before checking for key.\n");
-            fflush(stdout);
-        }
         if (ix >= 0 && ep[ix].me_key) {
             if (i > 1387) {
-                printf("%d has key.\n", i);
+                printf("calling AsUTF8\n");
+                fflush(stdout);
+                PyUnicode_AsUTF8(ep[ix].me_key);
+                printf("called AsUTF8\n");
                 fflush(stdout);
             }
             if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
@@ -2814,15 +2800,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             }
         }
 
-        if (i > 1387) {
-            printf("before checking for layer.\n");
-            fflush(stdout);
-        }
         if (dict->ma_layers[i].keys) {
-            if (i > 1387) {
-                printf("%d has layer.\n", i);
-                fflush(stdout);
-            }
             if (print) {
                 if (ix < 0) {
                     printf("%d -> %lld: ", i, ix);
