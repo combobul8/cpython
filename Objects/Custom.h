@@ -2768,7 +2768,15 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             fflush(stdout);
         }
 
+        if (i > 1387) {
+            printf("before checking for no key no layer.\n");
+            fflush(stdout);
+        }
         if (ix >= 0 && !ep[ix].me_key && !dict->ma_layers[i].keys) {
+            if (i > 1387) {
+                printf("%d no key no layer.\n", i);
+                fflush(stdout);
+            }
             if (print) {
                 printf("\n");
                 fflush(stdout);
@@ -2777,7 +2785,15 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             continue;
         }
 
+        if (i > 1387) {
+            printf("before checking for key.\n");
+            fflush(stdout);
+        }
         if (ix >= 0 && ep[ix].me_key) {
+            if (i > 1387) {
+                printf("%d has key.\n", i);
+                fflush(stdout);
+            }
             if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
                 printf("primary already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
                 fflush(stdout);
@@ -2798,7 +2814,15 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             }
         }
 
+        if (i > 1387) {
+            printf("before checking for layer.\n");
+            fflush(stdout);
+        }
         if (dict->ma_layers[i].keys) {
+            if (i > 1387) {
+                printf("%d has layer.\n", i);
+                fflush(stdout);
+            }
             if (print) {
                 if (ix < 0) {
                     printf("%d -> %lld: ", i, ix);
