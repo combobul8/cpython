@@ -2913,7 +2913,7 @@ Returns -1 if an error occurred, or 0 on success.
 */
 static int
 custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -2923,13 +2923,13 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     Py_INCREF(key);
     Py_INCREF(value);
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
-        if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
+        DictHelpersImpl helpers = { lookup, empty_slot, build_idxs };
+        if (custom_insertion_resize(mp, helpers) < 0)
             goto Fail;
     }
 
-    Py_ssize_t i;
     int num_cmps;   /* currently not measuring the efficiency of insert */
-    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
+    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &num_cmps);
 
     if (ix == DKIX_ERROR)
         goto Fail;
@@ -2942,7 +2942,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     if (_PyDict_HasSplitTable(mp) &&
         ((ix >= 0 && old_value == NULL && mp->ma_used != ix) ||
          (ix == DKIX_EMPTY && mp->ma_used != mp->ma_keys->dk_nentries))) {
-        if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
+        DictHelpersImpl helpers = { lookup, empty_slot, build_idxs };
+        if (custom_insertion_resize(mp, helpers) < 0)
             goto Fail;
         ix = DKIX_EMPTY;
     }
@@ -2956,8 +2957,9 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             printf("custominsertdict resize (num_items, used): (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
             fflush(stdout);
 
+            DictHelpersImpl helpers = { lookup, empty_slot, build_idxs };
             /* Need to resize. */
-            if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
+            if (custom_insertion_resize(mp, helpers) < 0)
                 goto Fail;
         }
         if (!PyUnicode_CheckExact(key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
@@ -3585,7 +3587,7 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value, DictHelpers
         return custom_insert_to_emptydict(mp, key, hash, value);
     }
     /* custominsertdict() handles any resizing that might be necessary */
-    return custominsertdict(mp, key, hash, value, helpers);
+    return custominsertdict(mp, key, hash, value, helpers.lookup, helpers.empty_slot, helpers.build_idxs);
 }
 
 /* CAUTION: PyDict_SetItem() must guarantee that it won't resize the
@@ -3728,11 +3730,11 @@ custom_dict_merge(PyObject *a, PyObject *b, int override, DictHelpersImpl helper
                 Py_INCREF(key);
                 Py_INCREF(value);
                 if (override == 1)
-                    err = custominsertdict(mp, key, hash, value, helpers);
+                    err = custominsertdict(mp, key, hash, value, helpers.lookup, helpers.empty_slot, helpers.build_idxs);
                 else {
                     err = custom_PyDict_Contains_KnownHash(a, key, hash);
                     if (err == 0) {
-                        err = custominsertdict(mp, key, hash, value, helpers);
+                        err = custominsertdict(mp, key, hash, value, helpers.lookup, helpers.empty_slot, helpers.build_idxs);
                     }
                     else if (err > 0) {
                         if (override != 0) {
