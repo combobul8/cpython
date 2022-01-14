@@ -1,4 +1,5 @@
 #include <windows.h>
+#include "stringlib/eq.h"
 
 #define NUM_GENERATIONS 3
 #define _PY_NSMALLNEGINTS           5
@@ -262,6 +263,8 @@ PyDoc_STRVAR(dict___contains____doc__,
 "True if the dictionary has the specified key, else False.");
 #define DICT___CONTAINS___METHODDEF    \
     {"__contains__", (PyCFunction)dict___contains__, METH_O|METH_COEXIST, dict___contains____doc__},
+#define CUSTOM_DICT___CONTAINS___METHODDEF    \
+    {"__contains__", (PyCFunction)custom_dict___contains__, METH_O|METH_COEXIST, dict___contains____doc__},
 
 PyDoc_STRVAR(getitem__doc__, "x.__getitem__(y) <==> x[y]");
 
@@ -281,6 +284,8 @@ PyDoc_STRVAR(dict_get__doc__,
 
 #define DICT_SETDEFAULT_METHODDEF    \
     {"setdefault", (PyCFunction)(void(*)(void))dict_setdefault, METH_FASTCALL, dict_setdefault__doc__},
+#define CUSTOM_DICT_SETDEFAULT_METHODDEF    \
+    {"setdefault", (PyCFunction)(void(*)(void))custom_dict_setdefault, METH_FASTCALL, dict_setdefault__doc__},
 
 PyDoc_STRVAR(dict_setdefault__doc__,
 "setdefault($self, key, default=None, /)\n"
@@ -292,6 +297,8 @@ PyDoc_STRVAR(dict_setdefault__doc__,
 
 #define DICT_POP_METHODDEF    \
     {"pop", (PyCFunction)(void(*)(void))dict_pop, METH_FASTCALL, dict_pop__doc__},
+#define CUSTOM_DICT_POP_METHODDEF    \
+    {"pop", (PyCFunction)(void(*)(void))custom_dict_pop, METH_FASTCALL, dict_pop__doc__},
 
 PyDoc_STRVAR(dict_pop__doc__,
 "pop($self, key, default=<unrepresentable>, /)\n"
@@ -304,6 +311,8 @@ PyDoc_STRVAR(dict_pop__doc__,
 
 #define DICT_POPITEM_METHODDEF    \
     {"popitem", (PyCFunction)dict_popitem, METH_NOARGS, dict_popitem__doc__},
+#define CUSTOM_DICT_POPITEM_METHODDEF    \
+    {"popitem", (PyCFunction)custom_dict_popitem, METH_NOARGS, dict_popitem__doc__},
 
 PyDoc_STRVAR(dict_popitem__doc__,
 "popitem($self, /)\n"
@@ -1784,7 +1793,10 @@ After resizing a table is always combined,
 but can be resplit by make_keys_shared().
 */
 static int
-customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl helpers)
+customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
+        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     printf("customdictresize log2_newsize: %ld.\n", log2_newsize);
     fflush(stdout);
@@ -1899,7 +1911,7 @@ customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize, DictHelpersImpl h
         }
     }
 
-    helpers.build_idxs(mp, newentries, numentries);
+    build_idxs(mp, newentries, numentries);
     // mp->ma_keys->dk_usable -= numentries;
     mp->ma_keys->dk_nentries = numentries;
     ASSERT_CONSISTENT(mp);
@@ -2072,9 +2084,12 @@ estimate_log2_keysize(Py_ssize_t n)
 #define CUSTOM_GROWTH_RATE(d) ((d)->ma_num_items*2)
 
 static int
-custom_insertion_resize(CustomPyDictObject *mp, DictHelpersImpl helpers)
+custom_insertion_resize(CustomPyDictObject *mp,
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
+        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    return customdictresize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)), helpers);
+    return customdictresize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
 }
 
 static int
@@ -2085,122 +2100,6 @@ insertion_resize(PyDictObject *mp, void (*build_idxs)(PyDictKeysObject *, PyDict
 
 Py_ssize_t _Py_HOT_FUNCTION
 rprobe_Py_dict_lookup(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
-{
-#ifdef EBUG
-    printf("called _Py_dict_lookup\n");
-#endif
-
-    PyDictKeysObject *dk;
-start:
-    dk = mp->ma_keys;
-    DictKeysKind kind = dk->dk_kind;
-    PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
-    size_t mask = DK_MASK(dk);
-    size_t perturb = hash;
-    size_t i = (size_t)hash & mask;
-
-    Py_ssize_t ix;
-    *num_cmps = 0;
-    if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
-        /* Strings only */
-        for (;;) {
-            ix = dictkeys_get_index(mp->ma_keys, i);
-
-#ifdef EBUG
-            printf("0(i, ix): (%lld, %lld)\n", i, ix);
-            fflush(stdout);
-#endif
-
-            (*num_cmps)++;
-            if (ix >= 0) {
-                PyDictKeyEntry *ep = &ep0[ix];
-                assert(ep->me_key != NULL);
-                assert(PyUnicode_CheckExact(ep->me_key));
-                if (ep->me_key == key ||
-                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                    goto found;
-                }
-            }
-            else if (ix == DKIX_EMPTY) {
-                *value_addr = NULL;
-                return DKIX_EMPTY;
-            }
-            perturb >>= PERTURB_SHIFT;
-            i = mask & (i*5 + perturb + 1);
-            ix = dictkeys_get_index(mp->ma_keys, i);
-
-#ifdef EBUG
-            printf("1(i, ix): (%lld, %lld)\n", i, ix);
-            fflush(stdout);
-#endif
-
-            (*num_cmps)++;
-            if (ix >= 0) {
-                PyDictKeyEntry *ep = &ep0[ix];
-                assert(ep->me_key != NULL);
-                assert(PyUnicode_CheckExact(ep->me_key));
-                if (ep->me_key == key ||
-                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                    goto found;
-                }
-            }
-            else if (ix == DKIX_EMPTY) {
-                *value_addr = NULL;
-                return DKIX_EMPTY;
-            }
-            perturb >>= PERTURB_SHIFT;
-            i = mask & (i*5 + perturb + 1);
-        }
-        Py_UNREACHABLE();
-    }
-    for (;;) {
-        ix = dictkeys_get_index(dk, i);
-        if (ix == DKIX_EMPTY) {
-            *value_addr = NULL;
-            return ix;
-        }
-        if (ix >= 0) {
-            PyDictKeyEntry *ep = &ep0[ix];
-            assert(ep->me_key != NULL);
-            if (ep->me_key == key) {
-                goto found;
-            }
-            if (ep->me_hash == hash) {
-                PyObject *startkey = ep->me_key;
-                Py_INCREF(startkey);
-                int cmp = PyObject_RichCompareBool(startkey, key, Py_EQ);
-                Py_DECREF(startkey);
-                if (cmp < 0) {
-                    *value_addr = NULL;
-                    return DKIX_ERROR;
-                }
-                if (dk == mp->ma_keys && ep->me_key == startkey) {
-                    if (cmp > 0) {
-                        goto found;
-                    }
-                }
-                else {
-                    /* The dict was mutated, restart */
-                    goto start;
-                }
-            }
-        }
-        perturb >>= PERTURB_SHIFT;
-        i = (i*5 + perturb + 1) & mask;
-    }
-    Py_UNREACHABLE();
-found:
-    if (dk->dk_kind == DICT_KEYS_SPLIT) {
-        *value_addr = mp->ma_values[ix];
-    }
-    else {
-        *value_addr = ep0[ix].me_value;
-    }
-    return ix;
-}
-
-Py_ssize_t _Py_HOT_FUNCTION
-_Py_dict_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
 {
 #ifdef EBUG
     printf("called _Py_dict_lookup\n");
@@ -2440,86 +2339,6 @@ custom_Py_dict_lookup(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
         return ix.ix;
     }
     Py_UNREACHABLE();
-}
-
-Py_ssize_t _Py_HOT_FUNCTION
-custom_lookup(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject **value_addr, int *num_cmps)
-{
-#ifdef EBUG
-    printf("custom_lookup hash: %lld.\n", hash);
-    fflush(stdout);
-#endif
-
-    PyDictKeysObject *dk;
-    dk = mp->ma_keys;
-    DictKeysKind kind = dk->dk_kind;
-    PyDictKeyEntry *ep0 = DK_ENTRIES(dk);
-    size_t mask = DK_MASK(dk);
-    size_t i = (size_t)hash & mask;
-    Py_ssize_t ix;
-    *num_cmps = 0;
-    if (PyUnicode_CheckExact(key) && kind != DICT_KEYS_GENERAL) {
-        /* Strings only */
-        for (;;) {
-            ix = dictkeys_get_index(mp->ma_keys, i);
-
-#ifdef EBUG
-            printf("0(i, ix): (%lld, %lld)\n", i, ix);
-            fflush(stdout);
-#endif
-
-            (*num_cmps)++;
-            if (ix >= 0) {
-                PyDictKeyEntry *ep = &ep0[ix];
-                assert(ep->me_key != NULL);
-                assert(PyUnicode_CheckExact(ep->me_key));
-                if (ep->me_key == key ||
-                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                    //printf("here.\n");
-                    //fflush(stdout);
-                    //assert(ep->me_layer != NULL);
-                    goto found;
-                }
-            }
-            else if (ix == DKIX_EMPTY) {
-                *value_addr = NULL;
-                return DKIX_EMPTY;
-            }
-            i = mask & (i + 1);
-            ix = dictkeys_get_index(mp->ma_keys, i);
-
-#ifdef EBUG
-            printf("1(i, ix): (%lld, %lld)\n", i, ix);
-            fflush(stdout);
-#endif
-
-            (*num_cmps)++;
-            if (ix >= 0) {
-                PyDictKeyEntry *ep = &ep0[ix];
-                assert(ep->me_key != NULL);
-                assert(PyUnicode_CheckExact(ep->me_key));
-                if (ep->me_key == key ||
-                        (ep->me_hash == hash && unicode_eq(ep->me_key, key))) {
-                    goto found;
-                }
-            }
-            else if (ix == DKIX_EMPTY) {
-                *value_addr = NULL;
-                return DKIX_EMPTY;
-            }
-            i = mask & (i + 1);
-        }
-        Py_UNREACHABLE();
-    }
-    Py_UNREACHABLE();
-found:
-    if (dk->dk_kind == DICT_KEYS_SPLIT) {
-        *value_addr = mp->ma_values[ix];
-    }
-    else {
-        *value_addr = ep0[ix].me_value;
-    }
-    return ix;
 }
 
 static void
@@ -2904,7 +2723,7 @@ Returns -1 if an error occurred, or 0 on success.
 */
 static int
 custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -2918,9 +2737,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             goto Fail;
     }
 
-    Py_ssize_t i;
     int num_cmps;   /* currently not measuring the efficiency of insert */
-    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &i, &num_cmps);
+    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &num_cmps);
 
     if (ix == DKIX_ERROR)
         goto Fail;
@@ -3539,7 +3357,7 @@ custom_PyObject_Hash(PyObject *v)
  */
 int
 custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -3626,7 +3444,7 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
 
 static int
 custom_dict_merge(PyObject *a, PyObject *b, int override,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -4024,7 +3842,7 @@ dict_merge(PyObject *a, PyObject *b, int override,
 
 int
 custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
@@ -4054,7 +3872,7 @@ custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
 /* Single-arg dict update; used by dict_update_common and operators. */
 static int
 custom_dict_update_arg(PyObject *self, PyObject *arg,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, size_t *, int *),
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
