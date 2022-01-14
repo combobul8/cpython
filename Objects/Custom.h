@@ -2722,7 +2722,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             // insertslot will increment mp->ma_num_items!!!
             // insertslot will determine entry.i
             PyDictKeyEntry entry = { hash, key, value, -1 };
-            insertslot(mp, hashpos, &entry);
+            insertslot(mp, hashpos0, &entry);
             return 0;
         }
 
@@ -2760,6 +2760,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
                 }
                 printf("\t\t1INEQUALITY\n");
                 return -1;
+            }
+            else {
+                printf("INVARIANT BROKEN %s.\n", PyUnicode_AsUTF8(key));
+                fflush(stdout);
             }
         }
 
