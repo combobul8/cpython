@@ -2679,7 +2679,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
     PyObject *old_value;
-    PyDictKeyEntry *ep;
 
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
         if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
@@ -2753,7 +2752,9 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
         // insertslot will increment mp->ma_num_items!!!
-        insertslot(mp, hashpos, &DK_ENTRIES(mp->ma_keys)[idx]);
+        // insertslot will determine entry.i
+        PyDictKeyEntry entry = { hash, key, value, -1 };
+        insertslot(mp, hashpos, &entry);
         return 0;
     }
 
