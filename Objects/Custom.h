@@ -2730,8 +2730,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
     PyObject *old_value;
     PyDictKeyEntry *ep;
 
-    Py_INCREF(key);
-    Py_INCREF(value);
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
         if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
             goto Fail;
@@ -2743,28 +2741,15 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         int num_cmps;
         ix = lookup(mp, key, hash, &old_value, &num_cmps);
     }
-
     if (ix == DKIX_ERROR)
         goto Fail;
 
     MAINTAIN_TRACKING(mp, key, value);
 
-    /* When insertion order is different from shared key, we can't share
-     * the key anymore.  Convert this instance to combine table.
-     */
-    if (_PyDict_HasSplitTable(mp) &&
-        ((ix >= 0 && old_value == NULL && mp->ma_used != ix) ||
-         (ix == DKIX_EMPTY && mp->ma_used != mp->ma_keys->dk_nentries))) {
-        if (custom_insertion_resize(mp, lookup, empty_slot, build_idxs) < 0)
-            goto Fail;
-        ix = DKIX_EMPTY;
-    }
-
     if (ix == DKIX_EMPTY) {
         /* Insert into new slot. */
         mp->ma_keys->dk_version = 0;
         assert(old_value == NULL);
-
         if (mp->ma_keys->dk_usable <= 0) {
             printf("custominsertdict resize (num_items, used): (%lld, %lld).\n", mp->ma_num_items, mp->ma_used);
             fflush(stdout);
@@ -2783,26 +2768,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         if (num_cmps > mp->ma_keys->dk_log2_size) {
 #ifdef EBUG_INSERT
-            printf("\tcustominsertdict ix == EMPTY; %d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
+            printf("\t%d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
             fflush(stdout);
 #endif
-
-            int num_items_moved = filter(mp, hashpos0, num_cmps);
-            /* if (num_items_moved == 0) {
-                dictkeys_set_index(mp->ma_keys, hashpos0, DKIX_EMPTY);
-
-                Py_ssize_t idx = dictkeys_get_index(mp->ma_keys, hashpos0);
-
-                mp->ma_indices_stack_idx++;
-                mp->ma_indices_stack[mp->ma_indices_stack_idx] = idx;
-
-                ep->me_key = NULL;
-                ep->me_value = NULL;
-
-                mp->ma_used--;
-                mp->ma_keys->dk_usable++;
-                mp->ma_keys->dk_nentries--;
-            } */
+            filter(mp, hashpos0, num_cmps);
         }
 
         Layer *layer = &(mp->ma_layers[hashpos0]);
@@ -2826,17 +2795,16 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
 
+#ifdef EBUG_INSERT
+        printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
+        fflush(stdout);
+#endif
+
         Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
         mp->ma_indices_stack_idx--;
 
         ep = &DK_ENTRIES(mp->ma_keys)[idx];
         ep->i = hashpos0;
-
-#ifdef EBUG_INSERT
-        printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
-        // printf("\tset_index %lld, %lld.\n", hashpos, idx);
-        fflush(stdout);
-#endif
 
         dictkeys_set_index(mp->ma_keys, hashpos, idx);
         mp->ma_indices_to_hashpos[idx] = hashpos;
@@ -2852,21 +2820,15 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
 
         strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-
-        //ep->me_layer = NULL;
-        mp->ma_used++;
         mp->ma_num_items++;
+
+        mp->ma_used++;
         mp->ma_version_tag = DICT_NEXT_VERSION();
         mp->ma_keys->dk_usable--;
         mp->ma_keys->dk_nentries++;
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
-
-        if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
-            return 0;
-        }
-        printf("\t\t2INEQUALITY\n");
-        return -1;
+        return 0;
     }
 
     if (old_value != value) {
