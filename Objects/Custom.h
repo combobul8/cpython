@@ -2341,28 +2341,47 @@ custom_Py_dict_lookup(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
     Py_UNREACHABLE();
 }
 
+void
+insertslot(CustomPyDictObject *mp, Py_ssize_t hashpos, PyDictKeyEntry *ep)
+{
+    Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
+    mp->ma_indices_stack_idx--;
+
+    dictkeys_set_index(mp->ma_keys, hashpos, idx);
+    mp->ma_indices_to_hashpos[idx] = hashpos;
+
+    PyDictKeyEntry *entry = &DK_ENTRIES(mp->ma_keys)[idx];
+    entry->me_key = ep->me_key;
+    entry->me_hash = ep->me_hash;
+    if (mp->ma_values) {
+        assert (mp->ma_values[mp->ma_keys->dk_nentries] == NULL);
+        mp->ma_values[mp->ma_keys->dk_nentries] = ep->me_value;
+    }
+    else {
+        entry->me_value = ep->me_value;
+    }
+    entry->i = ep->i;
+
+    mp->ma_used++;
+    mp->ma_version_tag = DICT_NEXT_VERSION();
+    mp->ma_keys->dk_usable--;
+    mp->ma_keys->dk_nentries++;
+    assert(mp->ma_keys->dk_usable >= 0);
+    ASSERT_CONSISTENT(mp);
+
+    mp->ma_num_items++;
+}
+
 static void
 custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 {
     PyDictKeysObject *keys = mp->ma_keys;
     size_t mask = (size_t)DK_SIZE(keys) - 1;
-    // Py_ssize_t ix = 0;
 
     mp->ma_used = 0;
     mp->ma_num_items = 0;
 
     for (int i = 0; i < n; i++, ep++) {
-        /* PyObject *rv;
-        Py_ssize_t i0;
-        int num_cmps2;
-
-        printf("build_indices calling lookup %s.\n", PyUnicode_AsUTF8(ep->me_key));
-        fflush(stdout);
-        if (custom_lookup2(mp, ep->me_key, ep->me_hash, &rv, &i0, &num_cmps2) >= 0) {
-            printf("build_indices found %s already.\n", PyUnicode_AsUTF8(ep->me_key));
-            fflush(stdout);
-        } */
-
         Py_hash_t hash = ep->me_hash;
         size_t hashpos0 = hash & mask;
         Layer *layer = &(mp->ma_layers[hashpos0]);
@@ -2379,65 +2398,17 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
             // Linear probing is good enough.
             if (num_cmps <= mp->ma_keys->dk_log2_size) {
-                Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
-                mp->ma_indices_stack_idx--;
-
-                dictkeys_set_index(keys, hashpos, idx);
-                /* printf("%s build_indices probe set_index %lld %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos, idx, hashpos0);
-                fflush(stdout); */
-
-                mp->ma_indices_to_hashpos[idx] = hashpos;
-
-                PyDictKeyEntry *entry = &DK_ENTRIES(mp->ma_keys)[idx];
-                entry->me_key = ep->me_key;
-                entry->me_hash = ep->me_hash;
-                entry->me_value = ep->me_value;
-                entry->i = ep->i;
-
-                mp->ma_used++;
-                mp->ma_keys->dk_usable--;
-                mp->ma_keys->dk_nentries++;
+                insertslot(mp, hashpos, ep);
+                continue;
             }
             else {
                 // Create a layer and avoid linear probing that starts at this hash value.
                 int num_items_moved = filter(mp, hashpos0, num_cmps);
 
-                /* if (num_items_moved == 0) {
-                    dictkeys_set_index(mp->ma_keys, hashpos0, DKIX_EMPTY);
-
-                    Py_ssize_t idx = dictkeys_get_index(mp->ma_keys, hashpos0);
-
-                    mp->ma_indices_stack_idx++;
-                    mp->ma_indices_stack[mp->ma_indices_stack_idx] = idx;
-
-                    ep->me_key = NULL;
-                    ep->me_value = NULL;
-
-                    mp->ma_used--;
-                    mp->ma_keys->dk_usable++;
-                    mp->ma_keys->dk_nentries--;
-                } */
-
                 // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
                 if (dictkeys_get_index(keys, hashpos0) == DKIX_EMPTY) {
-                    Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
-                    mp->ma_indices_stack_idx--;
-
-                    dictkeys_set_index(keys, hashpos0, idx);
-                    /* printf("build_indices post-filter set_index %lld %lld.\n", hashpos0, idx);
-                    fflush(stdout); */
-
-                    mp->ma_indices_to_hashpos[idx] = hashpos0;
-
-                    PyDictKeyEntry *entry = &DK_ENTRIES(mp->ma_keys)[idx];
-                    entry->me_key = ep->me_key;
-                    entry->me_hash = ep->me_hash;
-                    entry->me_value = ep->me_value;
-                    entry->i = ep->i;
-
-                    mp->ma_used++;
-                    mp->ma_keys->dk_usable--;
-                    mp->ma_keys->dk_nentries++;
+                    insertslot(mp, hashpos0, ep);
+                    continue;
                 }
                 else
                     insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
@@ -2449,33 +2420,13 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             printf("%lld layer but free cell.\n", hashpos);
             fflush(stdout);
 
-            Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
-            mp->ma_indices_stack_idx--;
-
-            dictkeys_set_index(keys, hashpos, idx);
-            /* printf("build_indices set_index %lld %lld.\n", hashpos, idx);
-            fflush(stdout); */
-
-            mp->ma_indices_to_hashpos[idx] = hashpos;
-
-            mp->ma_used++;
-            mp->ma_keys->dk_usable--;
-            mp->ma_keys->dk_nentries++;
+            insertslot(mp, hashpos, ep);
+            continue;
         }
         else {
             printf("build_indices %s layer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
             fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
-
-            /* mp->ma_indices_stack_idx++;
-            mp->ma_indices_stack[mp->ma_indices_stack_idx] = ix;
-
-            ep->me_key = NULL;
-            ep->me_value = NULL;
-
-            mp->ma_used--;
-            mp->ma_keys->dk_usable++;
-            mp->ma_keys->dk_nentries--; */
         }
 
         mp->ma_num_items++;
