@@ -2737,8 +2737,12 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             goto Fail;
     }
 
-    int num_cmps;   /* currently not measuring the efficiency of insert */
-    Py_ssize_t ix = lookup(mp, key, hash, &old_value, &num_cmps);
+    Py_ssize_t ix;
+    {
+        // Insert doesn't use lookup's extra return values
+        int num_cmps;
+        ix = lookup(mp, key, hash, &old_value, &num_cmps);
+    }
 
     if (ix == DKIX_ERROR)
         goto Fail;
@@ -2774,6 +2778,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
 
         Py_ssize_t hashpos0;
+        int num_cmps;
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
 
         if (num_cmps > mp->ma_keys->dk_log2_size) {
