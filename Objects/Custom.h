@@ -2726,6 +2726,16 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             return 0;
         }
 
+        // At least one collision? Insert into layer if it already exists.
+        Layer *layer = &(mp->ma_layers[hashpos0]);
+        if (layer->keys) {
+            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+            mp->ma_num_items++;
+
+            insertlayer_keyhashvalue(layer, key, hash, value);
+            return 0;
+        }
+
         if (num_cmps > mp->ma_keys->dk_log2_size) {
 #ifdef EBUG_INSERT
             printf("\t%d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
@@ -2734,7 +2744,7 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             filter(mp, hashpos0, num_cmps);
         }
 
-        Layer *layer = &(mp->ma_layers[hashpos0]);
+        layer = &(mp->ma_layers[hashpos0]);
         if (layer->keys) {
             if (dictkeys_get_index(mp->ma_keys, hashpos0) != DKIX_EMPTY) {
                 if (insertlayer_keyhashvalue(layer, key, hash, value)) {
