@@ -2751,34 +2751,9 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         fflush(stdout);
 #endif
 
-        Py_ssize_t idx = mp->ma_indices_stack[mp->ma_indices_stack_idx];
-        mp->ma_indices_stack_idx--;
-
-        ep = &DK_ENTRIES(mp->ma_keys)[idx];
-        ep->i = hashpos0;
-
-        dictkeys_set_index(mp->ma_keys, hashpos, idx);
-        mp->ma_indices_to_hashpos[idx] = hashpos;
-
-        ep->me_key = key;
-        ep->me_hash = hash;
-        if (mp->ma_values) {
-            assert (mp->ma_values[mp->ma_keys->dk_nentries] == NULL);
-            mp->ma_values[mp->ma_keys->dk_nentries] = value;
-        }
-        else {
-            ep->me_value = value;
-        }
-
         strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-        mp->ma_num_items++;
-
-        mp->ma_used++;
-        mp->ma_version_tag = DICT_NEXT_VERSION();
-        mp->ma_keys->dk_usable--;
-        mp->ma_keys->dk_nentries++;
-        assert(mp->ma_keys->dk_usable >= 0);
-        ASSERT_CONSISTENT(mp);
+        // insertslot will increment mp->ma_num_items!!!
+        insertslot(mp, hashpos, &DK_ENTRIES(mp->ma_keys)[idx]);
         return 0;
     }
 
