@@ -2716,6 +2716,16 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         int num_cmps;
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
 
+        // No collisions? Simply insert!
+        if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
+            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+            // insertslot will increment mp->ma_num_items!!!
+            // insertslot will determine entry.i
+            PyDictKeyEntry entry = { hash, key, value, -1 };
+            insertslot(mp, hashpos, &entry);
+            return 0;
+        }
+
         if (num_cmps > mp->ma_keys->dk_log2_size) {
 #ifdef EBUG_INSERT
             printf("\t%d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
