@@ -2731,24 +2731,18 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
 
-        Py_ssize_t hashpos0;
-        int num_cmps;
-        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
-
-        // No collisions? Simply insert!
-        if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
-            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-            // insertslot will increment mp->ma_num_items!!!
-            // insertslot will determine entry.i
-            PyDictKeyEntry entry = { hash, key, value, -1 };
-            insertslot(mp, hashpos0, &entry);
-            // dict_traverse2(mp, 1);
-            return 0;
-        }
-
-        // At least one collision? Insert into layer if it already exists.
         Layer *layer = &(mp->ma_layers[hashpos0]);
         if (layer->keys) {
+            if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
+                strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+                // insertslot will increment mp->ma_num_items!!!
+                // insertslot will determine entry.i
+                PyDictKeyEntry entry = { hash, key, value, -1 };
+                insertslot(mp, hashpos0, &entry);
+                // dict_traverse2(mp, 1);
+                return 0;
+            }
+
             strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
             mp->ma_num_items++;
 
@@ -2757,35 +2751,41 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             return 0;
         }
 
-        if (num_cmps > mp->ma_keys->dk_log2_size) {
-#ifdef EBUG_INSERT
-            printf("\t%d > %d; calling filter\n", num_cmps, mp->ma_keys->dk_log2_size);
-            fflush(stdout);
-#endif
-            filter(mp, hashpos0, num_cmps);
+        if (num_cmps <= mp->ma_keys->dk_log2_size) {
+            Py_ssize_t hashpos0;
+            int num_cmps;
+            Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
+
+            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+            // insertslot will increment mp->ma_num_items!!!
+            // insertslot will determine entry.i
+            PyDictKeyEntry entry = { hash, key, value, -1 };
+            insertslot(mp, hashpos, &entry);
+            // dict_traverse2(mp, 1);
+            return 0;
         }
 
-        layer = &(mp->ma_layers[hashpos0]);
-        if (layer->keys) {
-            if (dictkeys_get_index(mp->ma_keys, hashpos0) != DKIX_EMPTY) {
-                if (insertlayer_keyhashvalue(layer, key, hash, value)) {
-                    printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
-                    fflush(stdout);
-                    return -1;
-                }
+        filter(mp, hashpos0, num_cmps);
+        if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
+            printf("INVARIANT BROKEN %s.\n", PyUnicode_AsUTF8(key));
+            fflush(stdout);
+        }
 
-                strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-                mp->ma_num_items++;
-                if (1 /* mp->ma_num_items == dict_traverse2(mp, 0) */) {
-                    // dict_traverse2(mp, 1);
-                    return 0;
+        if (insertlayer_keyhashvalue(layer, key, hash, value)) {
+            printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
+            fflush(stdout);
+            return -1;
+        }
+
+        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+        mp->ma_num_items++;
+        return 0;
                 }
                 printf("\t\t1INEQUALITY\n");
                 return -1;
             }
             else {
-                printf("INVARIANT BROKEN %s.\n", PyUnicode_AsUTF8(key));
-                fflush(stdout);
+
             }
         }
 
