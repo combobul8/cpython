@@ -2731,6 +2731,10 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
 
+        Py_ssize_t hashpos0;
+        int num_cmps;
+        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
+
         Layer *layer = &(mp->ma_layers[hashpos0]);
         if (layer->keys) {
             if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
@@ -2752,10 +2756,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         }
 
         if (num_cmps <= mp->ma_keys->dk_log2_size) {
-            Py_ssize_t hashpos0;
-            int num_cmps;
-            Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
-
             strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
             // insertslot will increment mp->ma_num_items!!!
             // insertslot will determine entry.i
