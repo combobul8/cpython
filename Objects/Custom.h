@@ -2396,54 +2396,8 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
     mp->ma_num_items = 0;
 
     for (int i = 0; i < n; i++, ep++) {
-        Py_hash_t hash = ep->me_hash;
-        size_t hashpos0 = hash & mask;
-        Layer *layer = &(mp->ma_layers[hashpos0]);
-        size_t hashpos = ep->i = hashpos0;
-        Py_ssize_t ix = DKIX_EMPTY;
-
-        // If there's no layer at the hash value, then check if linear probing is good enough.
-        if (!layer->keys) {
-            int num_cmps = 0;
-            while (dictkeys_get_index(keys, hashpos) != DKIX_EMPTY) {
-                num_cmps++;
-                hashpos = mask & (hashpos + 1);
-            }
-
-            // Linear probing is good enough.
-            if (num_cmps <= mp->ma_keys->dk_log2_size) {
-                insertslot(mp, hashpos, ep);
-                continue;
-            }
-            else {
-                // Create a layer and avoid linear probing that starts at this hash value.
-                int num_items_moved = filter(mp, hashpos0, num_cmps);
-
-                // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
-                if (dictkeys_get_index(keys, hashpos0) == DKIX_EMPTY) {
-                    insertslot(mp, hashpos0, ep);
-                    continue;
-                }
-                else
-                    insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
-            }
-        }
-
-        // If there's a layer at the hash value, then insert into the layer unless the cell is free.
-        else if ((ix = dictkeys_get_index(keys, hashpos)) == DKIX_EMPTY) {
-            printf("%lld layer but free cell.\n", hashpos);
-            fflush(stdout);
-
-            insertslot(mp, hashpos, ep);
-            continue;
-        }
-        else {
-            printf("build_indices %s layer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
-            fflush(stdout);
-            insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
-        }
-
-        mp->ma_num_items++;
+        custominsertdict(mp, ep->mekey, ep->me_hash, ep->me_value, custom_Py_dict_lookup,
+                custom_find_empty_slot, custom_build_indices);
     }
 }
 
