@@ -2,7 +2,6 @@
 #include <Python.h>
 #include <pyport.h>
 #include <structmember.h>
-#include "stringlib/eq.h"    // unicode_eq()
 #include "Custom.h"
 
 #define IS_POWER_OF_2(x) (((x) & (x-1)) == 0)
@@ -55,13 +54,6 @@ PyAPI_DATA(_PyRuntimeState) _PyRuntime;
         _PyObject_GC_UNTRACK(__FILE__, __LINE__, _PyObject_CAST(op))
 #endif
 
-static PyModuleDef custommodule = {
-    PyModuleDef_HEAD_INIT,
-    .m_name = "custom",
-    .m_doc = "Example module that creates an extension type.",
-    .m_size = -1,
-};
-
 static PyModuleDef custommodule2 = {
     PyModuleDef_HEAD_INIT,
     .m_name = "custom2",
@@ -85,7 +77,7 @@ custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
         result = -1;
     }
     else if (arg != NULL) {
-        result = custom_dict_update_arg(self, arg, helpers);
+        result = custom_dict_update_arg(self, arg, helpers.lookup, helpers.empty_slot, helpers.build_idxs);
     }
 
     if (result == 0 && kwds != NULL) {
@@ -619,8 +611,8 @@ custom_dict_popitem_impl(CustomPyDictObject *self)
     }
     /* Convert split table to combined table */
     if (self->ma_keys->dk_kind == DICT_KEYS_SPLIT) {
-        DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
-        if (customdictresize(self, DK_LOG_SIZE(self->ma_keys), helpers)) {
+        // DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
+        if (customdictresize(self, DK_LOG_SIZE(self->ma_keys), custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices)) {
             Py_DECREF(res);
             return NULL;
         }
@@ -798,7 +790,7 @@ _Custom_PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
     if (d == NULL)
         return NULL;
 
-    DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
+    // DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
 
     if (PyDict_CheckExact(d) && ((CustomPyDictObject *)d)->ma_used == 0) {
         if (PyDict_CheckExact(iterable)) {
@@ -808,7 +800,7 @@ _Custom_PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
             PyObject *key;
             Py_hash_t hash;
 
-            if (customdictresize(mp, estimate_log2_keysize(PyDict_GET_SIZE(iterable)), helpers)) {
+            if (customdictresize(mp, estimate_log2_keysize(PyDict_GET_SIZE(iterable)), custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices)) {
                 Py_DECREF(d);
                 return NULL;
             }
@@ -827,7 +819,7 @@ _Custom_PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
             PyObject *key;
             Py_hash_t hash;
 
-            if (customdictresize(mp, estimate_log2_keysize(PySet_GET_SIZE(iterable)), helpers)) {
+            if (customdictresize(mp, estimate_log2_keysize(PySet_GET_SIZE(iterable)), custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices)) {
                 Py_DECREF(d);
                 return NULL;
             }
@@ -1098,6 +1090,49 @@ static PyMethodDef custom_mapp_methods[] = {
     {NULL,              NULL}   /* sentinel */
 };
 
+static inline void
+dictkeys_incref(PyDictKeysObject *dk)
+{
+#ifdef Py_REF_DEBUG
+    _Py_RefTotal++;
+#endif
+    dk->dk_refcnt++;
+}
+
+static PyObject *
+custom_dict_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    assert(type != NULL);
+    assert(type->tp_alloc != NULL);
+    // dict subclasses must implement the GC protocol
+    assert(_PyType_IS_GC(type));
+
+    PyObject *self = type->tp_alloc(type, 0);
+    if (self == NULL) {
+        return NULL;
+    }
+    CustomPyDictObject *d = (CustomPyDictObject *)self;
+
+    d->ma_used = 0;
+    d->ma_version_tag = DICT_NEXT_VERSION();
+    dictkeys_incref(Py_EMPTY_KEYS);
+    d->ma_keys = Py_EMPTY_KEYS;
+    d->ma_values = empty_values;
+    ASSERT_CONSISTENT(d);
+
+    if (type != &PyDict_Type) {
+        // Don't track if a subclass tp_alloc is PyType_GenericAlloc()
+        if (!_PyObject_GC_IS_TRACKED(d)) {
+            _PyObject_GC_TRACK(d);
+        }
+    }
+    else {
+        // _PyType_AllocNoTrack() does not track the created object
+        assert(!_PyObject_GC_IS_TRACKED(d));
+    }
+    return self;
+}
+
 static void
 dict_dealloc(PyDictObject *mp)
 {
@@ -1135,89 +1170,6 @@ dict_dealloc(PyDictObject *mp)
     Py_TRASHCAN_END
 }
 
-static PyObject *
-dict_repr(PyDictObject *mp)
-{
-    Py_ssize_t i;
-    PyObject *key = NULL, *value = NULL;
-    _PyUnicodeWriter writer;
-    int first;
-
-    i = Py_ReprEnter((PyObject *)mp);
-    if (i != 0) {
-        return i > 0 ? PyUnicode_FromString("{...}") : NULL;
-    }
-
-    if (mp->ma_used == 0) {
-        Py_ReprLeave((PyObject *)mp);
-        return PyUnicode_FromString("{}");
-    }
-
-    _PyUnicodeWriter_Init(&writer);
-    writer.overallocate = 1;
-    /* "{" + "1: 2" + ", 3: 4" * (len - 1) + "}" */
-    writer.min_length = 1 + 4 + (2 + 4) * (mp->ma_used - 1) + 1;
-
-    if (_PyUnicodeWriter_WriteChar(&writer, '{') < 0)
-        goto error;
-
-    /* Do repr() on each key+value pair, and insert ": " between them.
-       Note that repr may mutate the dict. */
-    i = 0;
-    first = 1;
-    while (PyDict_Next((PyObject *)mp, &i, &key, &value)) {
-        PyObject *s;
-        int res;
-
-        /* Prevent repr from deleting key or value during key format. */
-        Py_INCREF(key);
-        Py_INCREF(value);
-
-        if (!first) {
-            if (_PyUnicodeWriter_WriteASCIIString(&writer, ", ", 2) < 0)
-                goto error;
-        }
-        first = 0;
-
-        s = PyObject_Repr(key);
-        if (s == NULL)
-            goto error;
-        res = _PyUnicodeWriter_WriteStr(&writer, s);
-        Py_DECREF(s);
-        if (res < 0)
-            goto error;
-
-        if (_PyUnicodeWriter_WriteASCIIString(&writer, ": ", 2) < 0)
-            goto error;
-
-        s = PyObject_Repr(value);
-        if (s == NULL)
-            goto error;
-        res = _PyUnicodeWriter_WriteStr(&writer, s);
-        Py_DECREF(s);
-        if (res < 0)
-            goto error;
-
-        Py_CLEAR(key);
-        Py_CLEAR(value);
-    }
-
-    writer.overallocate = 0;
-    if (_PyUnicodeWriter_WriteChar(&writer, '}') < 0)
-        goto error;
-
-    Py_ReprLeave((PyObject *)mp);
-
-    return _PyUnicodeWriter_Finish(&writer);
-
-error:
-    Py_ReprLeave((PyObject *)mp);
-    _PyUnicodeWriter_Dealloc(&writer);
-    Py_XDECREF(key);
-    Py_XDECREF(value);
-    return NULL;
-}
-
 static int
 dict_traverse(PyObject *op, visitproc visit, void *arg)
 {
@@ -1249,247 +1201,6 @@ dict_traverse(PyObject *op, visitproc visit, void *arg)
     return 0;
 }
 
-static int
-dict_tp_clear(PyObject *op)
-{
-    PyDict_Clear(op);
-    return 0;
-}
-
-/* Return 1 if dicts equal, 0 if not, -1 if error.
- * Gets out as soon as any difference is detected.
- * Uses only Py_EQ comparison.
- */
-static int
-dict_equal(PyDictObject *a, PyDictObject *b)
-{
-    Py_ssize_t i;
-
-    if (a->ma_used != b->ma_used)
-        /* can't be equal if # of entries differ */
-        return 0;
-    /* Same # of entries -- check all of 'em.  Exit early on any diff. */
-    for (i = 0; i < a->ma_keys->dk_nentries; i++) {
-        PyDictKeyEntry *ep = &DK_ENTRIES(a->ma_keys)[i];
-        PyObject *aval;
-        if (a->ma_values)
-            aval = a->ma_values[i];
-        else
-            aval = ep->me_value;
-        if (aval != NULL) {
-            int cmp;
-            PyObject *bval;
-            PyObject *key = ep->me_key;
-            // int num_cmps;   // currently unused
-            /* temporarily bump aval's refcount to ensure it stays
-               alive until we're done with it */
-            Py_INCREF(aval);
-            /* ditto for key */
-            Py_INCREF(key);
-            /* reuse the known hash value */
-            // _Py_dict_lookup(b, key, ep->me_hash, &bval, &num_cmps);
-            if (bval == NULL) {
-                Py_DECREF(key);
-                Py_DECREF(aval);
-                if (PyErr_Occurred())
-                    return -1;
-                return 0;
-            }
-            Py_INCREF(bval);
-            cmp = PyObject_RichCompareBool(aval, bval, Py_EQ);
-            Py_DECREF(key);
-            Py_DECREF(aval);
-            Py_DECREF(bval);
-            if (cmp <= 0)  /* error or not equal */
-                return cmp;
-        }
-    }
-    return 1;
-}
-
-static PyObject *
-dict_richcompare(PyObject *v, PyObject *w, int op)
-{
-    int cmp;
-    PyObject *res;
-
-    if (!PyDict_Check(v) || !PyDict_Check(w)) {
-        res = Py_NotImplemented;
-    }
-    else if (op == Py_EQ || op == Py_NE) {
-        cmp = dict_equal((PyDictObject *)v, (PyDictObject *)w);
-        if (cmp < 0)
-            return NULL;
-        res = (cmp == (op == Py_EQ)) ? Py_True : Py_False;
-    }
-    else
-        res = Py_NotImplemented;
-    Py_INCREF(res);
-    return res;
-}
-
-/* Inline functions trading binary compatibility for speed:
-   _PyObject_Init() is the fast version of PyObject_Init(), and
-   _PyObject_InitVar() is the fast version of PyObject_InitVar().
-
-   These inline functions must not be called with op=NULL. */
-static inline void
-_PyObject_Init(PyObject *op, PyTypeObject *typeobj)
-{
-    assert(op != NULL);
-    Py_SET_TYPE(op, typeobj);
-    if (_PyType_HasFeature(typeobj, Py_TPFLAGS_HEAPTYPE)) {
-        Py_INCREF(typeobj);
-    }
-    _Py_NewReference(op);
-}
-
-static inline void
-_PyObject_InitVar(PyVarObject *op, PyTypeObject *typeobj, Py_ssize_t size)
-{
-    assert(op != NULL);
-    Py_SET_SIZE(op, size);
-    _PyObject_Init((PyObject *)op, typeobj);
-}
-
-PyObject *
-_PyType_AllocNoTrack(PyTypeObject *type, Py_ssize_t nitems)
-{
-    PyObject *obj;
-    const size_t size = _PyObject_VAR_SIZE(type, nitems+1);
-    /* note that we need to add one, for the sentinel */
-
-    if (_PyType_IS_GC(type)) {
-        obj = _PyObject_GC_Malloc(size);
-    }
-    else {
-        obj = (PyObject *)PyObject_Malloc(size);
-    }
-
-    if (obj == NULL) {
-        return PyErr_NoMemory();
-    }
-
-    memset(obj, '\0', size);
-
-    if (type->tp_itemsize == 0) {
-        _PyObject_Init(obj, type);
-    }
-    else {
-        _PyObject_InitVar((PyVarObject *)obj, type, nitems);
-    }
-    return obj;
-}
-
-static inline void
-dictkeys_incref(PyDictKeysObject *dk)
-{
-#ifdef Py_REF_DEBUG
-    _Py_RefTotal++;
-#endif
-    dk->dk_refcnt++;
-}
-
-static PyObject *
-dict_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    assert(type != NULL);
-    assert(type->tp_alloc != NULL);
-    // dict subclasses must implement the GC protocol
-    assert(_PyType_IS_GC(type));
-
-    PyObject *self = type->tp_alloc(type, 0);
-    if (self == NULL) {
-        return NULL;
-    }
-    PyDictObject *d = (PyDictObject *)self;
-
-    d->ma_used = 0;
-    d->ma_version_tag = DICT_NEXT_VERSION();
-    dictkeys_incref(Py_EMPTY_KEYS);
-    d->ma_keys = Py_EMPTY_KEYS;
-    d->ma_values = empty_values;
-    ASSERT_CONSISTENT(d);
-
-    if (type != &PyDict_Type) {
-        // Don't track if a subclass tp_alloc is PyType_GenericAlloc()
-        if (!_PyObject_GC_IS_TRACKED(d)) {
-            _PyObject_GC_TRACK(d);
-        }
-    }
-    else {
-        // _PyType_AllocNoTrack() does not track the created object
-        assert(!_PyObject_GC_IS_TRACKED(d));
-    }
-    return self;
-}
-
-static PyObject *
-custom_dict_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    assert(type != NULL);
-    assert(type->tp_alloc != NULL);
-    // dict subclasses must implement the GC protocol
-    assert(_PyType_IS_GC(type));
-
-    PyObject *self = type->tp_alloc(type, 0);
-    if (self == NULL) {
-        return NULL;
-    }
-    CustomPyDictObject *d = (CustomPyDictObject *)self;
-
-    d->ma_used = 0;
-    d->ma_version_tag = DICT_NEXT_VERSION();
-    dictkeys_incref(Py_EMPTY_KEYS);
-    d->ma_keys = Py_EMPTY_KEYS;
-    d->ma_values = empty_values;
-    ASSERT_CONSISTENT(d);
-
-    if (type != &PyDict_Type) {
-        // Don't track if a subclass tp_alloc is PyType_GenericAlloc()
-        if (!_PyObject_GC_IS_TRACKED(d)) {
-            _PyObject_GC_TRACK(d);
-        }
-    }
-    else {
-        // _PyType_AllocNoTrack() does not track the created object
-        assert(!_PyObject_GC_IS_TRACKED(d));
-    }
-    return self;
-}
-
-static PyObject *
-dict_vectorcall(PyObject *type, PyObject * const*args,
-                size_t nargsf, PyObject *kwnames)
-{
-    assert(PyType_Check(type));
-    Py_ssize_t nargs = PyVectorcall_NARGS(nargsf);
-    if (!_PyArg_CheckPositional("dict", nargs, 0, 1)) {
-        return NULL;
-    }
-
-    PyObject *self = dict_new((PyTypeObject *)type, NULL, NULL);
-    if (self == NULL) {
-        return NULL;
-    }
-    if (nargs == 1) {
-        if (/* dict_update_arg(self, args[0]) < 0 */ 0) {
-            Py_DECREF(self);
-            return NULL;
-        }
-        args++;
-    }
-    if (kwnames != NULL) {
-        for (Py_ssize_t i = 0; i < PyTuple_GET_SIZE(kwnames); i++) {
-            if (/*custom_PyDict_SetItem(self, PyTuple_GET_ITEM(kwnames, i), args[i])*/ 1 < 0) {
-                Py_DECREF(self);
-                return NULL;
-            }
-        }
-    }
-    return self;
-}
-
 PyTypeObject MyPyDict_Type2 = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = "dict",
@@ -1505,27 +1216,6 @@ PyTypeObject MyPyDict_Type2 = {
     .tp_methods = custom_mapp_methods,
     .tp_traverse = dict_traverse
 };
-
-/* PyMODINIT_FUNC
-PyInit_custom(void)
-{
-    PyObject *m;
-    if (PyType_Ready(&MyPyDict_Type) < 0)
-        return NULL;
-
-    m = PyModule_Create(&custommodule);
-    if (m == NULL)
-        return NULL;
-
-    Py_INCREF(&MyPyDict_Type);
-    if (PyModule_AddObject(m, "Custom", (PyObject *) &MyPyDict_Type) < 0) {
-        Py_DECREF(&MyPyDict_Type);
-        Py_DECREF(m);
-        return NULL;
-    }
-
-    return m;
-} */
 
 PyMODINIT_FUNC
 PyInit_custom2(void)
