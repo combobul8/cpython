@@ -2419,18 +2419,12 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
     Layer *layer = &(mp->ma_layers[hashpos0]);
     if (layer->keys) {
         if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
-            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-
             // insertslot will determine entry.i
             PyDictKeyEntry entry = { hash, key, value, -1 };
             insertslot(mp, hashpos0, &entry);
-            mp->ma_num_items++;
             // dict_traverse2(mp, 1);
             return 0;
         }
-
-        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-        mp->ma_num_items++;
 
         insertlayer_keyhashvalue(layer, key, hash, value);
         // dict_traverse2(mp, 1);
@@ -2438,12 +2432,9 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
     }
 
     if (num_cmps <= mp->ma_keys->dk_log2_size) {
-        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-        // insertslot will increment mp->ma_num_items!!!
         // insertslot will determine entry.i
         PyDictKeyEntry entry = { hash, key, value, -1 };
         insertslot(mp, hashpos, &entry);
-        mp->ma_num_items++;
         // dict_traverse2(mp, 1);
         return 0;
     }
@@ -2454,8 +2445,6 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
         fflush(stdout);
     }
 
-    strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-    mp->ma_num_items++;
     if (insertlayer_keyhashvalue(layer, key, hash, value)) {
         printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
         fflush(stdout);
@@ -2783,7 +2772,13 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
 
-        return custominsertdict_impl(mp, key, hash, value, empty_slot);
+        int rv = custominsertdict_impl(mp, key, hash, value, empty_slot);
+        if (!rv) {
+            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+            mp->ma_num_items++;
+        }
+
+        return rv;
     }
 
     if (old_value != value) {
