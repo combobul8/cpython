@@ -2771,37 +2771,14 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
             fflush(stdout);
         }
 
+        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+        mp->ma_num_items++;
         if (insertlayer_keyhashvalue(layer, key, hash, value)) {
             printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
             fflush(stdout);
             return -1;
         }
 
-        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-        mp->ma_num_items++;
-        return 0;
-                }
-                printf("\t\t1INEQUALITY\n");
-                return -1;
-            }
-            else {
-
-            }
-        }
-
-        hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
-
-#ifdef EBUG_INSERT
-        printf("\t%s (hashpos, num_cmps): (%lld, %d).\n", PyUnicode_AsUTF8(key), hashpos, num_cmps);
-        fflush(stdout);
-#endif
-
-        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-        // insertslot will increment mp->ma_num_items!!!
-        // insertslot will determine entry.i
-        PyDictKeyEntry entry = { hash, key, value, -1 };
-        insertslot(mp, hashpos, &entry);
-        // dict_traverse2(mp, 1);
         return 0;
     }
 
