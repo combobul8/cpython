@@ -144,3 +144,5 @@ Objects/build/temp.win-amd64-3.11/Release/custom2.cp311-win_amd64.exp
 Objects/build/temp.win-amd64-3.11/Release/custom2.cp311-win_amd64.lib
 Objects/recovered.txt
 Objects/using_pointers.txt
+Objects/old/*
+Objects/purge/*
