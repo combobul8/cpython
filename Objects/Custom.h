@@ -2386,6 +2386,86 @@ custom_Py_dict_lookup(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
     Py_UNREACHABLE();
 }
 
+
+/* Internal function to find slot for an item from its hash
+   when it is known that the key is not present in the dict.
+
+   The dict must be combined. */
+static Py_ssize_t
+custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *num_cmps)
+{
+    // If layer.keys, then look up in layer; DO NOT probe!
+    assert(keys != NULL);
+
+    const size_t mask = DK_MASK(keys);
+    size_t i = *i0 = hash & mask;
+
+    Py_ssize_t ix = dictkeys_get_index(keys, i);
+    *num_cmps = 0;
+
+    while (ix >= 0) {
+        (*num_cmps)++;
+        i = (i + 1) & mask;
+        ix = dictkeys_get_index(keys, i);
+    }
+    return i;
+}
+
+static int
+custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *))
+{
+    Py_ssize_t hashpos0;
+    int num_cmps;
+    Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
+
+    Layer *layer = &(mp->ma_layers[hashpos0]);
+    if (layer->keys) {
+        if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
+            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+            // insertslot will increment mp->ma_num_items!!!
+            // insertslot will determine entry.i
+            PyDictKeyEntry entry = { hash, key, value, -1 };
+            insertslot(mp, hashpos0, &entry);
+            // dict_traverse2(mp, 1);
+            return 0;
+        }
+
+        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+        mp->ma_num_items++;
+
+        insertlayer_keyhashvalue(layer, key, hash, value);
+        // dict_traverse2(mp, 1);
+        return 0;
+    }
+
+    if (num_cmps <= mp->ma_keys->dk_log2_size) {
+        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+        // insertslot will increment mp->ma_num_items!!!
+        // insertslot will determine entry.i
+        PyDictKeyEntry entry = { hash, key, value, -1 };
+        insertslot(mp, hashpos, &entry);
+        // dict_traverse2(mp, 1);
+        return 0;
+    }
+
+    filter(mp, hashpos0, num_cmps);
+    if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
+        printf("INVARIANT BROKEN %s.\n", PyUnicode_AsUTF8(key));
+        fflush(stdout);
+    }
+
+    strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+    mp->ma_num_items++;
+    if (insertlayer_keyhashvalue(layer, key, hash, value)) {
+        printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
+        fflush(stdout);
+        return -1;
+    }
+
+    return 0;
+}
+
 static void
 custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 {
@@ -2396,8 +2476,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
     mp->ma_num_items = 0;
 
     for (int i = 0; i < n; i++, ep++) {
-        custominsertdict(mp, ep->mekey, ep->me_hash, ep->me_value, custom_Py_dict_lookup,
-                custom_find_empty_slot, custom_build_indices);
+        custominsertdict_impl(mp, ep->me_key, ep->me_hash, ep->me_value, custom_find_empty_slot);
     }
 }
 
@@ -2433,30 +2512,6 @@ find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash)
     for (size_t perturb = hash; ix >= 0;) {
         perturb >>= PERTURB_SHIFT;
         i = (i*5 + perturb + 1) & mask;
-        ix = dictkeys_get_index(keys, i);
-    }
-    return i;
-}
-
-/* Internal function to find slot for an item from its hash
-   when it is known that the key is not present in the dict.
-
-   The dict must be combined. */
-static Py_ssize_t
-custom_find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *num_cmps)
-{
-    // If layer.keys, then look up in layer; DO NOT probe!
-    assert(keys != NULL);
-
-    const size_t mask = DK_MASK(keys);
-    size_t i = *i0 = hash & mask;
-
-    Py_ssize_t ix = dictkeys_get_index(keys, i);
-    *num_cmps = 0;
-
-    while (ix >= 0) {
-        (*num_cmps)++;
-        i = (i + 1) & mask;
         ix = dictkeys_get_index(keys, i);
     }
     return i;
@@ -2684,56 +2739,6 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         if (!PyUnicode_CheckExact(key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
-
-        Py_ssize_t hashpos0;
-        int num_cmps;
-        Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &hashpos0, &num_cmps);
-
-        Layer *layer = &(mp->ma_layers[hashpos0]);
-        if (layer->keys) {
-            if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
-                strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-                // insertslot will increment mp->ma_num_items!!!
-                // insertslot will determine entry.i
-                PyDictKeyEntry entry = { hash, key, value, -1 };
-                insertslot(mp, hashpos0, &entry);
-                // dict_traverse2(mp, 1);
-                return 0;
-            }
-
-            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-            mp->ma_num_items++;
-
-            insertlayer_keyhashvalue(layer, key, hash, value);
-            // dict_traverse2(mp, 1);
-            return 0;
-        }
-
-        if (num_cmps <= mp->ma_keys->dk_log2_size) {
-            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-            // insertslot will increment mp->ma_num_items!!!
-            // insertslot will determine entry.i
-            PyDictKeyEntry entry = { hash, key, value, -1 };
-            insertslot(mp, hashpos, &entry);
-            // dict_traverse2(mp, 1);
-            return 0;
-        }
-
-        filter(mp, hashpos0, num_cmps);
-        if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
-            printf("INVARIANT BROKEN %s.\n", PyUnicode_AsUTF8(key));
-            fflush(stdout);
-        }
-
-        strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
-        mp->ma_num_items++;
-        if (insertlayer_keyhashvalue(layer, key, hash, value)) {
-            printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
-            fflush(stdout);
-            return -1;
-        }
-
-        return 0;
     }
 
     if (old_value != value) {
