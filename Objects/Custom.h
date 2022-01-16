@@ -90,7 +90,7 @@ typedef struct {
 
     Py_ssize_t *ma_indices_to_hashpos;
 
-    char **ma_string_keys;
+    PyDictKeyEntry *keys;
 } CustomPyDictObject;
 
 struct _dictkeysobject {
@@ -1639,7 +1639,8 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     layer->keys[layer->used]->me_key = key;
     layer->keys[layer->used]->me_value = value;
     layer->used++;
-
+    printf("inserting %p %s to layer; used: %d.\n", key, PyUnicode_AsUTF8(key), layer->used);
+    fflush(stdout);
     return 0;
 }
 
@@ -1811,8 +1812,15 @@ layers_reinit(CustomPyDictObject *mp, PyDictKeysObject *oldkeys)
 
     Py_ssize_t i = 0;
     while (i < DK_SIZE(oldkeys)) {
-        if (mp->ma_layers[i].keys)
+        if (mp->ma_layers[i].keys) {
+            for (int j = 0; j < mp->ma_layers[i].n; j++) {
+                // free(mp->ma_layers[i].keys[j]);
+                mp->ma_layers[i].keys[j] = NULL;
+            }
+
             free(mp->ma_layers[i].keys);
+            mp->ma_layers[i].keys = NULL;
+        }
         i++;
     }
 
@@ -2445,6 +2453,8 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
     }
 
     if (num_cmps <= mp->ma_keys->dk_log2_size) {
+        printf("impl insertslot %s %lld.\n", PyUnicode_AsUTF8(key), hashpos0);
+        fflush(stdout);
         // insertslot will determine entry.i
         PyDictKeyEntry entry = { hash, key, value, -1 };
         insertslot(mp, hashpos, &entry);
@@ -2492,19 +2502,20 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
         if (layer->keys) {
             // Insert into the layer unless the cell is free.
             if ((ix = dictkeys_get_index(keys, hashpos)) == DKIX_EMPTY) {
-                // printf("build_indices %s layer but free cell %lld .\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
+                printf("build_indices %s layer but free cell %lld .\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
                 fflush(stdout);
 
                 insertslot(mp, hashpos, ep);
                 continue;
             }
 
-            // printf("build_indices %s layer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
+            printf("build_indices %s layer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
             fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
             continue;
         }
-
+        custominsertdict_impl(mp, ep->me_key, ep->me_hash, ep->me_value, custom_find_empty_slot);
+        continue;
         // If there's no layer at the hash value, then check if linear probing is good enough.
         int num_cmps = 0;
         while (dictkeys_get_index(keys, hashpos) != DKIX_EMPTY) {
@@ -2532,8 +2543,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             fflush(stdout);
             return;
         }
-        custominsertdict_impl(mp, ep->me_key, ep->me_hash, ep->me_value, custom_find_empty_slot);
-        continue;
+
         insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
     }
 }
@@ -2576,10 +2586,11 @@ find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash)
 }
 
 int
-seen(const char *s, char **A, int n)
+seen(PyDictKeyEntry entry, PyDictKeyEntry *A, int n)
 {
     for (int i = 0; i < n; i++) {
-        if (!strcmp(s, A[i]))
+        if (A[i].me_key == entry.me_key ||
+                (A[i].me_hash == entry.me_hash && unicode_eq(A[i].me_key, entry.me_key)))
             return 1;
     }
 
@@ -2593,27 +2604,14 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
     int num_items = 0;
 
-    char **seen_keys = malloc((dict->ma_num_items * 2) * sizeof *seen_keys);
-    if (!seen_keys) {
+    PyDictKeyEntry *seen_entries = malloc((dict->ma_num_items * 2) * sizeof *seen_entries);
+    if (!seen_entries) {
         printf("dict_traverse2 malloc fail.\n");
         fflush(stdout);
         return -1;
     }
 
-    for (int i = 0; i < (dict->ma_num_items * 2); i++) {
-        seen_keys[i] = malloc(80 * sizeof *(seen_keys[i]));
-        if (!seen_keys[i]) {
-            printf("dict_traverse2 seen_keys[%d] malloc fail.\n", i);
-            fflush(stdout);
-
-            for (int j = 0; j < i; j++)
-                free(seen_keys[j]);
-            free(seen_keys);
-            return -1;
-        }
-    }
-
-    int seen_keys_idx = 0;
+    int seen_entries_idx = 0;
     int error = 0;
 
     for (int i = 0; i < DK_SIZE(keys); i++) {
@@ -2639,7 +2637,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
         }
 
         if (ix >= 0 && ep[ix].me_key) {
-            if (seen(PyUnicode_AsUTF8(ep[ix].me_key), seen_keys, seen_keys_idx)) {
+            if (seen(ep[ix], seen_entries, seen_entries_idx)) {
                 printf("primary already have %s in dict.\n", PyUnicode_AsUTF8(ep[ix].me_key));
                 fflush(stdout);
                 error = 1;
@@ -2647,11 +2645,8 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             }
 
             num_items++;
-            strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(ep[ix].me_key));
-            /* printf("strcpied %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
-            fflush(stdout); */
-
-            seen_keys_idx++;
+            seen_entries[seen_entries_idx] = ep[ix];
+            seen_entries_idx++;
 
             if (print) {
                 printf("%s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
@@ -2672,18 +2667,15 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
             Layer *layer = &dict->ma_layers[i];
             for (int j = 0; j < layer->used; j++) {
-                if (seen(PyUnicode_AsUTF8(layer->keys[j]->me_key), seen_keys, seen_keys_idx)) {
-                    printf("already have %s in dict;", PyUnicode_AsUTF8(layer->keys[j]->me_key));
+                if (seen(*layer->keys[j], seen_entries, seen_entries_idx)) {
+                    printf("already have %p %s in dict;", layer->keys[j]->me_key, PyUnicode_AsUTF8(layer->keys[j]->me_key));
                     fflush(stdout);
                     error = 1;
                 }
 
                 num_items++;
-                strcpy(seen_keys[seen_keys_idx], PyUnicode_AsUTF8(layer->keys[j]->me_key));
-                /* printf("strcpied layer %s to %d.\n", seen_keys[seen_keys_idx], seen_keys_idx);
-                fflush(stdout); */
-
-                seen_keys_idx++;
+                seen_entries[seen_entries_idx] = *layer->keys[j];
+                seen_entries_idx++;
 
                 if (print) {
                     printf("%s", PyUnicode_AsUTF8(layer->keys[j]->me_key));
@@ -2720,11 +2712,12 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
     for (int i = 0; i < dict->ma_num_items; i++) {
         int found = 0;
-        for (int j = 0; j < seen_keys_idx; j++) {
+        for (int j = 0; j < seen_entries_idx; j++) {
             /* printf("strcmp %s %s.\n", dict->ma_string_keys[i], seen_keys[j]);
             fflush(stdout); */
 
-            if (!strcmp(dict->ma_string_keys[i], seen_keys[j])) {
+            if (dict->keys[i].me_key == seen_entries[j].me_key ||
+                    (dict->keys[i].me_hash == seen_entries[j].me_hash && unicode_eq(dict->keys[i].me_key, seen_entries[j].me_key))) {
                 found = 1;
                 break;
             }
@@ -2733,7 +2726,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
         if (found)
             ; // printf("found %s.\n", dict->ma_string_keys[i]);
         else {
-            printf("%s missing!!!\n", dict->ma_string_keys[i]);
+            printf("%s missing!!!\n", PyUnicode_AsUTF8(dict->keys[i].me_key));
             error = 1;
         }
 
@@ -2741,10 +2734,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     }
 
 error_occurred:
-    for (int i = 0; i < seen_keys_idx; i++) {
-        free(seen_keys[i]);
-    }
-    free(seen_keys);
+    free(seen_entries);
 
     if (error)
         return -1;
@@ -2800,7 +2790,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
 
         int rv = custominsertdict_impl(mp, key, hash, value, empty_slot);
         if (!rv) {
-            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(key));
+            PyDictKeyEntry entry = { hash, key, value };
+            mp->keys[mp->ma_num_items] = entry;
             mp->ma_num_items++;
         }
 
@@ -3037,20 +3028,11 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     }
 
     int MAX = 50000;
-    mp->ma_string_keys = malloc(MAX * sizeof *(mp->ma_string_keys));
-    if (!mp->ma_string_keys) {
-        printf("custom_insert_to_emptydict ma_string_keys malloc fail.\n");
+    mp->keys = malloc(MAX * sizeof *(mp->keys));
+    if (!mp->keys) {
+        printf("custom_insert_to_emptydict keys malloc fail.\n");
         fflush(stdout);
         return -1;
-    }
-
-    for (int i = 0; i < MAX; i++) {
-        mp->ma_string_keys[i] = malloc(80 * sizeof *(mp->ma_string_keys[i]));
-        if (!mp->ma_string_keys[i]) {
-            printf("custom_insert_to_emptydict ma_string_keys[%d] malloc fail.\n", i);
-            fflush(stdout);
-            return -1;
-        }
     }
 
     Py_INCREF(key);
@@ -3074,7 +3056,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
     printf("empty dict (key, hashpos): (%s, %lld).\n", PyUnicode_AsUTF8(key), hashpos);
     fflush(stdout);
 
-    strcpy(mp->ma_string_keys[0], PyUnicode_AsUTF8(ep->me_key));
+    mp->keys[0]  = *ep;
     mp->ma_used++;
     mp->ma_num_items++;
     mp->ma_version_tag = DICT_NEXT_VERSION();
