@@ -1773,6 +1773,10 @@ collect_entries(CustomPyDictObject *mp, PyDictKeysObject *oldkeys, PyDictKeyEntr
         Py_ssize_t ix = dictkeys_get_index(oldkeys, i);
 
         if (ix >= 0 && ep[ix].me_value) {
+            if (DK_SIZE(oldkeys) > 2500) {
+                // printf("collected %s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+                fflush(stdout);
+            }
             newentries[*numentries] = ep[ix];
             (*numentries)++;
         }
@@ -1780,6 +1784,10 @@ collect_entries(CustomPyDictObject *mp, PyDictKeysObject *oldkeys, PyDictKeyEntr
         if (mp->ma_layers[i].keys) {
             for (int j = 0; j < mp->ma_layers[i].used; j++) {
                 PyDictKeyEntry *layer_ep = mp->ma_layers[i].keys[j];
+                if (DK_SIZE(oldkeys) > 2500) {
+                    printf("collected %s.\n", PyUnicode_AsUTF8(layer_ep->me_key));
+                    fflush(stdout);
+                }
                 newentries[*numentries] = *layer_ep;
                 (*numentries)++;
             }
@@ -1787,6 +1795,9 @@ collect_entries(CustomPyDictObject *mp, PyDictKeysObject *oldkeys, PyDictKeyEntr
 
         i++;
     }
+
+    printf("collect_entries numentries: %lld.\n", *numentries);
+    fflush(stdout);
 }
 
 int
@@ -2468,6 +2479,10 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
     mp->ma_used = 0;
 
     for (int i = 0; i < n; i++, ep++) {
+        if (n > 2500) {
+            // printf("build index for %s.\n", PyUnicode_AsUTF8(ep->me_key));
+            fflush(stdout);
+        }
         Py_hash_t hash = ep->me_hash;
         size_t hashpos0 = hash & mask;
         Layer *layer = &(mp->ma_layers[hashpos0]);
@@ -2477,14 +2492,14 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
         if (layer->keys) {
             // Insert into the layer unless the cell is free.
             if ((ix = dictkeys_get_index(keys, hashpos)) == DKIX_EMPTY) {
-                printf("%lld layer but free cell.\n", hashpos);
+                // printf("build_indices %s layer but free cell %lld .\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
                 fflush(stdout);
 
                 insertslot(mp, hashpos, ep);
                 continue;
             }
 
-            printf("build_indices %s layer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
+            // printf("build_indices %s layer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
             fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
             continue;
@@ -2499,11 +2514,13 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 
         // Linear probing is good enough.
         if (num_cmps <= mp->ma_keys->dk_log2_size) {
+            // printf("build_indices %s insertslot %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
+            fflush(stdout);
             insertslot(mp, hashpos, ep);
             continue;
         }
 
-        printf("indices filter+insert %s %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), ep->me_hash, hashpos0);
+        // printf("build_indices %s filter+insert %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos0);
         fflush(stdout);
 
         // Create a layer and avoid linear probing that starts at this hash value.
@@ -2516,7 +2533,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             return;
         }
         custominsertdict_impl(mp, ep->me_key, ep->me_hash, ep->me_value, custom_find_empty_slot);
-        return;
+        continue;
         insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
     }
 }
