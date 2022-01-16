@@ -1709,8 +1709,6 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 
         // No collisions? Simply insert!
         if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
-            strcpy(mp->ma_string_keys[mp->ma_num_items], PyUnicode_AsUTF8(ep->me_key));
-
             // insertslot will determine entry.i
             insertslot(mp, hashpos0, ep);
 
@@ -2419,6 +2417,8 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
     Layer *layer = &(mp->ma_layers[hashpos0]);
     if (layer->keys) {
         if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
+            printf("impl layer+primary %s %lld.\n", PyUnicode_AsUTF8(key), hash);
+            fflush(stdout);
             // insertslot will determine entry.i
             PyDictKeyEntry entry = { hash, key, value, -1 };
             insertslot(mp, hashpos0, &entry);
@@ -2426,6 +2426,8 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
             return 0;
         }
 
+        printf("impl layer %s %lld %lld.\n", PyUnicode_AsUTF8(key), hash, hashpos0);
+        fflush(stdout);
         insertlayer_keyhashvalue(layer, key, hash, value);
         // dict_traverse2(mp, 1);
         return 0;
@@ -2438,6 +2440,9 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
         // dict_traverse2(mp, 1);
         return 0;
     }
+
+    printf("impl filter+insert %s %lld %lld.\n", PyUnicode_AsUTF8(key), hash, hashpos0);
+    fflush(stdout);
 
     filter(mp, hashpos0, num_cmps);
     if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
@@ -2498,6 +2503,9 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             continue;
         }
 
+        printf("indices filter+insert %s %lld %lld.\n", PyUnicode_AsUTF8(ep->me_key), ep->me_hash, hashpos0);
+        fflush(stdout);
+
         // Create a layer and avoid linear probing that starts at this hash value.
         filter(mp, hashpos0, num_cmps);
 
@@ -2507,7 +2515,8 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             fflush(stdout);
             return;
         }
-
+        custominsertdict_impl(mp, ep->me_key, ep->me_hash, ep->me_value, custom_find_empty_slot);
+        return;
         insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
     }
 }
