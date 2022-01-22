@@ -1648,8 +1648,6 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     layer->keys[layer->used]->me_value = value;
     layer->keys[layer->used]->i = -1;
     layer->used++;
-    printf("inserting %p %s to layer; used: %d.\n", key, PyUnicode_AsUTF8(key), layer->used);
-    fflush(stdout);
     return 0;
 }
 
@@ -1789,10 +1787,6 @@ collect_entries(CustomPyDictObject *mp, PyDictKeysObject *oldkeys, PyDictKeyEntr
         Py_ssize_t ix = dictkeys_get_index(oldkeys, i);
 
         if (ix >= 0 && ep[ix].me_value) {
-            if (DK_SIZE(oldkeys) > 2500) {
-                // printf("collected %s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
-                fflush(stdout);
-            }
             newentries[*numentries] = ep[ix];
             (*numentries)++;
         }
@@ -1800,10 +1794,6 @@ collect_entries(CustomPyDictObject *mp, PyDictKeysObject *oldkeys, PyDictKeyEntr
         if (mp->ma_layers[i].keys) {
             for (int j = 0; j < mp->ma_layers[i].used; j++) {
                 PyDictKeyEntry *layer_ep = mp->ma_layers[i].keys[j];
-                if (DK_SIZE(oldkeys) > 2500) {
-                    printf("collected %s.\n", PyUnicode_AsUTF8(layer_ep->me_key));
-                    fflush(stdout);
-                }
                 newentries[*numentries] = *layer_ep;
                 (*numentries)++;
             }
@@ -1811,9 +1801,6 @@ collect_entries(CustomPyDictObject *mp, PyDictKeysObject *oldkeys, PyDictKeyEntr
 
         i++;
     }
-
-    printf("collect_entries numentries: %lld.\n", *numentries);
-    fflush(stdout);
 }
 
 int
@@ -2452,34 +2439,20 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
     Layer *layer = &(mp->ma_layers[hashpos0]);
     if (layer->keys) {
         if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
-            printf("impl layer+primary %s %lld.\n", PyUnicode_AsUTF8(key), hash);
-            fflush(stdout);
-            // insertslot will determine entry.i
             PyDictKeyEntry entry = { hash, key, value, hashpos0 };
             insertslot(mp, hashpos0, &entry);
-            // dict_traverse2(mp, 1);
             return 0;
         }
 
-        printf("impl layer %s %lld %lld.\n", PyUnicode_AsUTF8(key), hash, hashpos0);
-        fflush(stdout);
         insertlayer_keyhashvalue(layer, key, hash, value);
-        // dict_traverse2(mp, 1);
-        return 0;
-    } /* */
-
-    if (num_cmps <= mp->ma_keys->dk_log2_size) {
-        printf("impl insertslot %s %lld.\n", PyUnicode_AsUTF8(key), hashpos);
-        fflush(stdout);
-        // insertslot will determine entry.i
-        PyDictKeyEntry entry = { hash, key, value, hashpos0 };
-        insertslot(mp, hashpos, &entry);
-        // dict_traverse2(mp, 1);
         return 0;
     }
 
-    printf("impl filter+insert %s %lld %lld.\n", PyUnicode_AsUTF8(key), hash, hashpos0);
-    fflush(stdout);
+    if (num_cmps <= mp->ma_keys->dk_log2_size) {
+        PyDictKeyEntry entry = { hash, key, value, hashpos0 };
+        insertslot(mp, hashpos, &entry);
+        return 0;
+    }
 
     filter(mp, hashpos0, num_cmps);
     if (dictkeys_get_index(mp->ma_keys, hashpos0) == DKIX_EMPTY) {
@@ -2491,7 +2464,7 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
         printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
         fflush(stdout);
         return -1;
-    } /* */
+    }
 
     return 0;
 }
@@ -2525,11 +2498,10 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
                 continue;
             }
 
-            printf("build_indices %s layer %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
-            fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
             continue;
-        } /* */
+        }
+
         custominsertdict_impl(mp, ep->me_key, ep->me_hash, ep->me_value, custom_find_empty_slot);
         continue;
         // If there's no layer at the hash value, then check if linear probing is good enough.
