@@ -1627,6 +1627,9 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
             return -1;
         }
 
+        for (int i = layer->n; i < n; i++) {
+            layer->keys[i] = NULL;
+        }
         layer->n = n;
     }
 
