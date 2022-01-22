@@ -1693,6 +1693,10 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
             return -1;
         }
 
+        for (int i = 0; i < PyDict_MINSIZE; i++) {
+            layer->keys[i] = NULL;
+        }
+
         layer->n = PyDict_MINSIZE;
         layer->used = 0;
     }
@@ -1838,6 +1842,7 @@ layers_reinit(CustomPyDictObject *mp, PyDictKeysObject *oldkeys)
 
     for (Py_ssize_t i = 0; i < DK_SIZE(mp->ma_keys); i++) {
         mp->ma_layers[i].keys = NULL;
+
         mp->ma_layers[i].used = 0;
         mp->ma_layers[i].n = 0;
     }
@@ -2458,7 +2463,7 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
     } /* */
 
     if (num_cmps <= mp->ma_keys->dk_log2_size) {
-        printf("impl insertslot %s %lld.\n", PyUnicode_AsUTF8(key), hashpos0);
+        printf("impl insertslot %s %lld.\n", PyUnicode_AsUTF8(key), hashpos);
         fflush(stdout);
         // insertslot will determine entry.i
         PyDictKeyEntry entry = { hash, key, value, -1 };
