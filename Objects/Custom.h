@@ -1643,6 +1643,7 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     layer->keys[layer->used]->me_hash = hash;
     layer->keys[layer->used]->me_key = key;
     layer->keys[layer->used]->me_value = value;
+    layer->keys[layer->used]->i = -1;
     layer->used++;
     printf("inserting %p %s to layer; used: %d.\n", key, PyUnicode_AsUTF8(key), layer->used);
     fflush(stdout);
@@ -1724,6 +1725,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 
             ep->me_key = NULL;
             ep->me_value = NULL;
+            ep->i = -1;
             // dict_traverse2(mp, 1);
             return 0;
         }
@@ -1746,6 +1748,7 @@ filter(CustomPyDictObject *mp, Py_ssize_t hashpos0, int num_cmps)
 
         ep->me_key = NULL;
         ep->me_value = NULL;
+        ep->i = -1;
 
         mp->ma_used--;
         mp->ma_keys->dk_usable++;
@@ -2449,7 +2452,7 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
             printf("impl layer+primary %s %lld.\n", PyUnicode_AsUTF8(key), hash);
             fflush(stdout);
             // insertslot will determine entry.i
-            PyDictKeyEntry entry = { hash, key, value, -1 };
+            PyDictKeyEntry entry = { hash, key, value, hashpos0 };
             insertslot(mp, hashpos0, &entry);
             // dict_traverse2(mp, 1);
             return 0;
@@ -2466,7 +2469,7 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
         printf("impl insertslot %s %lld.\n", PyUnicode_AsUTF8(key), hashpos);
         fflush(stdout);
         // insertslot will determine entry.i
-        PyDictKeyEntry entry = { hash, key, value, -1 };
+        PyDictKeyEntry entry = { hash, key, value, hashpos0 };
         insertslot(mp, hashpos, &entry);
         // dict_traverse2(mp, 1);
         return 0;
