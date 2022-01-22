@@ -2472,67 +2472,9 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
 static void
 custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 {
-    PyDictKeysObject *keys = mp->ma_keys;
-    size_t mask = (size_t)DK_SIZE(keys) - 1;
-
     mp->ma_used = 0;
-
     for (int i = 0; i < n; i++, ep++) {
-        if (n > 2500) {
-            // printf("build index for %s.\n", PyUnicode_AsUTF8(ep->me_key));
-            fflush(stdout);
-        }
-        Py_hash_t hash = ep->me_hash;
-        size_t hashpos0 = hash & mask;
-        Layer *layer = &(mp->ma_layers[hashpos0]);
-        size_t hashpos = ep->i = hashpos0;
-        Py_ssize_t ix = DKIX_EMPTY;
-
-        if (layer->keys) {
-            // Insert into the layer unless the cell is free.
-            if ((ix = dictkeys_get_index(keys, hashpos)) == DKIX_EMPTY) {
-                printf("build_indices %s layer but free cell %lld .\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
-                fflush(stdout);
-
-                insertslot(mp, hashpos, ep);
-                continue;
-            }
-
-            insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
-            continue;
-        }
-
         custominsertdict_impl(mp, ep->me_key, ep->me_hash, ep->me_value, custom_find_empty_slot);
-        continue;
-        // If there's no layer at the hash value, then check if linear probing is good enough.
-        int num_cmps = 0;
-        while (dictkeys_get_index(keys, hashpos) != DKIX_EMPTY) {
-            num_cmps++;
-            hashpos = mask & (hashpos + 1);
-        }
-
-        // Linear probing is good enough.
-        if (num_cmps <= mp->ma_keys->dk_log2_size) {
-            // printf("build_indices %s insertslot %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos);
-            fflush(stdout);
-            insertslot(mp, hashpos, ep);
-            continue;
-        }
-
-        // printf("build_indices %s filter+insert %lld.\n", PyUnicode_AsUTF8(ep->me_key), hashpos0);
-        fflush(stdout);
-
-        // Create a layer and avoid linear probing that starts at this hash value.
-        filter(mp, hashpos0, num_cmps);
-
-        // If filter moved item at i to a layer, then ix will have changed to DKIX_EMPTY.
-        if (dictkeys_get_index(keys, hashpos0) == DKIX_EMPTY) {
-            printf("INVARIANT BROKEN %s.\n", PyUnicode_AsUTF8(ep->me_key));
-            fflush(stdout);
-            return;
-        }
-
-        insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
     }
 }
 
