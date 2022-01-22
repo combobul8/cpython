@@ -1,1 +1,1 @@
-Avoidance of clustering with high probability when linearly probing.
+Limitating of primary clustering with high probability when linearly probing.
