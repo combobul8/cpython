@@ -1630,6 +1630,11 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
         layer->n = n;
     }
 
+    if (layer->keys[layer->used]) {
+        printf("layer->keys[layer->used] not null???\n");
+        return -1;
+    }
+
     layer->keys[layer->used] = malloc(sizeof *layer->keys[layer->used]);
     if (!layer->keys[layer->used]) {
         return -1;
@@ -2450,7 +2455,7 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
         insertlayer_keyhashvalue(layer, key, hash, value);
         // dict_traverse2(mp, 1);
         return 0;
-    }
+    } /* */
 
     if (num_cmps <= mp->ma_keys->dk_log2_size) {
         printf("impl insertslot %s %lld.\n", PyUnicode_AsUTF8(key), hashpos0);
@@ -2475,7 +2480,7 @@ custominsertdict_impl(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyO
         printf("custominsertdict memory problem calling insertlayer_keyhashvalue.\n");
         fflush(stdout);
         return -1;
-    }
+    } /* */
 
     return 0;
 }
@@ -2513,7 +2518,7 @@ custom_build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
             fflush(stdout);
             insertlayer_keyhashvalue(layer, ep->me_key, ep->me_hash, ep->me_value);
             continue;
-        }
+        } /* */
         custominsertdict_impl(mp, ep->me_key, ep->me_hash, ep->me_value, custom_find_empty_slot);
         continue;
         // If there's no layer at the hash value, then check if linear probing is good enough.
