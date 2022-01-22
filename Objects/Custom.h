@@ -129,11 +129,9 @@ struct _dictkeysobject {
     char dk_indices[];  /* char is required to avoid strict aliasing. */
 };
 
-typedef struct {
-    Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *);
-    Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *);
-    void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t);
-} DictHelpersImpl;
+Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *) = NULL;
+Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *) = NULL;
+void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t) = NULL;
 
 typedef enum {
     DICT_KEYS_GENERAL = 0,
