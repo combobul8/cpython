@@ -62,8 +62,10 @@ static PyModuleDef custommodule2 = {
 };
 
 static int
-custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
-                   const char *methname, DictHelpersImpl helpers)
+custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds, const char *methname,
+        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
+        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
+        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
 #ifdef EBUG
     printf("called custom_dict_update_common\n");
@@ -77,7 +79,7 @@ custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
         result = -1;
     }
     else if (arg != NULL) {
-        result = custom_dict_update_arg(self, arg, helpers.lookup, helpers.empty_slot, helpers.build_idxs);
+        result = custom_dict_update_arg(self, arg, lookup, empty_slot, build_idxs);
     }
 
     if (result == 0 && kwds != NULL) {
@@ -121,7 +123,7 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
     return result;
 }
 
-// #define ORIG_LOOKUP
+#define ORIG_LOOKUP
 
 static int
 custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
@@ -538,10 +540,10 @@ custom_dict_get(CustomPyDictObject *self, PyObject *const *args, Py_ssize_t narg
     }
     default_value = args[1];
 skip_optional:
-#ifdef ORIG_LOOKUP
-    return_value = custom_dict_get_impl(self, key, default_value, rprobe_Py_dict_lookup);
-#else
     int success;
+#ifdef ORIG_LOOKUP
+    return_value = custom_dict_get_impl(self, key, default_value, rprobe_Py_dict_lookup, &success);
+#else
     return_value = custom_dict_get_impl(self, key, default_value, custom_Py_dict_lookup, &success);
     /* if (success) {
         printf("custom_dict_get returning %ld.\n", PyLong_AsLong(return_value));
