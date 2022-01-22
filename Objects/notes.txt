@@ -1,8 +1,1 @@
-CustomPyDictObject
-/* Number of items in the dictionary */
-PyDictKeysObject ma_used
-
-PyDictKeysObject
-struct _dictkeysobject
-/* Number of used entries in dk_entries. */
-dk_nentries
+Avoidance of clustering with high probability when linearly probing.
