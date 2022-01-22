@@ -759,7 +759,7 @@ custom_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 
     int dict_update_common_rv;
 #ifdef ORIG_LOOKUP
-    if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update", _Py_dict_lookup,
+    if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update", rprobe_Py_dict_lookup,
             find_empty_slot, build_indices)) != -1) {
 #else
     DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };

@@ -1603,6 +1603,8 @@ Internal routine used by dictresize() to build a hashtable of entries.
 static void
 build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 {
+    printf("build_indices\n");
+    fflush(stdout);
     PyDictKeysObject *keys = mp->ma_keys;
     size_t mask = (size_t)DK_SIZE(keys) - 1;
     for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
