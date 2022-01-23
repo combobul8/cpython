@@ -124,6 +124,15 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
 }
 
 #define ORIG_LOOKUP
+
+static int
+custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
+{
+#ifdef EBUG
+    printf("called custom_dict_init\n");
+    fflush(stdout);
+#endif
+
 #ifdef ORIG_LOOKUP
     lookup = rprobe_Py_dict_lookup;
     empty_slot = find_empty_slot;
@@ -132,14 +141,6 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
     lookup = custom_Py_dict_lookup;
     empty_slot = custom_find_empty_slot;
     build_idxs = custom_build_indices;
-#endif
-
-static int
-custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
-{
-#ifdef EBUG
-    printf("called custom_dict_init\n");
-    fflush(stdout);
 #endif
 
     return custom_dict_update_common(self, args, kwds, "dict", lookup, empty_slot, build_idxs);
