@@ -1604,8 +1604,6 @@ Internal routine used by dictresize() to build a hashtable of entries.
 static void
 build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
 {
-    printf("build_indices\n");
-    fflush(stdout);
     PyDictKeysObject *keys = mp->ma_keys;
     size_t mask = (size_t)DK_SIZE(keys) - 1;
     for (Py_ssize_t ix = 0; ix != n; ix++, ep++) {
@@ -1617,8 +1615,6 @@ build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
         }
         dictkeys_set_index(keys, i, ix);
     }
-    printf("end of build_indices\n");
-    fflush(stdout);
 }
 
 int
@@ -2101,8 +2097,6 @@ dictresize(CustomPyDictObject *mp, uint8_t log2_newsize)
     build_idxs(mp, newentries, numentries);
     mp->ma_keys->dk_usable -= numentries;
     mp->ma_keys->dk_nentries = numentries;
-    printf("end of dictresize\n");
-    fflush(stdout);
     return 0;
 }
 
@@ -2195,9 +2189,9 @@ start:
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-#ifdef EBUG
             printf("0(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
+#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2218,9 +2212,9 @@ start:
             i = mask & (i*5 + perturb + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
-#ifdef EBUG
             printf("1(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
+#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2631,13 +2625,16 @@ find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *num_cmp
 
     const size_t mask = DK_MASK(keys);
     size_t i = *i0 = hash & mask;
-
+    printf("find_empty_slot i: %lld.\n", i);
+    fflush(stdout);
     Py_ssize_t ix = dictkeys_get_index(keys, i);
     *num_cmps = 0;
     for (size_t perturb = hash; ix >= 0;) {
         (*num_cmps)++;
         perturb >>= PERTURB_SHIFT;
         i = (i*5 + perturb + 1) & mask;
+        printf("find_empty_slot i: %lld.\n", i);
+        fflush(stdout);
         ix = dictkeys_get_index(keys, i);
     }
     return i;
@@ -2755,8 +2752,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
                 goto error_occurred;
         }
     }
-    printf("end of traversal.\n");
-    fflush(stdout);
+
     if (print) {
         printf("size of primary layer: %lld.\n", DK_SIZE(keys));
         printf("num_items: %d.\n", num_items);
@@ -2936,6 +2932,7 @@ insertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *valu
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
 
+        ix = lookup(mp, key, hash, &old_value, &num_cmps);
         size_t i;
         int num_cmps2;
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &i, &num_cmps2);
