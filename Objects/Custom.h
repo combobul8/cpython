@@ -2673,11 +2673,8 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     int error = 0;
 
     for (int i = 0; i < DK_SIZE(keys); i++) {
-        printf("i: %d.\n", i);
-        fflush(stdout);
         Py_ssize_t ix = dictkeys_get_index(keys, i);
-        printf("ix: %lld.\n", ix);
-        fflush(stdout);
+
         if (ix < 0 && print) {
             printf("%d -> -1\n", i);
             fflush(stdout);
@@ -2708,8 +2705,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             num_items++;
             seen_entries[seen_entries_idx] = ep[ix];
             seen_entries_idx++;
-            printf("inserted %s into seen_entries.\n", PyUnicode_AsUTF8(ep[ix].me_key));
-            fflush(stdout);
+
             if (print) {
                 printf("%s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
                 fflush(stdout);
@@ -2966,8 +2962,6 @@ insertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *valu
         mp->ma_keys->dk_nentries++;
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
-        printf("inserted %s\n", PyUnicode_AsUTF8(key));
-        fflush(stdout);
         return 0;
     }
 
@@ -3131,9 +3125,9 @@ static int
 insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash,
                     PyObject *value)
 {
+#ifdef EBUG
     printf("called insert_to_emptydict; hash: %lld\n", hash);
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     assert(mp->ma_keys == Py_EMPTY_KEYS);
@@ -3164,8 +3158,6 @@ insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash,
     mp->ma_version_tag = DICT_NEXT_VERSION();
     mp->ma_keys->dk_usable--;
     mp->ma_keys->dk_nentries++;
-    printf("insert_to_emptydict returning.\n");
-    fflush(stdout);
     return 0;
 }
 
