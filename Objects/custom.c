@@ -79,8 +79,6 @@ custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds, const 
         result = custom_dict_update_arg(self, arg);
     }
 
-    printf("custom_dict_update_common result: %d.\n", result);
-    fflush(stdout);
     if (result == 0 && kwds != NULL) {
         if (PyArg_ValidateKeywordArguments(kwds)) {
             result = PyDict_Merge(self, kwds, 1);
@@ -88,7 +86,7 @@ custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds, const 
         else
             result = -1;
     }
-    printf("custom_dict_update_common returning.\n");
+    printf("custom_dict_update_common returning %d.\n", result);
     fflush(stdout);
     return result;
 }
@@ -765,6 +763,7 @@ custom_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
     int dict_update_common_rv;
     if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update")) != -1) {
         printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
+        fflush(stdout);
 #ifdef EBUG
 #endif
 
