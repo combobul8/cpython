@@ -2651,8 +2651,6 @@ seen(PyDictKeyEntry entry, PyDictKeyEntry *A, int n)
 int
 dict_traverse2(CustomPyDictObject *dict, int print)
 {
-    printf("travesing...\n");
-    fflush(stdout);
     PyDictKeysObject *keys = dict->ma_keys;
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
     int num_items = 0;
@@ -2750,7 +2748,8 @@ dict_traverse2(CustomPyDictObject *dict, int print)
                 goto error_occurred;
         }
     }
-
+    printf("traversed.\n");
+    fflush(stdout);
     if (print) {
         printf("size of primary layer: %lld.\n", DK_SIZE(keys));
         printf("num_items: %d.\n", num_items);
@@ -2763,6 +2762,8 @@ dict_traverse2(CustomPyDictObject *dict, int print)
         fflush(stdout);
     } */
 
+    printf("ma_num_items: %lld.\n", dict->ma_num_items);
+    fflush(stdout);
     for (int i = 0; i < dict->ma_num_items; i++) {
         int found = 0;
         for (int j = 0; j < seen_entries_idx; j++) {
