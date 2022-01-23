@@ -3159,6 +3159,8 @@ insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash,
     mp->ma_version_tag = DICT_NEXT_VERSION();
     mp->ma_keys->dk_usable--;
     mp->ma_keys->dk_nentries++;
+    printf("insert_to_emptydict returning.\n");
+    fflush(stdout);
     return 0;
 }
 
@@ -3369,20 +3371,10 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value)
             return -1;
     }
 
-    printf("here\n");
-    fflush(stdout);
     if (mp->ma_keys == Py_EMPTY_KEYS) {
-        if (emptydictinsertion) {
-            printf("calling emptydictinsertion\n");
-        }
-        else {
-            printf("emptydictinsertion NULL\n");
-        }
-        fflush(stdout);
         return emptydictinsertion(mp, key, hash, value);
     }
-    printf("calling custominsertdict\n");
-    fflush(stdout);
+
     /* custominsertdict() handles any resizing that might be necessary */
     return custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
 }
@@ -3609,8 +3601,9 @@ custom_dict_merge(PyObject *a, PyObject *b, int override)
 
             status = custom_PyDict_SetItem2(a, key, value);
 
-#ifdef EBUG
             printf("status: %d\n", status);
+            fflush(stdout);
+#ifdef EBUG
 #endif
 
             Py_DECREF(key);
