@@ -2651,6 +2651,8 @@ seen(PyDictKeyEntry entry, PyDictKeyEntry *A, int n)
 int
 dict_traverse2(CustomPyDictObject *dict, int print)
 {
+    printf("travesing...\n");
+    fflush(stdout);
     PyDictKeysObject *keys = dict->ma_keys;
     PyDictKeyEntry *ep = DK_ENTRIES(keys);
     int num_items = 0;
