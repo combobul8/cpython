@@ -124,6 +124,15 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
 }
 
 #define ORIG_LOOKUP
+#ifdef ORIG_LOOKUP
+    lookup = rprobe_Py_dict_lookup;
+    empty_slot = find_empty_slot;
+    build_idxs = build_indices;
+#else
+    lookup = custom_Py_dict_lookup;
+    empty_slot = custom_find_empty_slot;
+    build_idxs = custom_build_indices;
+#endif
 
 static int
 custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
@@ -133,13 +142,7 @@ custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
     fflush(stdout);
 #endif
 
-#ifdef ORIG_LOOKUP
-    return custom_dict_update_common(self, args, kwds, "dict", rprobe_Py_dict_lookup, find_empty_slot,
-            build_indices);
-#else
-    DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
-    return custom_dict_update_common(self, args, kwds, "dict", helpers);
-#endif
+    return custom_dict_update_common(self, args, kwds, "dict", lookup, empty_slot, build_idxs);
 }
 
 /*[clinic input]
@@ -541,15 +544,11 @@ custom_dict_get(CustomPyDictObject *self, PyObject *const *args, Py_ssize_t narg
     default_value = args[1];
 skip_optional:
     int success;
-#ifdef ORIG_LOOKUP
-    return_value = custom_dict_get_impl(self, key, default_value, rprobe_Py_dict_lookup, &success);
-#else
-    return_value = custom_dict_get_impl(self, key, default_value, custom_Py_dict_lookup, &success);
+    return_value = custom_dict_get_impl(self, key, default_value, lookup, &success);
     /* if (success) {
         printf("custom_dict_get returning %ld.\n", PyLong_AsLong(return_value));
         fflush(stdout);
     } */
-#endif
 
 exit:
     return return_value;
@@ -758,13 +757,7 @@ custom_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 #endif
 
     int dict_update_common_rv;
-#ifdef ORIG_LOOKUP
-    if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update", rprobe_Py_dict_lookup,
-            find_empty_slot, build_indices)) != -1) {
-#else
-    DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
-    if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update", helpers)) != -1) {
-#endif
+    if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update", lookup, empty_slot, build_idxs)) != -1) {
 #ifdef EBUG
         printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
 #endif
