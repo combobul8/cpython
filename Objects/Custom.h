@@ -2764,7 +2764,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
     printf("ma_num_items: %lld.\n", dict->ma_num_items);
     fflush(stdout);
-    for (int i = 0; i < dict->ma_num_items; i++) {
+    for (int i = 0; i < dict->keys ? dict->ma_num_items : 0; i++) {
         int found = 0;
         for (int j = 0; j < seen_entries_idx; j++) {
             /* printf("strcmp %s %s.\n", dict->ma_string_keys[i], seen_keys[j]);
@@ -3154,6 +3154,7 @@ insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash,
     mp->ma_version_tag = DICT_NEXT_VERSION();
     mp->ma_keys->dk_usable--;
     mp->ma_keys->dk_nentries++;
+    mp->keys = NULL;
     return 0;
 }
 
