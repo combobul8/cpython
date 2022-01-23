@@ -2676,7 +2676,8 @@ dict_traverse2(CustomPyDictObject *dict, int print)
         printf("i: %d.\n", i);
         fflush(stdout);
         Py_ssize_t ix = dictkeys_get_index(keys, i);
-
+        printf("ix: %lld.\n", ix);
+        fflush(stdout);
         if (ix < 0 && print) {
             printf("%d -> -1\n", i);
             fflush(stdout);
@@ -2703,11 +2704,13 @@ dict_traverse2(CustomPyDictObject *dict, int print)
                 error = 1;
                 goto error_occurred;
             }
-
+            printf("haven't seen %s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+            fflush(stdout);
             num_items++;
             seen_entries[seen_entries_idx] = ep[ix];
             seen_entries_idx++;
-
+            printf("inserted %s into seen_entries.\n", PyUnicode_AsUTF8(ep[ix].me_key));
+            fflush(stdout);
             if (print) {
                 printf("%s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
                 fflush(stdout);
@@ -2757,7 +2760,8 @@ dict_traverse2(CustomPyDictObject *dict, int print)
                 goto error_occurred;
         }
     }
-
+    printf("end of traversal.\n");
+    fflush(stdout);
     if (print) {
         printf("size of primary layer: %lld.\n", DK_SIZE(keys));
         printf("num_items: %d.\n", num_items);
