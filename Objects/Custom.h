@@ -132,6 +132,7 @@ struct _dictkeysobject {
 Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *) = NULL;
 Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *) = NULL;
 void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t) = NULL;
+int (*resize)(CustomPyDictObject *, uint8_t) = NULL;
 
 typedef enum {
     DICT_KEYS_GENERAL = 0,
@@ -1353,7 +1354,7 @@ custom_clone_combined_dict_keys(CustomPyDictObject *orig)
 }
 
 static PyDictKeysObject *
-clone_combined_dict_keys(PyDictObject *orig)
+clone_combined_dict_keys(CustomPyDictObject *orig)
 {
     assert(PyDict_Check(orig));
     assert(Py_TYPE(orig)->tp_iter == (getiterfunc)dict_iter);
@@ -1992,8 +1993,7 @@ After resizing a table is always combined,
 but can be resplit by make_keys_shared().
 */
 static int
-dictresize(PyDictObject *mp, uint8_t log2_newsize,
-        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+dictresize(CustomPyDictObject *mp, uint8_t log2_newsize)
 {
     // printf("dictresize log2_newsize: %ld.\n", log2_newsize);
 
@@ -2093,7 +2093,7 @@ dictresize(PyDictObject *mp, uint8_t log2_newsize,
         }
     }
 
-    build_idxs(mp->ma_keys, newentries, numentries);
+    build_idxs(mp, newentries, numentries);
     mp->ma_keys->dk_usable -= numentries;
     mp->ma_keys->dk_nentries = numentries;
     return 0;
@@ -2152,13 +2152,13 @@ custom_insertion_resize(CustomPyDictObject *mp,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    return customdictresize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)), lookup, empty_slot, build_idxs);
+    return resize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)));
 }
 
 static int
-insertion_resize(PyDictObject *mp, void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+insertion_resize(CustomPyDictObject *mp)
 {
-    return dictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)), build_idxs);
+    return dictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)));
 }
 
 Py_ssize_t _Py_HOT_FUNCTION
@@ -2881,10 +2881,7 @@ Used both by the internal resize routine and by the public insert routine.
 Returns -1 if an error occurred, or 0 on success.
 */
 static int
-insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
-        Py_ssize_t (*lookup)(PyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
-        void (*build_idxs)(PyDictKeysObject *, PyDictKeyEntry *, Py_ssize_t))
+insertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
 {
     PyObject *old_value;
     PyDictKeyEntry *ep;
@@ -2892,7 +2889,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
     Py_INCREF(key);
     Py_INCREF(value);
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
-        if (insertion_resize(mp, build_idxs) < 0)
+        if (insertion_resize(mp) < 0)
             goto Fail;
     }
 
@@ -2910,7 +2907,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
     if (_PyDict_HasSplitTable(mp) &&
         ((ix >= 0 && old_value == NULL && mp->ma_used != ix) ||
          (ix == DKIX_EMPTY && mp->ma_used != mp->ma_keys->dk_nentries))) {
-        if (insertion_resize(mp, build_idxs) < 0)
+        if (insertion_resize(mp) < 0)
             goto Fail;
         ix = DKIX_EMPTY;
     }
@@ -2921,7 +2918,7 @@ insertdict(PyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
         assert(old_value == NULL);
         if (mp->ma_keys->dk_usable <= 0) {
             /* Need to resize. */
-            if (insertion_resize(mp, build_idxs) < 0)
+            if (insertion_resize(mp) < 0)
                 goto Fail;
         }
         if (!PyUnicode_CheckExact(key) && mp->ma_keys->dk_kind != DICT_KEYS_GENERAL) {
@@ -3114,7 +3111,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
 
 // Same to insertdict but specialized for ma_keys = Py_EMPTY_KEYS.
 static int
-insert_to_emptydict(PyDictObject *mp, PyObject *key, Py_hash_t hash,
+insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash,
                     PyObject *value)
 {
 #ifdef EBUG
@@ -3384,7 +3381,7 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
     printf("called custom_PyDict_SetItem\n");
 #endif
 
-    PyDictObject *mp;
+    CustomPyDictObject *mp;
     Py_hash_t hash;
     if (!PyDict_Check(op)) {
         PyErr_BadInternalCall();
@@ -3392,7 +3389,7 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
     }
     assert(key);
     assert(value);
-    mp = (PyDictObject *)op;
+    mp = (CustomPyDictObject *)op;
 
     hash = custom_PyObject_Hash(key);
 
@@ -3411,7 +3408,7 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
         return insert_to_emptydict(mp, key, hash, value);
     }
     /* insertdict() handles any resizing that might be necessary */
-    return insertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+    return insertdict(mp, key, hash, value);
 }
 
 static int
@@ -3628,7 +3625,7 @@ dict_merge(PyObject *a, PyObject *b, int override,
     fflush(stdout);
 #endif
 
-    PyDictObject *mp, *other;
+    CustomPyDictObject *mp, *other;
     Py_ssize_t i, n;
     PyDictKeyEntry *entry, *ep0;
 
@@ -3643,9 +3640,9 @@ dict_merge(PyObject *a, PyObject *b, int override,
         PyErr_BadInternalCall();
         return -1;
     }
-    mp = (PyDictObject*)a;
+    mp = (CustomPyDictObject*)a;
     if (PyDict_Check(b) && (Py_TYPE(b)->tp_iter == (getiterfunc)dict_iter)) {
-        other = (PyDictObject*)b;
+        other = (CustomPyDictObject*)b;
         if (other == mp || other->ma_used == 0)
             /* a.update(a) or a.update({}); nothing to do */
             return 0;
@@ -3693,7 +3690,7 @@ dict_merge(PyObject *a, PyObject *b, int override,
          * that there will be no (or few) overlapping keys.
          */
         if (USABLE_FRACTION(DK_SIZE(mp->ma_keys)) < other->ma_used) {
-            if (dictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used), build_idxs)) {
+            if (dictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used))) {
                return -1;
             }
         }
@@ -3714,11 +3711,11 @@ dict_merge(PyObject *a, PyObject *b, int override,
                 Py_INCREF(key);
                 Py_INCREF(value);
                 if (override == 1)
-                    err = insertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+                    err = insertdict(mp, key, hash, value);
                 else {
                     err = custom_PyDict_Contains_KnownHash(a, key, hash);
                     if (err == 0) {
-                        err = insertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+                        err = insertdict(mp, key, hash, value);
                     }
                     else if (err > 0) {
                         if (override != 0) {

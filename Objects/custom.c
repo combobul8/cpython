@@ -137,10 +137,12 @@ custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
     lookup = rprobe_Py_dict_lookup;
     empty_slot = find_empty_slot;
     build_idxs = build_indices;
+    resize = dictresize;
 #else
     lookup = custom_Py_dict_lookup;
     empty_slot = custom_find_empty_slot;
     build_idxs = custom_build_indices;
+    resize = customdictresize;
 #endif
 
     return custom_dict_update_common(self, args, kwds, "dict", lookup, empty_slot, build_idxs);
@@ -657,7 +659,7 @@ Raises KeyError if the dict is empty.
 [clinic start generated code]*/
 
 static PyObject *
-dict_popitem_impl(PyDictObject *self)
+dict_popitem_impl(CustomPyDictObject *self)
 /*[clinic end generated code: output=e65fcb04420d230d input=1c38a49f21f64941]*/
 {
     Py_ssize_t i, j;
@@ -683,7 +685,7 @@ dict_popitem_impl(PyDictObject *self)
     }
     /* Convert split table to combined table */
     if (self->ma_keys->dk_kind == DICT_KEYS_SPLIT) {
-        if (dictresize(self, DK_LOG_SIZE(self->ma_keys), NULL)) {
+        if (dictresize(self, DK_LOG_SIZE(self->ma_keys))) {
             Py_DECREF(res);
             return NULL;
         }
@@ -723,7 +725,7 @@ custom_dict_popitem(CustomPyDictObject *self, PyObject *Py_UNUSED(ignored))
 }
 
 static PyObject *
-dict_popitem(PyDictObject *self, PyObject *Py_UNUSED(ignored))
+dict_popitem(CustomPyDictObject *self, PyObject *Py_UNUSED(ignored))
 {
     return dict_popitem_impl(self);
 }
@@ -878,13 +880,13 @@ _PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
 
     if (PyDict_CheckExact(d) && ((PyDictObject *)d)->ma_used == 0) {
         if (PyDict_CheckExact(iterable)) {
-            PyDictObject *mp = (PyDictObject *)d;
+            CustomPyDictObject *mp = (CustomPyDictObject *)d;
             PyObject *oldvalue;
             Py_ssize_t pos = 0;
             PyObject *key;
             Py_hash_t hash;
 
-            if (dictresize(mp, estimate_log2_keysize(PyDict_GET_SIZE(iterable)), NULL)) {
+            if (dictresize(mp, estimate_log2_keysize(PyDict_GET_SIZE(iterable)))) {
                 Py_DECREF(d);
                 return NULL;
             }
@@ -898,12 +900,12 @@ _PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
             return d;
         }
         if (PyAnySet_CheckExact(iterable)) {
-            PyDictObject *mp = (PyDictObject *)d;
+            CustomPyDictObject *mp = (CustomPyDictObject *)d;
             Py_ssize_t pos = 0;
             PyObject *key;
             Py_hash_t hash;
 
-            if (dictresize(mp, estimate_log2_keysize(PySet_GET_SIZE(iterable)), NULL)) {
+            if (dictresize(mp, estimate_log2_keysize(PySet_GET_SIZE(iterable)))) {
                 Py_DECREF(d);
                 return NULL;
             }
