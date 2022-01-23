@@ -64,9 +64,9 @@ static PyModuleDef custommodule2 = {
 static int
 custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds, const char *methname)
 {
+#ifdef EBUG
     printf("called custom_dict_update_common\n");
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     PyObject *arg = NULL;
@@ -86,8 +86,6 @@ custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds, const 
         else
             result = -1;
     }
-    printf("custom_dict_update_common returning %d.\n", result);
-    fflush(stdout);
     return result;
 }
 
@@ -137,12 +135,14 @@ custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
     lookup = rprobe_Py_dict_lookup;
     empty_slot = find_empty_slot;
     build_idxs = build_indices;
+    insert = insertdict;
     resize = dictresize;
 #else
     emptydictinsertion = custom_insert_to_emptydict;
     lookup = custom_Py_dict_lookup;
     empty_slot = custom_find_empty_slot;
     build_idxs = custom_build_indices;
+    insert = custominsertdict;
     resize = customdictresize;
 #endif
 
@@ -755,16 +755,16 @@ dictvalues_new(PyObject *dict, PyObject *Py_UNUSED(ignored))
 static PyObject *
 custom_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 {
+#ifdef EBUG
     printf("\ncalled custom_dict_update\n");
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     int dict_update_common_rv;
     if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update")) != -1) {
+#ifdef EBUG
         printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
         fflush(stdout);
-#ifdef EBUG
 #endif
 
         Py_RETURN_NONE;

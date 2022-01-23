@@ -133,6 +133,7 @@ int (*emptydictinsertion)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject 
 Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *) = NULL;
 Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *) = NULL;
 void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t) = NULL;
+int (*insert)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject *) = NULL;
 int (*resize)(CustomPyDictObject *, uint8_t) = NULL;
 
 typedef enum {
@@ -2199,8 +2200,8 @@ start:
             fflush(stdout);
 #endif
 
-            (*num_cmps)++;
             if (ix >= 0) {
+                (*num_cmps)++;
                 PyDictKeyEntry *ep = &ep0[ix];
                 assert(ep->me_key != NULL);
                 assert(PyUnicode_CheckExact(ep->me_key));
@@ -2222,8 +2223,8 @@ start:
             fflush(stdout);
 #endif
 
-            (*num_cmps)++;
             if (ix >= 0) {
+                (*num_cmps)++;
                 PyDictKeyEntry *ep = &ep0[ix];
                 assert(ep->me_key != NULL);
                 assert(PyUnicode_CheckExact(ep->me_key));
@@ -2672,6 +2673,8 @@ dict_traverse2(CustomPyDictObject *dict, int print)
     int error = 0;
 
     for (int i = 0; i < DK_SIZE(keys); i++) {
+        printf("i: %d.\n", i);
+        fflush(stdout);
         Py_ssize_t ix = dictkeys_get_index(keys, i);
 
         if (ix < 0 && print) {
@@ -2960,6 +2963,8 @@ insertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *valu
         mp->ma_keys->dk_nentries++;
         assert(mp->ma_keys->dk_usable >= 0);
         ASSERT_CONSISTENT(mp);
+        printf("inserted %s\n", PyUnicode_AsUTF8(key));
+        fflush(stdout);
         return 0;
     }
 
@@ -3339,9 +3344,9 @@ custom_PyObject_Hash(PyObject *v)
 int
 custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value)
 {
+#ifdef EBUG
     printf("called custom_PyDict_SetItem2\n");
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     CustomPyDictObject *mp;
@@ -3372,8 +3377,8 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value)
         return emptydictinsertion(mp, key, hash, value);
     }
 
-    /* custominsertdict() handles any resizing that might be necessary */
-    return custominsertdict(mp, key, hash, value);
+    /* insert() handles any resizing that might be necessary */
+    return insert(mp, key, hash, value);
 }
 
 /* CAUTION: PyDict_SetItem() must guarantee that it won't resize the
@@ -3425,9 +3430,9 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
 static int
 custom_dict_merge(PyObject *a, PyObject *b, int override)
 {
+#ifdef EBUG
     printf("\ncustom_dict_merge override: %d\n", override);
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     CustomPyDictObject *mp, *other;
@@ -3516,11 +3521,11 @@ custom_dict_merge(PyObject *a, PyObject *b, int override)
                 Py_INCREF(key);
                 Py_INCREF(value);
                 if (override == 1)
-                    err = custominsertdict(mp, key, hash, value);
+                    err = insert(mp, key, hash, value);
                 else {
                     err = custom_PyDict_Contains_KnownHash(a, key, hash);
                     if (err == 0) {
-                        err = custominsertdict(mp, key, hash, value);
+                        err = insert(mp, key, hash, value);
                     }
                     else if (err > 0) {
                         if (override != 0) {
@@ -3615,9 +3620,9 @@ custom_dict_merge(PyObject *a, PyObject *b, int override)
             /* Iterator completed, via error */
             return -1;
 
+#ifdef EBUG
         printf("custom_dict_merge post-for loop.\n");
         fflush(stdout);
-#ifdef EBUG
 #endif
     }
     ASSERT_CONSISTENT(a);
@@ -3822,9 +3827,9 @@ dict_merge(PyObject *a, PyObject *b, int override,
 int
 custom_PyDict_Merge2(PyObject *a, PyObject *b, int override)
 {
+#ifdef EBUG
     printf("called custom_PyDict_Merge2\n");
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
@@ -3849,9 +3854,9 @@ custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
 static int
 custom_dict_update_arg(PyObject *self, PyObject *arg)
 {
+#ifdef EBUG
     printf("called custom_dict_update_arg\n");
     fflush(stdout);
-#ifdef EBUG
 #endif
 
     if (PyDict_CheckExact(arg)) {
