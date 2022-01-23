@@ -62,10 +62,7 @@ static PyModuleDef custommodule2 = {
 };
 
 static int
-custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds, const char *methname,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds, const char *methname)
 {
     printf("called custom_dict_update_common\n");
     fflush(stdout);
@@ -79,7 +76,7 @@ custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds, const 
         result = -1;
     }
     else if (arg != NULL) {
-        result = custom_dict_update_arg(self, arg, lookup, empty_slot, build_idxs);
+        result = custom_dict_update_arg(self, arg);
     }
 
     if (result == 0 && kwds != NULL) {
@@ -145,7 +142,7 @@ custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
     resize = customdictresize;
 #endif
 
-    return custom_dict_update_common(self, args, kwds, "dict", lookup, empty_slot, build_idxs);
+    return custom_dict_update_common(self, args, kwds, "dict");
 }
 
 /*[clinic input]
@@ -760,7 +757,7 @@ custom_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 #endif
 
     int dict_update_common_rv;
-    if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update", lookup, empty_slot, build_idxs)) != -1) {
+    if ((dict_update_common_rv = custom_dict_update_common(self, args, kwds, "update")) != -1) {
 #ifdef EBUG
         printf("dict_update_common_rv if: %d\n", dict_update_common_rv);
 #endif

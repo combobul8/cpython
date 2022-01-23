@@ -3341,7 +3341,7 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-    printf("called custom_PyDict_SetItem\n");
+    printf("called custom_PyDict_SetItem2\n");
 #ifdef EBUG
 #endif
 
@@ -3423,10 +3423,7 @@ custom_PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value,
 }
 
 static int
-custom_dict_merge(PyObject *a, PyObject *b, int override,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custom_dict_merge(PyObject *a, PyObject *b, int override)
 {
     printf("\ncustom_dict_merge override: %d\n", override);
     fflush(stdout);
@@ -3821,10 +3818,7 @@ dict_merge(PyObject *a, PyObject *b, int override,
 }
 
 int
-custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custom_PyDict_Merge2(PyObject *a, PyObject *b, int override)
 {
     printf("called custom_PyDict_Merge2\n");
     fflush(stdout);
@@ -3832,7 +3826,7 @@ custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
-    return custom_dict_merge(a, b, override != 0, lookup, empty_slot, build_idxs);
+    return custom_dict_merge(a, b, override != 0);
 }
 
 int
@@ -3851,10 +3845,7 @@ custom_PyDict_Merge(PyObject *a, PyObject *b, int override,
 
 /* Single-arg dict update; used by dict_update_common and operators. */
 static int
-custom_dict_update_arg(PyObject *self, PyObject *arg,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custom_dict_update_arg(PyObject *self, PyObject *arg)
 {
     printf("called custom_dict_update_arg\n");
     fflush(stdout);
@@ -3862,7 +3853,7 @@ custom_dict_update_arg(PyObject *self, PyObject *arg,
 #endif
 
     if (PyDict_CheckExact(arg)) {
-        return custom_PyDict_Merge2(self, arg, 1, lookup, empty_slot, build_idxs);
+        return custom_PyDict_Merge2(self, arg, 1);
     }
     _Py_IDENTIFIER(keys);
     PyObject *func;
@@ -3871,7 +3862,7 @@ custom_dict_update_arg(PyObject *self, PyObject *arg,
     }
     if (func != NULL) {
         Py_DECREF(func);
-        return custom_PyDict_Merge2(self, arg, 1, lookup, empty_slot, build_idxs);
+        return custom_PyDict_Merge2(self, arg, 1);
     }
     return PyDict_MergeFromSeq2(self, arg, 1);
 }
