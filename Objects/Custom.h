@@ -3127,6 +3127,7 @@ insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash,
                     PyObject *value)
 {
     printf("called insert_to_emptydict; hash: %lld\n", hash);
+    fflush(stdout);
 #ifdef EBUG
 #endif
 
