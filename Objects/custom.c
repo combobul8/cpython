@@ -67,9 +67,9 @@ custom_dict_update_common(PyObject *self, PyObject *args, PyObject *kwds, const 
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-#ifdef EBUG
     printf("called custom_dict_update_common\n");
     fflush(stdout);
+#ifdef EBUG
 #endif
 
     PyObject *arg = NULL;

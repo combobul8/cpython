@@ -1615,6 +1615,8 @@ build_indices(CustomPyDictObject *mp, PyDictKeyEntry *ep, Py_ssize_t n)
         }
         dictkeys_set_index(keys, i, ix);
     }
+    printf("end of build_indices\n");
+    fflush(stdout);
 }
 
 int
@@ -1995,7 +1997,8 @@ but can be resplit by make_keys_shared().
 static int
 dictresize(CustomPyDictObject *mp, uint8_t log2_newsize)
 {
-    // printf("dictresize log2_newsize: %ld.\n", log2_newsize);
+    printf("dictresize log2_newsize: %ld.\n", log2_newsize);
+    fflush(stdout);
 
     Py_ssize_t numentries;
     PyDictKeysObject *oldkeys;
@@ -2096,6 +2099,8 @@ dictresize(CustomPyDictObject *mp, uint8_t log2_newsize)
     build_idxs(mp, newentries, numentries);
     mp->ma_keys->dk_usable -= numentries;
     mp->ma_keys->dk_nentries = numentries;
+    printf("end of dictresize\n");
+    fflush(stdout);
     return 0;
 }
 
@@ -2152,12 +2157,16 @@ custom_insertion_resize(CustomPyDictObject *mp,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
+    printf("custom_insertion_resize\n");
+    fflush(stdout);
     return resize(mp, calculate_log2_keysize(CUSTOM_GROWTH_RATE(mp)));
 }
 
 static int
 insertion_resize(CustomPyDictObject *mp)
 {
+    printf("insertion_resize\n");
+    fflush(stdout);
     return dictresize(mp, calculate_log2_keysize(GROWTH_RATE(mp)));
 }
 
@@ -2801,6 +2810,8 @@ custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject
         Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
+    printf("custominsertdict\n");
+    fflush(stdout);
     PyObject *old_value;
 
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
@@ -3330,8 +3341,8 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-#ifdef EBUG
     printf("called custom_PyDict_SetItem\n");
+#ifdef EBUG
 #endif
 
     CustomPyDictObject *mp;
@@ -3417,9 +3428,9 @@ custom_dict_merge(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-#ifdef EBUG
     printf("\ncustom_dict_merge override: %d\n", override);
     fflush(stdout);
+#ifdef EBUG
 #endif
 
     CustomPyDictObject *mp, *other;
@@ -3815,9 +3826,9 @@ custom_PyDict_Merge2(PyObject *a, PyObject *b, int override,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-#ifdef EBUG
-    printf("called custom_PyDict_Merge\n");
+    printf("called custom_PyDict_Merge2\n");
     fflush(stdout);
+#ifdef EBUG
 #endif
 
     /* XXX Deprecate override not in (0, 1). */
@@ -3845,9 +3856,9 @@ custom_dict_update_arg(PyObject *self, PyObject *arg,
         Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
         void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
 {
-#ifdef EBUG
     printf("called custom_dict_update_arg\n");
     fflush(stdout);
+#ifdef EBUG
 #endif
 
     if (PyDict_CheckExact(arg)) {
