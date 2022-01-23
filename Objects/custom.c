@@ -131,11 +131,13 @@ custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
 #endif
 
 #ifdef ORIG_LOOKUP
+    emptydictinsertion = insert_to_emptydict;
     lookup = rprobe_Py_dict_lookup;
     empty_slot = find_empty_slot;
     build_idxs = build_indices;
     resize = dictresize;
 #else
+    emptydictinsertion = custom_insert_to_emptydict;
     lookup = custom_Py_dict_lookup;
     empty_slot = custom_find_empty_slot;
     build_idxs = custom_build_indices;

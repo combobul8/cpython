@@ -129,6 +129,7 @@ struct _dictkeysobject {
     char dk_indices[];  /* char is required to avoid strict aliasing. */
 };
 
+int (*emptydictinsertion)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject *) = NULL;
 Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *) = NULL;
 Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *) = NULL;
 void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t) = NULL;
@@ -3336,12 +3337,10 @@ custom_PyObject_Hash(PyObject *v)
  * remove them.
  */
 int
-custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *keys, Py_hash_t hash, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value)
 {
     printf("called custom_PyDict_SetItem2\n");
+    fflush(stdout);
 #ifdef EBUG
 #endif
 
@@ -3370,7 +3369,7 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value,
     }
 
     if (mp->ma_keys == Py_EMPTY_KEYS) {
-        return custom_insert_to_emptydict(mp, key, hash, value);
+        return emptydictinsertion(mp, key, hash, value);
     }
     /* custominsertdict() handles any resizing that might be necessary */
     return custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
@@ -3595,7 +3594,9 @@ custom_dict_merge(PyObject *a, PyObject *b, int override)
                 Py_DECREF(key);
                 return -1;
             }
-            status = custom_PyDict_SetItem2(a, key, value, lookup, empty_slot, build_idxs);
+            printf("calling custom_PyDict_SetItem2\n");
+            fflush(stdout);
+            status = custom_PyDict_SetItem2(a, key, value);
 
 #ifdef EBUG
             printf("status: %d\n", status);
