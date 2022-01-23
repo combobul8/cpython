@@ -3028,9 +3028,9 @@ static int
 custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash,
                     PyObject *value)
 {
-#ifdef EBUG
-    printf("called insert_to_emptydict; hash: %lld\n", hash);
+    printf("called custom_insert_to_emptydict; hash: %lld\n", hash);
     fflush(stdout);
+#ifdef EBUG
 #endif
 
     assert(mp->ma_keys == Py_EMPTY_KEYS);
@@ -3594,8 +3594,7 @@ custom_dict_merge(PyObject *a, PyObject *b, int override)
                 Py_DECREF(key);
                 return -1;
             }
-            printf("calling custom_PyDict_SetItem2\n");
-            fflush(stdout);
+
             status = custom_PyDict_SetItem2(a, key, value);
 
 #ifdef EBUG
