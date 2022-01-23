@@ -2806,10 +2806,7 @@ Used both by the internal resize routine and by the public insert routine.
 Returns -1 if an error occurred, or 0 on success.
 */
 static int
-custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
 {
     printf("custominsertdict\n");
     fflush(stdout);
@@ -3376,7 +3373,7 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value)
     }
 
     /* custominsertdict() handles any resizing that might be necessary */
-    return custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+    return custominsertdict(mp, key, hash, value);
 }
 
 /* CAUTION: PyDict_SetItem() must guarantee that it won't resize the
@@ -3519,11 +3516,11 @@ custom_dict_merge(PyObject *a, PyObject *b, int override)
                 Py_INCREF(key);
                 Py_INCREF(value);
                 if (override == 1)
-                    err = custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+                    err = custominsertdict(mp, key, hash, value);
                 else {
                     err = custom_PyDict_Contains_KnownHash(a, key, hash);
                     if (err == 0) {
-                        err = custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
+                        err = custominsertdict(mp, key, hash, value);
                     }
                     else if (err > 0) {
                         if (override != 0) {
