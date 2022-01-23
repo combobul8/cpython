@@ -2189,9 +2189,9 @@ start:
         for (;;) {
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("0(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2212,9 +2212,9 @@ start:
             i = mask & (i*5 + perturb + 1);
             ix = dictkeys_get_index(mp->ma_keys, i);
 
+#ifdef EBUG
             printf("1(i, ix): (%lld, %lld)\n", i, ix);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
             if (ix >= 0) {
@@ -2625,16 +2625,12 @@ find_empty_slot(PyDictKeysObject *keys, Py_hash_t hash, size_t* i0, int *num_cmp
 
     const size_t mask = DK_MASK(keys);
     size_t i = *i0 = hash & mask;
-    printf("find_empty_slot i: %lld.\n", i);
-    fflush(stdout);
     Py_ssize_t ix = dictkeys_get_index(keys, i);
     *num_cmps = 0;
     for (size_t perturb = hash; ix >= 0;) {
         (*num_cmps)++;
         perturb >>= PERTURB_SHIFT;
         i = (i*5 + perturb + 1) & mask;
-        printf("find_empty_slot i: %lld.\n", i);
-        fflush(stdout);
         ix = dictkeys_get_index(keys, i);
     }
     return i;
@@ -2932,14 +2928,14 @@ insertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *valu
             mp->ma_keys->dk_kind = DICT_KEYS_GENERAL;
         }
 
-        ix = lookup(mp, key, hash, &old_value, &num_cmps);
+        // ix = lookup(mp, key, hash, &old_value, &num_cmps);
         size_t i;
         int num_cmps2;
         Py_ssize_t hashpos = empty_slot(mp->ma_keys, hash, &i, &num_cmps2);
-        if (num_cmps2 != num_cmps) {
+        /* if (num_cmps2 != num_cmps) {
             printf("num_cmps2 != num_cmps: %d != %d.\n", num_cmps2, num_cmps);
             fflush(stdout);
-        }
+        } */
 
         ep = &DK_ENTRIES(mp->ma_keys)[mp->ma_keys->dk_nentries];
         dictkeys_set_index(mp->ma_keys, hashpos, mp->ma_keys->dk_nentries);
