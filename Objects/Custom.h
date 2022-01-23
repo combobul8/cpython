@@ -2704,8 +2704,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
                 error = 1;
                 goto error_occurred;
             }
-            printf("haven't seen %s.\n", PyUnicode_AsUTF8(ep[ix].me_key));
-            fflush(stdout);
+
             num_items++;
             seen_entries[seen_entries_idx] = ep[ix];
             seen_entries_idx++;
@@ -2717,7 +2716,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
             }
         }
 
-        if (dict->ma_layers[i].keys) {
+        if (dict->ma_layers && dict->ma_layers[i].keys) {
             if (print) {
                 if (ix < 0) {
                     printf("%d -> %lld: ", i, ix);
