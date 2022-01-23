@@ -3601,9 +3601,9 @@ custom_dict_merge(PyObject *a, PyObject *b, int override)
 
             status = custom_PyDict_SetItem2(a, key, value);
 
+#ifdef EBUG
             printf("status: %d\n", status);
             fflush(stdout);
-#ifdef EBUG
 #endif
 
             Py_DECREF(key);
@@ -3618,9 +3618,9 @@ custom_dict_merge(PyObject *a, PyObject *b, int override)
             /* Iterator completed, via error */
             return -1;
 
-#ifdef EBUG
         printf("custom_dict_merge post-for loop.\n");
         fflush(stdout);
+#ifdef EBUG
 #endif
     }
     ASSERT_CONSISTENT(a);
