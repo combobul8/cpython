@@ -755,9 +755,9 @@ dictvalues_new(PyObject *dict, PyObject *Py_UNUSED(ignored))
 static PyObject *
 custom_dict_update(PyObject *self, PyObject *args, PyObject *kwds)
 {
-#ifdef EBUG
     printf("\ncalled custom_dict_update\n");
     fflush(stdout);
+#ifdef EBUG
 #endif
 
     int dict_update_common_rv;
