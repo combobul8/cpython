@@ -3126,8 +3126,8 @@ static int
 insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash,
                     PyObject *value)
 {
-#ifdef EBUG
     printf("called insert_to_emptydict; hash: %lld\n", hash);
+#ifdef EBUG
 #endif
 
     assert(mp->ma_keys == Py_EMPTY_KEYS);
@@ -3368,9 +3368,20 @@ custom_PyDict_SetItem2(PyObject *op, PyObject *key, PyObject *value)
             return -1;
     }
 
+    printf("here\n");
+    fflush(stdout);
     if (mp->ma_keys == Py_EMPTY_KEYS) {
+        if (emptydictinsertion) {
+            printf("calling emptydictinsertion\n");
+        }
+        else {
+            printf("emptydictinsertion NULL\n");
+        }
+        fflush(stdout);
         return emptydictinsertion(mp, key, hash, value);
     }
+    printf("calling custominsertdict\n");
+    fflush(stdout);
     /* custominsertdict() handles any resizing that might be necessary */
     return custominsertdict(mp, key, hash, value, lookup, empty_slot, build_idxs);
 }
