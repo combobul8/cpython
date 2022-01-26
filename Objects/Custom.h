@@ -1656,7 +1656,7 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
 
         layer->pivot = layer->keys;
     }
-    else if (layer->keys[0]->hash > hash) {
+    else if (layer->keys[0]->me_hash > hash) {
         PyDictKeyEntry *temp = layer->keys[0];
         layer->keys[0] = layer->keys[layer->used];
         layer->keys[layer->used] = temp;
