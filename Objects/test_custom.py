@@ -28,8 +28,8 @@ toc = time.perf_counter()
 
 for key in list(words.keys()):
     # print(key)
-    if mycustom.get_and_print(key) != None:
+    # if mycustom.get_and_print(key) != None:
         # print(key)
-        None
+        # None
     None
 mycustom.num_items()

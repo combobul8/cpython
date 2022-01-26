@@ -52,10 +52,10 @@ typedef struct {
 } PyDictKeyEntry;
 
 typedef struct {
-    // PyDictObject *mp;
     PyDictKeyEntry **keys;
     int used;
     int n;
+    PyDictKeyEntry **pivot;
 } Layer;
 
 /* The ma_values pointer is NULL for a combined table
@@ -110,8 +110,6 @@ struct _dictkeysobject {
 
     /* Number of used entries in dk_entries. */
     Py_ssize_t dk_nentries;
-
-    // Layer* dk_layer;
 
     /* Actual hash table of dk_size entries. It holds indices in dk_entries,
        or DKIX_EMPTY(-1) or DKIX_DUMMY(-2).
@@ -1649,6 +1647,21 @@ insertlayer_keyhashvalue(Layer *layer, PyObject *key, Py_hash_t hash, PyObject *
     layer->keys[layer->used]->me_key = key;
     layer->keys[layer->used]->me_value = value;
     layer->keys[layer->used]->i = -1;
+
+    if (layer->used <= 0) {
+        if (layer->pivot != NULL) {
+            printf("First layer insertion but non-NULL pivot???\n");
+            fflush(stdout);
+        }
+
+        layer->pivot = layer->keys;
+    }
+    else if (layer->keys[0]->hash > hash) {
+        PyDictKeyEntry *temp = layer->keys[0];
+        layer->keys[0] = layer->keys[layer->used];
+        layer->keys[layer->used] = temp;
+    }
+
     layer->used++;
     return 0;
 }
@@ -1818,7 +1831,6 @@ layers_reinit(CustomPyDictObject *mp, PyDictKeysObject *oldkeys)
     while (i < DK_SIZE(oldkeys)) {
         if (mp->ma_layers[i].keys) {
             for (int j = 0; j < mp->ma_layers[i].n; j++) {
-                // free(mp->ma_layers[i].keys[j]);
                 mp->ma_layers[i].keys[j] = NULL;
             }
 
@@ -1837,9 +1849,9 @@ layers_reinit(CustomPyDictObject *mp, PyDictKeysObject *oldkeys)
 
     for (Py_ssize_t i = 0; i < DK_SIZE(mp->ma_keys); i++) {
         mp->ma_layers[i].keys = NULL;
-
         mp->ma_layers[i].used = 0;
         mp->ma_layers[i].n = 0;
+        mp->ma_layers[i].pivot = NULL;
     }
  
     return 0;
@@ -3071,6 +3083,7 @@ custom_insert_to_emptydict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash
         mp->ma_layers[i].keys = NULL;
         mp->ma_layers[i].used = 0;
         mp->ma_layers[i].n = 0;
+        mp->ma_layers[i].pivot = NULL;
     }
 
     int MAX = 50000;
