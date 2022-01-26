@@ -2764,7 +2764,7 @@ dict_traverse2(CustomPyDictObject *dict, int print)
 
     printf("ma_num_items: %lld.\n", dict->ma_num_items);
     fflush(stdout);
-    for (int i = 0; i < dict->keys ? dict->ma_num_items : 0; i++) {
+    for (int i = 0; i < (dict->keys ? dict->ma_num_items : 0); i++) {
         int found = 0;
         for (int j = 0; j < seen_entries_idx; j++) {
             /* printf("strcmp %s %s.\n", dict->ma_string_keys[i], seen_keys[j]);

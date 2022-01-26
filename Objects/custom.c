@@ -1058,6 +1058,43 @@ dict_num_items(PyObject *mp, PyObject *Py_UNUSED(ignored))
     return mp;
 }
 
+PyObject *
+dict_get_and_print(CustomPyDictObject *self, PyObject *const *args, Py_ssize_t nargs)
+{
+    PyObject *return_value = NULL;
+    PyObject *default_value = Py_None;
+
+    PyObject *key = args[0];
+    if (nargs < 2) {
+        goto skip_optional;
+    }
+    default_value = args[1];
+skip_optional:
+    int success;
+    return_value = custom_dict_get_impl(self, key, default_value, lookup, &success);
+
+    PyObject *val = NULL;
+    Py_hash_t hash;
+    Py_ssize_t ix;
+
+    hash = custom_PyObject_Hash(key);
+
+    if (!PyUnicode_CheckExact(key) ||
+        (hash = ((PyASCIIObject *) key)->hash) == -1) {
+        hash = PyObject_Hash(key);
+        if (hash == -1)
+            return NULL;
+    }
+
+    int num_cmps;
+    ix = lookup(self, key, hash, &val, &num_cmps);
+
+    printf("num_cmps: %d.\n", num_cmps);
+    fflush(stdout);
+
+    return return_value;
+}
+
 static PyMethodDef custom_mapp_methods[] = {
     DICT___CONTAINS___METHODDEF
     {"__getitem__", (PyCFunction)(void(*)(void))dict_subscript,        METH_O | METH_COEXIST,
@@ -1087,6 +1124,7 @@ static PyMethodDef custom_mapp_methods[] = {
     keys__doc__},
     {"num_items",       dict_num_items,                 METH_NOARGS,
     keys__doc__},
+    {"get_and_print",   (PyCFunction)(void(*)(void))dict_get_and_print, METH_FASTCALL, dict_get__doc__},
     {NULL,              NULL}   /* sentinel */
 };
 
