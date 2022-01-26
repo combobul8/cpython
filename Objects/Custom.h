@@ -2802,8 +2802,6 @@ Returns -1 if an error occurred, or 0 on success.
 static int
 custominsertdict(CustomPyDictObject *mp, PyObject *key, Py_hash_t hash, PyObject *value)
 {
-    printf("custominsertdict\n");
-    fflush(stdout);
     PyObject *old_value;
 
     if (mp->ma_values != NULL && !PyUnicode_CheckExact(key)) {
