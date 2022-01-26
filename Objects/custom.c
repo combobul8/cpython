@@ -120,7 +120,7 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
     return result;
 }
 
-#define ORIG_LOOKUP
+// #define ORIG_LOOKUP
 
 static int
 custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
@@ -617,7 +617,7 @@ custom_dict_popitem_impl(CustomPyDictObject *self)
     /* Convert split table to combined table */
     if (self->ma_keys->dk_kind == DICT_KEYS_SPLIT) {
         // DictHelpersImpl helpers = { custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices };
-        if (customdictresize(self, DK_LOG_SIZE(self->ma_keys), custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices)) {
+        if (customdictresize(self, DK_LOG_SIZE(self->ma_keys))) {
             Py_DECREF(res);
             return NULL;
         }
@@ -800,7 +800,7 @@ _Custom_PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
             PyObject *key;
             Py_hash_t hash;
 
-            if (customdictresize(mp, estimate_log2_keysize(PyDict_GET_SIZE(iterable)), custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices)) {
+            if (customdictresize(mp, estimate_log2_keysize(PyDict_GET_SIZE(iterable)))) {
                 Py_DECREF(d);
                 return NULL;
             }
@@ -819,7 +819,7 @@ _Custom_PyDict_FromKeys(PyObject *cls, PyObject *iterable, PyObject *value)
             PyObject *key;
             Py_hash_t hash;
 
-            if (customdictresize(mp, estimate_log2_keysize(PySet_GET_SIZE(iterable)), custom_Py_dict_lookup, custom_find_empty_slot, custom_build_indices)) {
+            if (customdictresize(mp, estimate_log2_keysize(PySet_GET_SIZE(iterable)))) {
                 Py_DECREF(d);
                 return NULL;
             }

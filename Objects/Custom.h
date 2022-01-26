@@ -1857,10 +1857,7 @@ After resizing a table is always combined,
 but can be resplit by make_keys_shared().
 */
 static int
-customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize,
-        Py_ssize_t (*lookup)(CustomPyDictObject *, PyObject *, Py_hash_t, PyObject **, int *),
-        Py_ssize_t (*empty_slot)(PyDictKeysObject *, Py_hash_t, size_t *, int *),
-        void (*build_idxs)(CustomPyDictObject *, PyDictKeyEntry *, Py_ssize_t))
+customdictresize(CustomPyDictObject *mp, uint8_t log2_newsize)
 {
     printf("customdictresize log2_newsize: %ld.\n", log2_newsize);
     fflush(stdout);
@@ -3492,7 +3489,7 @@ custom_dict_merge(PyObject *a, PyObject *b, int override)
          * that there will be no (or few) overlapping keys.
          */
         if (USABLE_FRACTION(DK_SIZE(mp->ma_keys)) < other->ma_used) {
-            if (customdictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used), lookup, empty_slot, build_idxs)) {
+            if (customdictresize(mp, estimate_log2_keysize(mp->ma_used + other->ma_used))) {
                return -1;
             }
         }
