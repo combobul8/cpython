@@ -146,3 +146,5 @@ Objects/recovered.txt
 Objects/using_pointers.txt
 Objects/old/*
 Objects/purge/*
+DrMemory-Windows-2.5.0/*
+fc_results.txt

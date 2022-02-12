@@ -1,1 +1,20 @@
-Limitating of primary clustering with high probability when linearly probing.
+Index of median will be set to a value > 0.
+
+Resize dynamic array to length 2log(N).
+Set hash at unused slots to LONGLONGMAX.
+Sort array.
+
+From last element to median,
+    Move element to right half of array.
+
+---
+When inserting into a layer:
+    If index == 0:
+        push_back
+        return
+
+    Compare hash with median's hash
+    If <:
+        Insert into left half
+    Else:
+        Insert into right half

@@ -120,7 +120,7 @@ dict_update_common(PyObject *self, PyObject *args, PyObject *kwds,
     return result;
 }
 
-// #define ORIG_LOOKUP
+#define ORIG_LOOKUP
 
 static int
 custom_dict_init(PyObject *self, PyObject *args, PyObject *kwds)
