@@ -1,20 +1,10 @@
-Index of median will be set to a value > 0.
+Two dynamic arrays.
+One for entries whose hash values' LSBs are 0; the other for whose LSBs are 1.
 
-Resize dynamic array to length 2log(N).
-Set hash at unused slots to LONGLONGMAX.
-Sort array.
-
-From last element to median,
-    Move element to right half of array.
+Extension: experiment with 2^p arrays using lowest p bits.
 
 ---
 When inserting into a layer:
-    If index == 0:
-        push_back
-        return
+    Use LSB to determine which dynamic array to search.
 
-    Compare hash with median's hash
-    If <:
-        Insert into left half
-    Else:
-        Insert into right half
+=> A dynamic array needs to know how to perform find!!!
